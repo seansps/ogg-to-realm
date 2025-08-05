@@ -3,12 +3,10 @@
 Test script for GUI functionality
 """
 
-import sys
-import os
-import tkinter as tk
+import sys, os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# Add src directory to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+import tkinter as tk
 
 def test_gui_creation():
     """Test that the GUI can be created without errors"""

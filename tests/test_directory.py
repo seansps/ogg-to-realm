@@ -3,12 +3,11 @@
 Test script for directory functionality
 """
 
-import sys
-import os
+import sys, os
 import tkinter as tk
 
 # Add src directory to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 def test_default_directory():
     """Test that the default directory is correctly determined"""
@@ -29,7 +28,7 @@ def test_default_directory():
         print(f"Default directory: {default_dir}")
         
         # Should be the src directory
-        expected_dir = os.path.dirname(os.path.abspath(__file__))
+        expected_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
         assert default_dir == expected_dir, f"Default directory should be {expected_dir}, got {default_dir}"
         
         print("✓ Default directory functionality works correctly")

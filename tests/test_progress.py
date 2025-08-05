@@ -3,13 +3,14 @@
 Test script for progress tracking functionality
 """
 
-import sys
-import os
+import sys, os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 import time
 import threading
 
 # Add src directory to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+# sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 def test_progress_tracking():
     """Test the progress tracking functionality"""

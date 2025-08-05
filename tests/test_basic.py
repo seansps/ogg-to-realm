@@ -5,11 +5,8 @@ Basic test script for OggDude to Realm VTT Importer
 This script tests basic functionality without requiring GUI or network access.
 """
 
-import sys
-import os
-
-# Add src directory to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+import sys, os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 def test_imports():
     """Test that all modules can be imported"""

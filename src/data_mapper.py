@@ -391,6 +391,7 @@ class DataMapper:
     def _convert_description(self, description: str) -> str:
         """
         Convert OggDude description format to Realm VTT HTML format
+        Handles various OggDude data errors and inconsistencies
         
         Args:
             description: OggDude formatted description
@@ -404,50 +405,233 @@ class DataMapper:
         # Convert OggDude tags to HTML
         html = description
         
-        # Headers
+        # Fix common OggDude errors first
+        # Fix typos: [p] should be [b] (OggDude typo) - only lowercase [p] and [/p]
+        html = re.sub(r'\[p\]', '[b]', html)
+        html = re.sub(r'\[/p\]', '[/b]', html)
+        
+        # Fix tag order issues: [B][P] should be [P][B]
+        html = re.sub(r'\[B\]\[P\]', '[P][B]', html)
+        
+        # Also fix the closing tag order: [/P][/B] should be [/B][/P]
+        html = re.sub(r'\[/P\]\[/B\]', '[/B][/P]', html)
+        
+        # Fix special character encoding issues
+        html = html.replace('&lt;h&gt;', '<h>')
+        html = html.replace('&lt;/h&gt;', '</h>')
+        html = html.replace('&lt;b&gt;', '<b>')
+        html = html.replace('&lt;/b&gt;', '</b>')
+        html = html.replace('&lt;p&gt;', '<p>')
+        html = html.replace('&lt;/p&gt;', '</p>')
+        html = html.replace('&amp;#', '&#')
+        html = html.replace('&lt;ul&gt;', '<ul>')
+        html = html.replace('&lt;/ul&gt;', '</ul>')
+        html = html.replace('&lt;li&gt;', '<li>')
+        html = html.replace('&lt;/li&gt;', '</li>')
+        html = html.replace('&lt;ol&gt;', '<ul>')  # Convert ordered lists to unordered
+        html = html.replace('&lt;/ol&gt;', '</ul>')
+        # Normalize <b> tags to <strong>
+        html = re.sub(r'<b>', '<strong>', html, flags=re.IGNORECASE)
+        html = re.sub(r'</b>', '</strong>', html, flags=re.IGNORECASE)
+        
+        # Headers - handle both proper and improper closing tags
         html = re.sub(r'\[H(\d+)\](.*?)\[/H\1\]', r'<h\1>\2</h\1>', html)
         html = re.sub(r'\[H(\d+)\](.*?)\[h\1\]', r'<h\1>\2</h\1>', html)
         
-        # Bold
+        # Bold - handle both proper and improper closing tags
         html = re.sub(r'\[B\](.*?)\[/B\]', r'<strong>\1</strong>', html)
         html = re.sub(r'\[B\](.*?)\[b\]', r'<strong>\1</strong>', html)
         
-        # Italics
+        # Fix bold tag with colon: [b]: should be :</b>
+        html = re.sub(r'\[b\]:', ':</b>', html)
+        
+        # Italics - handle both proper and improper closing tags
         html = re.sub(r'\[I\](.*?)\[/I\]', r'<em>\1</em>', html)
         html = re.sub(r'\[I\](.*?)\[i\]', r'<em>\1</em>', html)
         
-        # Paragraphs
-        html = re.sub(r'\[P\](.*?)\[/P\]', r'<p>\1</p>', html)
-        html = re.sub(r'\[P\](.*?)\[p\]', r'<p>\1</p>', html)
+        # Paragraphs and line breaks - handle both opening and closing tags
+        html = html.replace('[P]', '\n<p>')
+        html = html.replace('[/P]', '</p>')
+        html = html.replace('[BR]', '\n<p>')
         
-        # Lists
+        # Lists - handle both proper and improper closing tags
         html = re.sub(r'\[UL\](.*?)\[/UL\]', r'<ul>\1</ul>', html)
         html = re.sub(r'\[UL\](.*?)\[ul\]', r'<ul>\1</ul>', html)
         html = re.sub(r'\[LI\](.*?)\[/LI\]', r'<li>\1</li>', html)
         html = re.sub(r'\[LI\](.*?)\[li\]', r'<li>\1</li>', html)
         
         # Convert dice notation for TipTap extension
-        # [AD] = Advantage
-        html = re.sub(r'\[AD\]', r'<span class="dice-advantage">[AD]</span>', html)
-        # [TH] = Threat
-        html = re.sub(r'\[TH\]', r'<span class="dice-threat">[TH]</span>', html)
-        # [TR] = Triumph
-        html = re.sub(r'\[TR\]', r'<span class="dice-triumph">[TR]</span>', html)
-        # [DE] = Despair
-        html = re.sub(r'\[DE\]', r'<span class="dice-despair">[DE]</span>', html)
-        # [SU] = Success
-        html = re.sub(r'\[SU\]', r'<span class="dice-success">[SU]</span>', html)
-        # [FA] = Failure
-        html = re.sub(r'\[FA\]', r'<span class="dice-failure">[FA]</span>', html)
-        # [BO] = Boost
-        html = re.sub(r'\[BO\]', r'<span class="dice-boost">[BO]</span>', html)
-        # [SE] = Setback
-        html = re.sub(r'\[SE\]', r'<span class="dice-setback">[SE]</span>', html)
+        # Map of OggDude dice tags to TipTap dice types
+        dice_mapping = {
+            # Ability dice
+            r'\[ABILITY\]': 'ability',
+            r'\[AB\]': 'ability',
+            # Difficulty dice
+            r'\[DIFFICULTY\]': 'difficulty',
+            r'\[DI\]': 'difficulty',
+            # Proficiency dice
+            r'\[PROFICIENCY\]': 'proficiency',
+            r'\[PR\]': 'proficiency',
+            # Challenge dice
+            r'\[CHALLENGE\]': 'challenge',
+            r'\[CH\]': 'challenge',
+            # Boost dice
+            r'\[BOOST\]': 'boost',
+            r'\[BO\]': 'boost',
+            # Setback dice
+            r'\[SETBACK\]': 'setback',
+            r'\[SE\]': 'setback',
+            # Force dice
+            r'\[FORCE\]': 'force',
+            r'\[FO\]': 'force',
+            # Light side
+            r'\[LIGHTSIDE\]': 'light',
+            r'\[LIGHTSIDEPOINT\]': 'light',
+            r'\[LIGHTPOINT\]': 'light',
+            r'\[LI\]': 'light',
+            # Dark side
+            r'\[DARKSIDE\]': 'dark',
+            r'\[DARKSIDEPOINT\]': 'dark',
+            r'\[DARKPOINT\]': 'dark',
+            r'\[DA\]': 'dark',
+            # Success
+            r'\[SUCCESS\]': 'success',
+            r'\[SU\]': 'success',
+            # Advantage
+            r'\[ADVANTAGE\]': 'advantage',
+            r'\[AD\]': 'advantage',
+            # Failure
+            r'\[FAILURE\]': 'failure',
+            r'\[FA\]': 'failure',
+            # Threat
+            r'\[THREAT\]': 'threat',
+            r'\[TH\]': 'threat',
+            # Triumph
+            r'\[TRIUMPH\]': 'triumph',
+            r'\[TR\]': 'triumph',
+            # Despair
+            r'\[DESPAIR\]': 'despair',
+            r'\[DE\]': 'despair',
+        }
+        
+        # Apply dice notation conversions
+        for pattern, dice_type in dice_mapping.items():
+            html = re.sub(
+                pattern, 
+                f'<span class="{dice_type}" data-dice-type="{dice_type}" contenteditable="false" style="display: inline-block;"></span>', 
+                html
+            )
+        
+        # Convert [b] and [B] (and closing tags) to <strong> (case-insensitive)
+        html = re.sub(r'\[(b|B)\](.*?)\[/(b|B)\]', r'<strong>\2</strong>', html)
+        html = re.sub(r'\[(b|B)\](.*?)\[(b|B)\]', r'<strong>\2</strong>', html)
+        
+        # Post-process the HTML to fix structural issues
+        html = self._fix_html_structure(html)
         
         # Handle any remaining unclosed tags
         html = re.sub(r'\[([A-Z]+)\]', r'<span class="oggdude-tag">[\1]</span>', html)
         
         return html
+    
+    def _fix_html_structure(self, html: str) -> str:
+        """
+        Fix common HTML structure issues in OggDude data
+        Based on error handling patterns from the old OGG to FG conversion script
+        """
+        # Split into lines for processing
+        lines = html.split('\n')
+        fixed_lines = []
+        found_list = False
+        
+        for i, line in enumerate(lines):
+            # Fix list structure issues
+            if '<ul>' in line:
+                found_list = True
+            if '</ul>' in line:
+                if not found_list:
+                    # Convert this to a <ul> (OggDude sometimes has </ul> without <ul>)
+                    line = line.replace('</ul>', '<ul>')
+                    found_list = True
+                else:
+                    found_list = False
+            
+            # Fix bold tag issues (unclosed or duplicate tags)
+            if '<strong>' in line or '</strong>' in line:
+                line = self._fix_bold_tags(line)
+            
+            # Fix unclosed paragraph tags
+            if '<p>' in line and '</p>' not in line:
+                line = f"{line}</p>"
+            
+            # Add paragraph tags to lines that need them (but be more careful)
+            elif (not '<p>' in line and len(line.strip()) > 0 
+                  and not '<li>' in line 
+                  and not '<ul>' in line
+                  and not '</ul>' in line 
+                  and not '<ol>' in line
+                  and not '</ol>' in line
+                  and not '<h' in line
+                  and not '</h' in line
+                  and not '<strong>' in line
+                  and not '</strong>' in line
+                  and not line.strip().startswith('<')
+                  and not line.strip().endswith('>')):
+                line = f"<p>{line}</p>"
+            
+            # Fix unclosed list item tags
+            if '<li>' in line and '</li>' not in line:
+                line = f"{line}</li>"
+            
+            fixed_lines.append(line)
+        
+        return '\n'.join(fixed_lines)
+    
+    def _fix_bold_tags(self, line: str) -> str:
+        """
+        Fix bold tag issues (unclosed, duplicate, or malformed tags)
+        Based on the fix_b_tags function from the old script
+        """
+        stack = []
+        result = []
+        
+        # Find all bold tags
+        tags = list(re.finditer(r'<(/?)(strong|b)>', line))
+        tag_positions = set(tag.start() for tag in tags)
+        
+        i = 0
+        while i < len(line):
+            if i in tag_positions:
+                tag = tags.pop(0)
+                tag_type = tag.group(1)
+                tag_name = tag.group(2)
+                
+                if tag_type == '/' and (not stack or stack[-1] != f'<{tag_name}>'):
+                    # Keep closing tag even without opening tag (might be from external source)
+                    result.append(tag.group(0))
+                elif tag_type == '' and (stack and stack[-1] == f'<{tag_name}>'):
+                    # Allow nested tags (like <strong><strong>text</strong></strong>)
+                    stack.append(f'<{tag_name}>')
+                    result.append(tag.group(0))
+                else:
+                    if tag_type == '/':
+                        if stack:  # Ensure stack is not empty before popping
+                            stack.pop()
+                        result.append(tag.group(0))  # Always include closing tags
+                    else:
+                        stack.append(f'<{tag_name}>')
+                        result.append(tag.group(0))
+                i = tag.end()
+            else:
+                result.append(line[i])
+                i += 1
+        
+        # Close any unclosed bold tags
+        while stack:
+            stack.pop()
+            result.append('</strong>')
+        
+        return ''.join(result)
     
     def get_record_counts(self, all_records: Dict[str, List[Dict[str, Any]]]) -> Dict[str, int]:
         """Get counts of all record types"""

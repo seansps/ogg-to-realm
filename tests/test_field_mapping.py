@@ -3,12 +3,10 @@
 Test script for field mapping functionality
 """
 
-import sys
-import os
-import json
+import sys, os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# Add src directory to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+import json
 
 def test_field_mapping_loading():
     """Test that field mapping loads correctly"""
