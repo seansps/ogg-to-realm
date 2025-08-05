@@ -57,6 +57,8 @@ class ImportManager:
     def set_campaign_id(self, campaign_id: str):
         """Set the campaign ID for imports"""
         self.campaign_id = campaign_id
+        # Also set the campaign ID in the API client
+        self.api_client.set_campaign_id(campaign_id)
     
     def set_selected_sources(self, sources: List[str]):
         """Set the selected sources for filtering"""

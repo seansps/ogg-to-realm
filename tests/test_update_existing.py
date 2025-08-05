@@ -20,6 +20,7 @@ class TestUpdateExisting(unittest.TestCase):
         """Set up test fixtures"""
         self.api_client = RealmVTTClient()
         self.api_client.token = "test_token"
+        self.api_client.campaign_id = "test_campaign_123"
         self.api_client.headers = {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer test_token'
@@ -45,10 +46,10 @@ class TestUpdateExisting(unittest.TestCase):
             # Test finding an item
             result = self.api_client.find_record_by_name('items', 'Test Item')
             
-            # Verify the request was made correctly (using records endpoint with recordType)
+            # Verify the request was made correctly (using records endpoint with recordType and campaignId)
             mock_get.assert_called_once_with(
                 'https://utilities.realmvtt.com/records',
-                params={'recordType': 'items'},
+                params={'recordType': 'items', 'campaignId': 'test_campaign_123'},
                 headers=self.api_client.headers
             )
             
@@ -75,10 +76,10 @@ class TestUpdateExisting(unittest.TestCase):
             # Test finding an NPC
             result = self.api_client.find_record_by_name('npcs', 'Test NPC')
             
-            # Verify the request was made correctly (using npcs endpoint directly)
+            # Verify the request was made correctly (using npcs endpoint with campaignId)
             mock_get.assert_called_once_with(
                 'https://utilities.realmvtt.com/npcs',
-                params={},
+                params={'campaignId': 'test_campaign_123'},
                 headers=self.api_client.headers
             )
             

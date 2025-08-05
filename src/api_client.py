@@ -7,9 +7,14 @@ class RealmVTTClient:
     def __init__(self, base_url: str = "https://utilities.realmvtt.com"):
         self.base_url = base_url
         self.token = None
+        self.campaign_id = None
         self.headers = {
             'Content-Type': 'application/json'
         }
+    
+    def set_campaign_id(self, campaign_id: str):
+        """Set the campaign ID for API requests"""
+        self.campaign_id = campaign_id
     
     def login(self, email: str, password: str, two_fa_code: Optional[str] = None) -> dict:
         """
@@ -226,6 +231,10 @@ class RealmVTTClient:
         
         try:
             params = query or {}
+            
+            # Add campaignId parameter which is required by the API
+            if 'campaignId' not in params and self.campaign_id:
+                params['campaignId'] = self.campaign_id
             
             # Use the correct endpoint based on record type
             if record_type == 'npcs':
