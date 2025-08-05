@@ -212,16 +212,16 @@ class XMLParser:
                 'slotsUsed': 0
             })
             
-            # Get sources and convert to category
+            # Get sources and store them for later category determination
             sources = self._get_sources(weapon_elem)
-            category = self._get_category_from_sources(sources)
             
             weapon = {
                 'recordType': 'items',
                 'type': 'weapon',
                 'name': mapped_data.get('name', 'Unknown Weapon'),
                 'description': mapped_data.get('description', ''),
-                'category': category,
+                'sources': sources,  # Store sources for later use
+                'category': '',  # Will be determined during filtering
                 'data': mapped_data,
                 'fields': self._get_weapon_fields(),
                 'unidentifiedName': 'Unidentified Items',
@@ -798,15 +798,28 @@ class XMLParser:
         }
         return range_mapping.get(range_value, range_value)
     
-    def _extract_qualities(self, elem: ET.Element) -> List[str]:
-        """Extract weapon qualities"""
+    def _extract_qualities(self, elem: ET.Element) -> List[Dict[str, Any]]:
+        """Extract weapon qualities with their counts"""
         qualities = []
         qualities_elem = elem.find('Qualities')
         if qualities_elem:
             for quality in qualities_elem.findall('Quality'):
-                key = quality.find('Key')
-                if key is not None and key.text:
-                    qualities.append(key.text)
+                quality_data = {}
+                key_elem = quality.find('Key')
+                if key_elem is not None and key_elem.text:
+                    quality_data['Key'] = key_elem.text
+                
+                count_elem = quality.find('Count')
+                if count_elem is not None and count_elem.text:
+                    try:
+                        quality_data['Count'] = int(count_elem.text)
+                    except ValueError:
+                        quality_data['Count'] = 1
+                else:
+                    quality_data['Count'] = 1
+                
+                if quality_data:
+                    qualities.append(quality_data)
         return qualities
     
     def _extract_starting_chars(self, elem: ET.Element) -> Dict[str, int]:
@@ -978,22 +991,30 @@ class XMLParser:
         }
     
     def filter_by_sources(self, records: List[Dict[str, Any]], selected_sources: List[str]) -> List[Dict[str, Any]]:
-        """Filter records by selected sources"""
+        """Filter records by selected sources and determine category"""
         if not selected_sources:
             return records
         
         filtered_records = []
         for record in records:
-            # Get category for this record
-            category = record.get('category', '')
+            # Get sources for this record
+            sources = record.get('sources', [])
             
-            # Check if the category matches any selected source
-            for source_config in self.sources_config['sources']:
-                if source_config['key'] in selected_sources:
-                    # Compare category with the source name (not oggdude_sources)
-                    if source_config['name'] == category:
-                        filtered_records.append(record)
+            # Find the first source that matches our selected sources
+            matching_source = None
+            for source in sources:
+                for source_config in self.sources_config['sources']:
+                    if source_config['key'] in selected_sources and source_config['name'] == source:
+                        matching_source = source
                         break
+                if matching_source:
+                    break
+            
+            # If we found a matching source, include this record
+            if matching_source:
+                # Set the category based on the matching source
+                record['category'] = matching_source
+                filtered_records.append(record)
         
         return filtered_records
     

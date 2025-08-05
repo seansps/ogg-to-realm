@@ -105,6 +105,10 @@ class DataMapper:
         if 'description' in item:
             data['description'] = self._convert_description(item['description'])
         
+        # Handle weapon-specific conversions
+        if item_type == 'weapon':
+            data = self._convert_weapon_data(data, item)
+        
         realm_item = {
             "name": item.get('name', 'Unknown Item'),
             "recordType": "items",
@@ -119,6 +123,167 @@ class DataMapper:
         }
         
         return realm_item
+    
+    def _convert_weapon_data(self, data: Dict[str, Any], item: Dict[str, Any]) -> Dict[str, Any]:
+        """Convert weapon-specific data"""
+        # Handle weapon type and subtype
+        weapon_type = data.get('type', '')
+        if weapon_type == 'Vehicle':
+            data['type'] = 'ranged weapon'
+            data['subtype'] = 'Vehicle Weapon'
+        elif not weapon_type or weapon_type == '':
+            data['type'] = 'ranged weapon'
+        
+        # Convert range values
+        if 'range' in data and data['range']:
+            data['range'] = self._map_range_value(data['range'])
+        
+        # Convert qualities - check both 'qualities' and 'special' fields
+        qualities = data.get('qualities', data.get('special', []))
+        if qualities:
+            mapped_qualities, quality_counts = self._map_qualities_with_counts(qualities)
+            data['special'] = mapped_qualities
+            
+            # Set quality count fields
+            for quality_name, count in quality_counts.items():
+                data[quality_name] = count
+            
+            # Remove the old qualities field if it exists
+            data.pop('qualities', None)
+        else:
+            data['special'] = []
+        
+        # Set default values for missing fields
+        defaults = {
+            'modifiers': [],
+            'equipEffect': None,
+            'stun': 0,
+            'consumable': False,
+            'hasUseBtn': False,
+            'attachments': [],
+            'slotsUsed': 0,
+            'hardpoints': data.get('hardpoints', 0)
+        }
+        
+        for key, default_value in defaults.items():
+            if key not in data:
+                data[key] = default_value
+        
+        return data
+    
+    def _map_range_value(self, range_value: str) -> str:
+        """Map OggDude range values to Realm VTT range names"""
+        range_mapping = {
+            'wrEngaged': 'Engaged',
+            'wrClose': 'Engaged',
+            'wrShort': 'Short',
+            'wrMedium': 'Medium',
+            'wrLong': 'Long',
+            'wrExtreme': 'Extreme'
+        }
+        return range_mapping.get(range_value, range_value)
+    
+    def _map_qualities_with_counts(self, qualities: List[Any]) -> tuple[List[str], Dict[str, int]]:
+        """Map OggDude quality keys to Realm VTT quality values and return counts"""
+        quality_mapping = {
+            'ACCURATE': 'accurate',
+            'AUTOFIRE': 'auto-fire',
+            'BREACH': 'breach',
+            'BURN': 'burn',
+            'BLAST': 'blast',
+            'CONCUSSIVE': 'concussive',
+            'CORTOSIS': 'cortosis',
+            'CUMBERSOME': 'cumbersome',
+            'DEFENSIVE': 'defensive',
+            'DEFLECTION': 'deflection',
+            'DISORIENT': 'disorient',
+            'ENSNARE': 'ensnare',
+            'GUIDED': 'guided',
+            'KNOCKDOWN': 'knockdown',
+            'INACCURATE': 'inaccurate',
+            'INFERIOR': 'inferior',
+            'ION': 'ion',
+            'LIMITEDAMMO': 'limited-ammo',
+            'LINKED': 'linked',
+            'PIERCE': 'pierce',
+            'PREPARE': 'prepare',
+            'SLOWFIRING': 'slow-firing',
+            'STUN': 'stun',
+            'STUNDAMAGE': 'stun-damage',
+            'STUNDAMAGEDROID': 'stun-damage-droid',
+            'STUNSETTING': 'stun-setting',
+            'SUNDER': 'sunder',
+            'SUPERIOR': 'superior',
+            'TRACTOR': 'tractor',
+            'VICIOUS': 'vicious',
+            'UNARMED': 'unarmed'
+        }
+        
+        # Field name mapping for quality counts
+        quality_count_fields = {
+            'ACCURATE': 'accurate',
+            'AUTOFIRE': 'auto-fire',
+            'BREACH': 'breach',
+            'BURN': 'burn',
+            'BLAST': 'blast',
+            'CONCUSSIVE': 'concussive',
+            'CORTOSIS': 'cortosis',
+            'CUMBERSOME': 'cumbersome',
+            'DEFENSIVE': 'defensive',
+            'DEFLECTION': 'deflection',
+            'DISORIENT': 'disorient',
+            'ENSNARE': 'ensnare',
+            'GUIDED': 'guided',
+            'KNOCKDOWN': 'knockdown',
+            'INACCURATE': 'inaccurate',
+            'INFERIOR': 'inferior',
+            'ION': 'ion',
+            'LIMITEDAMMO': 'limitedAmmo',
+            'LINKED': 'linked',
+            'PIERCE': 'pierce',
+            'PREPARE': 'prepare',
+            'SLOWFIRING': 'slowFiring',
+            'STUN': 'stun',
+            'STUNDAMAGE': 'stun-damage',
+            'STUNDAMAGEDROID': 'stun-damage-droid',
+            'STUNSETTING': 'stun-setting',
+            'SUNDER': 'sunder',
+            'SUPERIOR': 'superior',
+            'TRACTOR': 'tractor',
+            'VICIOUS': 'vicious',
+            'UNARMED': 'unarmed'
+        }
+        
+        mapped_qualities = []
+        quality_counts = {}
+        
+        for quality in qualities:
+            if isinstance(quality, str):
+                mapped_quality = quality_mapping.get(quality.upper(), quality.lower())
+                mapped_qualities.append(mapped_quality)
+                # Set count to 1 for string qualities
+                count_field = quality_count_fields.get(quality.upper())
+                if count_field:
+                    quality_counts[count_field] = 1
+            elif isinstance(quality, dict):
+                # Handle quality objects with Key and Count
+                key = quality.get('Key', '')
+                count = quality.get('Count', 1)
+                if key:
+                    mapped_quality = quality_mapping.get(key.upper(), key.lower())
+                    mapped_qualities.append(mapped_quality)
+                    
+                    # Set count field
+                    count_field = quality_count_fields.get(key.upper())
+                    if count_field:
+                        quality_counts[count_field] = count
+        
+        return mapped_qualities, quality_counts
+    
+    def _map_qualities(self, qualities: List[Any]) -> List[str]:
+        """Map OggDude quality keys to Realm VTT quality values (backward compatibility)"""
+        mapped_qualities, _ = self._map_qualities_with_counts(qualities)
+        return mapped_qualities
     
     def _convert_species(self, species: Dict[str, Any], campaign_id: str, category: str) -> Dict[str, Any]:
         """Convert species to Realm VTT format"""
