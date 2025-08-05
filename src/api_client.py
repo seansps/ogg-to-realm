@@ -226,15 +226,85 @@ class RealmVTTClient:
         
         try:
             params = query or {}
-            response = requests.get(
-                f"{self.base_url}/{record_type}",
-                params=params,
-                headers=self.headers
-            )
+            
+            # Use the correct endpoint based on record type
+            if record_type == 'npcs':
+                endpoint = f"{self.base_url}/npcs"
+            else:
+                endpoint = f"{self.base_url}/records"
+                # Add recordType parameter for non-npc records
+                params['recordType'] = record_type
+            
+            response = requests.get(endpoint, params=params, headers=self.headers)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.HTTPError as e:
             raise Exception(f"Failed to find {record_type}: {e}")
+    
+    def find_record_by_name(self, record_type: str, name: str) -> Optional[Dict[str, Any]]:
+        """
+        Find a record by name
+        
+        Args:
+            record_type: Type of record ('records', 'npcs', etc.)
+            name: Name of the record to find
+            
+        Returns:
+            dict: Record if found, None if not found
+        """
+        if not self.token:
+            raise Exception("Authentication token required. Call login() first.")
+        
+        try:
+            # Use the existing find_records method to get all records
+            # For 'items', 'careers', etc., use the record_type directly
+            # For 'npcs', use 'npcs' directly
+            result = self.find_records(record_type)
+            
+            # Filter by name on the client side
+            if result.get('data') and len(result['data']) > 0:
+                for record in result['data']:
+                    record_name = record.get('name', '')
+                    if record_name.lower() == name.lower():
+                        # For records endpoint, also check recordType if it exists
+                        if record_type == 'npcs' or record.get('recordType') == record_type:
+                            return record
+            return None
+            
+        except Exception as e:
+            raise Exception(f"Error finding {record_type} with name '{name}': {e}")
+    
+    def patch_record(self, record_type: str, record_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Patch (update) an existing record
+        
+        Args:
+            record_type: Type of record ('records', 'npcs', etc.)
+            record_id: ID of the record to update
+            data: Data to update the record with
+            
+        Returns:
+            dict: Updated record
+        """
+        if not self.token:
+            raise Exception("Authentication token required. Call login() first.")
+        
+        try:
+            # Use the appropriate endpoint based on record type
+            if record_type == 'npcs':
+                endpoint = f"{self.base_url}/npcs/{record_id}"
+            else:
+                endpoint = f"{self.base_url}/records/{record_id}"
+            
+            response = requests.patch(endpoint, json=data, headers=self.headers)
+            response.raise_for_status()
+            return response.json()
+            
+        except requests.exceptions.HTTPError as e:
+            error_msg = e.response.json().get('message', 'Failed to patch record')
+            raise Exception(f"Record patch failed: {error_msg}")
+        except Exception as e:
+            raise Exception(f"Request error: {e}")
     
     def is_authenticated(self) -> bool:
         """Check if the client is authenticated"""

@@ -3,8 +3,8 @@ from tkinter import ttk, filedialog, messagebox, scrolledtext
 import json
 import threading
 from typing import Dict, List, Any
-from .api_client import RealmVTTClient
-from .import_manager import ImportManager
+from api_client import RealmVTTClient
+from import_manager import ImportManager
 import os
 
 class OggDudeImporterGUI:
@@ -442,6 +442,14 @@ class OggDudeImporterGUI:
         max_import_entry = ttk.Entry(max_import_frame, textvariable=self.max_import_var, width=10)
         max_import_entry.pack(side=tk.LEFT, padx=5)
         
+        # Update existing records frame
+        update_frame = ttk.LabelFrame(scrollable_frame, text="Import Options", padding=10)
+        update_frame.pack(fill=tk.X, padx=20, pady=5)
+        
+        self.update_existing_var = tk.BooleanVar(value=True)  # Default to checked
+        update_checkbox = ttk.Checkbutton(update_frame, text="Update Existing Records", variable=self.update_existing_var)
+        update_checkbox.pack(anchor=tk.W, padx=5)
+        
         # Record counts frame
         counts_frame = ttk.LabelFrame(scrollable_frame, text="Record Counts", padding=20)
         counts_frame.pack(fill=tk.X, padx=20, pady=10)
@@ -758,11 +766,15 @@ class OggDudeImporterGUI:
         return [record_type for record_type, var in self.record_type_vars.items() if var.get()]
     
     def get_max_import_limit(self) -> int:
-        """Get the max import limit from the entry field"""
+        """Get the maximum import limit from the GUI"""
         try:
             return int(self.max_import_var.get())
         except ValueError:
             return 0
+    
+    def get_update_existing_setting(self) -> bool:
+        """Get the update existing records setting from the GUI"""
+        return self.update_existing_var.get()
     
     def validate_setup(self) -> tuple[bool, list[str]]:
         """
@@ -880,9 +892,11 @@ class OggDudeImporterGUI:
         # Set selected record types and max import limit
         selected_record_types = self.get_selected_record_types()
         max_import_limit = self.get_max_import_limit()
+        update_existing = self.get_update_existing_setting()
         
         self.import_manager.set_selected_record_types(selected_record_types)
         self.import_manager.set_max_import_limit(max_import_limit)
+        self.import_manager.set_update_existing(update_existing)
         
         # Start import
         self.import_manager.start_import()

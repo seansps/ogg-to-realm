@@ -8,6 +8,16 @@ import sys
 
 def main():
     test_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(test_dir)
+    src_dir = os.path.join(project_root, 'src')
+    
+    # Set up environment with src directory in Python path
+    env = os.environ.copy()
+    if 'PYTHONPATH' in env:
+        env['PYTHONPATH'] = f"{src_dir}:{env['PYTHONPATH']}"
+    else:
+        env['PYTHONPATH'] = src_dir
+    
     test_files = [f for f in os.listdir(test_dir) if f.startswith('test_') and f.endswith('.py') and f != 'run_all_tests.py']
     test_files.sort()
     
@@ -16,7 +26,7 @@ def main():
     failed = 0
     for test_file in test_files:
         print(f"=== {test_file} ===")
-        result = subprocess.run([sys.executable, os.path.join(test_dir, test_file)])
+        result = subprocess.run([sys.executable, os.path.join(test_dir, test_file)], env=env)
         if result.returncode == 0:
             print(f"✓ {test_file} PASSED\n")
             passed += 1

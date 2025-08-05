@@ -1,10 +1,10 @@
 import threading
 import time
 from typing import Dict, List, Any, Optional, Callable
-from .api_client import RealmVTTClient
-from .xml_parser import XMLParser
-from .json_parser import JSONParser
-from .data_mapper import DataMapper
+from api_client import RealmVTTClient
+from xml_parser import XMLParser
+from json_parser import JSONParser
+from data_mapper import DataMapper
 
 class ImportManager:
     def __init__(self, api_client: RealmVTTClient):
@@ -16,6 +16,7 @@ class ImportManager:
         self.selected_sources = []
         self.selected_record_types = []  # All record types by default
         self.max_import_limit = 0  # No limit by default
+        self.update_existing = False  # Don't update existing by default
         self.oggdude_directory = ""
         self.adversaries_directory = ""
         self.progress_callback = None
@@ -68,6 +69,10 @@ class ImportManager:
     def set_max_import_limit(self, limit: int):
         """Set the maximum number of records to import per type (for testing)"""
         self.max_import_limit = limit
+    
+    def set_update_existing(self, update_existing: bool):
+        """Set whether to update existing records instead of creating new ones"""
+        self.update_existing = update_existing
     
     def set_oggdude_directory(self, directory: str):
         """Set the OggDude directory path"""
@@ -259,16 +264,37 @@ class ImportManager:
                             record, self.campaign_id, self._get_category_for_record(record)
                         )
                         
-                        # Create record in Realm VTT
-                        if record_type == 'npcs':
-                            created_record = self.api_client.create_npc(realm_record)
-                        elif record_type == 'items':
-                            created_record = self.api_client.create_item(realm_record)
+                        record_name = record.get('name', '')
+                        
+                        # Check if we should update existing records
+                        if self.update_existing and record_name:
+                            # Try to find existing record by name
+                            existing_record = self.api_client.find_record_by_name(record_type, record_name)
+                            
+                            if existing_record:
+                                # Update existing record
+                                updated_record = self.api_client.patch_record(record_type, existing_record['_id'], realm_record)
+                                created_record = updated_record
+                                self._log_status(f"Updated existing {record_type}: {record_name}")
+                            else:
+                                # Create new record
+                                if record_type == 'npcs':
+                                    created_record = self.api_client.create_npc(realm_record)
+                                elif record_type == 'items':
+                                    created_record = self.api_client.create_item(realm_record)
+                                else:
+                                    created_record = self.api_client.create_record(realm_record)
+                                self._log_status(f"Created new {record_type}: {record_name}")
                         else:
-                            created_record = self.api_client.create_record(realm_record)
+                            # Always create new records
+                            if record_type == 'npcs':
+                                created_record = self.api_client.create_npc(realm_record)
+                            elif record_type == 'items':
+                                created_record = self.api_client.create_item(realm_record)
+                            else:
+                                created_record = self.api_client.create_record(realm_record)
                         
                         # Store mapping for later use
-                        record_name = record.get('name', '')
                         if record_name:
                             if record_type == 'items':
                                 self.data_mapper.add_item_mapping(record_name, created_record['_id'])
