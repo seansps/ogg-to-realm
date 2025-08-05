@@ -218,7 +218,7 @@ class DataMapper:
         original_skill_key = data.get('originalSkillKey', skill_key)  # Use original if available
         original_type = data.get('originalType', weapon_type)  # Use original type if available
         
-        if weapon_type == 'Vehicle':
+        if original_type == 'Vehicle':
             data['type'] = 'ranged weapon'
             data['subtype'] = 'Vehicle Weapon'
         else:

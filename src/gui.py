@@ -316,7 +316,7 @@ class OggDudeImporterGUI:
         # Create checkboxes for sources
         self.source_vars = {}
         for i, source in enumerate(self.sources_config.get('sources', [])):
-            var = tk.BooleanVar()
+            var = tk.BooleanVar(value=True)  # Set to True by default
             self.source_vars[source['key']] = var
             cb = ttk.Checkbutton(sources_scrollable_frame, text=source['name'], variable=var)
             cb.grid(row=i//2, column=i%2, sticky=tk.W, padx=10, pady=5)
@@ -722,6 +722,10 @@ class OggDudeImporterGUI:
         # Set max import limit in import manager
         max_import_limit = self.get_max_import_limit()
         self.import_manager.set_max_import_limit(max_import_limit)
+        
+        # Set directory paths in import manager
+        self.import_manager.set_oggdude_directory(self.oggdude_path_var.get())
+        self.import_manager.set_adversaries_directory(self.adversaries_path_var.get())
         
         # Update category from selected sources
         self.update_category_from_sources()

@@ -27,6 +27,46 @@ class XMLParser:
             print("Warning: sources.json not found, using default sources")
             return {"sources": []}
     
+    def _get_namespaced_tag(self, elem: ET.Element, tag: str) -> str:
+        """
+        Get the namespaced tag name for searching within an element.
+        This handles both namespaced and non-namespaced XML.
+        """
+        # Check if the element has a namespace
+        if '}' in elem.tag:
+            # Extract namespace from the element's tag
+            namespace = elem.tag.split('}')[0] + '}'
+            return namespace + tag
+        else:
+            # No namespace, return the tag as-is
+            return tag
+    
+    def _find_with_namespace(self, elem: ET.Element, tag: str) -> Optional[ET.Element]:
+        """
+        Find a child element, handling namespaces properly.
+        """
+        # Try with namespace first
+        namespaced_tag = self._get_namespaced_tag(elem, tag)
+        result = elem.find(namespaced_tag)
+        if result is not None:
+            return result
+        
+        # If not found with namespace, try without namespace
+        return elem.find(tag)
+    
+    def _findall_with_namespace(self, elem: ET.Element, tag: str) -> List[ET.Element]:
+        """
+        Find all child elements, handling namespaces properly.
+        """
+        # Try with namespace first
+        namespaced_tag = self._get_namespaced_tag(elem, tag)
+        results = elem.findall(namespaced_tag)
+        if results:
+            return results
+        
+        # If not found with namespace, try without namespace
+        return elem.findall(tag)
+    
     def _apply_field_mapping(self, record_type: str, data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Apply field mapping to transform OggDude field names to Realm VTT field names
@@ -126,32 +166,32 @@ class XMLParser:
             
             records = []
             
-            # Handle different XML structures
-            if root.tag == 'Weapons':
+            # Handle different XML structures - check for local part of tag name to handle namespaces
+            root_tag = root.tag.split('}')[-1] if '}' in root.tag else root.tag
+            
+            if root_tag == 'Weapons':
                 records = self._parse_weapons(root)
-            elif root.tag == 'Species':
+            elif root_tag == 'Species':
                 records = self._parse_species(root)
-            elif root.tag == 'Career':
+            elif root_tag == 'Career':
                 records = self._parse_career(root)
-            elif root.tag == 'Specialization':
+            elif root_tag == 'Specialization':
                 records = self._parse_specialization(root)
-            elif root.tag == 'Talent':
+            elif root_tag == 'Talent':
                 records = self._parse_talent(root)
-            elif root.tag == 'Talents':
+            elif root_tag == 'Talents':
                 records = self._parse_talents(root)
-            elif root.tag == 'ForcePower':
+            elif root_tag == 'ForcePower':
                 records = self._parse_force_power(root)
-            elif root.tag == 'Vehicle':
+            elif root_tag == 'Vehicle':
                 records = self._parse_vehicle(root)
-            elif root.tag == 'Armor':
+            elif root_tag == 'Armor' or root_tag == 'Armors':
                 records = self._parse_armor(root)
-            elif root.tag == 'Gear':
+            elif root_tag == 'Gear' or root_tag == 'Gears':
                 records = self._parse_gear(root)
-            elif root.tag == 'Gears':
-                records = self._parse_gear(root)
-            elif root.tag == 'Skills':
+            elif root_tag == 'Skills':
                 records = self._parse_skills(root)
-            elif root.tag == 'ItemAttachments':
+            elif root_tag == 'ItemAttachments' or root_tag == 'ItemAttachment':
                 records = self._parse_item_attachments(root)
             else:
                 # Generic parsing for other types
@@ -169,7 +209,7 @@ class XMLParser:
     def _parse_weapons(self, root: ET.Element) -> List[Dict[str, Any]]:
         """Parse weapons from XML"""
         weapons = []
-        for weapon_elem in root.findall('Weapon'):
+        for weapon_elem in self._findall_with_namespace(root, 'Weapon'):
             weapon = self._extract_weapon_data(weapon_elem)
             if weapon:
                 weapons.append(weapon)
@@ -213,6 +253,12 @@ class XMLParser:
             mapped_data['originalSkillKey'] = original_skill_key
             mapped_data['originalType'] = original_type
             
+            # Determine weapon type based on SkillKey
+            if original_skill_key in ['MELEE', 'BRAWL', 'LIGHTSABER', 'LTSABER']:
+                mapped_data['type'] = 'melee weapon'
+            else:
+                mapped_data['type'] = 'ranged weapon'
+            
             # Add default values for Realm VTT
             mapped_data.update({
                 'modifiers': [],
@@ -229,7 +275,6 @@ class XMLParser:
             
             weapon = {
                 'recordType': 'items',
-                'type': 'weapon',
                 'name': mapped_data.get('name', 'Unknown Weapon'),
                 'description': mapped_data.get('description', ''),
                 'sources': sources,  # Store sources for later use
@@ -241,12 +286,62 @@ class XMLParser:
                 'locked': True
             }
             
-            # Set animation based on weapon type
-            weapon_type = weapon['data']['type'].lower()
-            if 'blaster' in weapon_type:
-                weapon['data']['animation'] = 'blaster'
-            elif 'lightsaber' in weapon_type or 'saber' in weapon_type:
-                weapon['data']['animation'] = 'lightsaber'
+            # Set animation based on weapon name and type
+            weapon_name = weapon['name'].lower()
+            if 'blaster' in weapon_name or 'rifle' in weapon_name:
+                weapon['data']['animation'] = {
+                    "animationName": "bolt_3",
+                    "moveToDestination": True,
+                    "stretchToDestination": False,
+                    "destinationOnly": False,
+                    "startAtCenter": False,
+                    "scale": 0.33,
+                    "opacity": 1,
+                    "animationSpeed": 12,
+                    "rotation": -90,
+                    "hue": 360,
+                    "contrast": None,
+                    "brightness": None,
+                    "moveSpeed": 2,
+                    "sound": "laser_1",
+                    "count": 1
+                }
+            elif 'lightsaber' in weapon_name or 'light saber' in weapon_name:
+                weapon['data']['animation'] = {
+                    "animationName": "slash_1",
+                    "moveToDestination": False,
+                    "stretchToDestination": False,
+                    "destinationOnly": False,
+                    "startAtCenter": False,
+                    "scale": 0.5,
+                    "opacity": 1,
+                    "animationSpeed": 14,
+                    "rotation": -74,
+                    "hue": 207,
+                    "contrast": 0.7,
+                    "brightness": 0.3,
+                    "moveSpeed": 1,
+                    "sound": "laser_3",
+                    "count": 1
+                }
+            elif 'vibro' in weapon_name:
+                weapon['data']['animation'] = {
+                    "animationName": "slash_1",
+                    "moveToDestination": False,
+                    "stretchToDestination": False,
+                    "destinationOnly": False,
+                    "startAtCenter": False,
+                    "scale": 0.5,
+                    "opacity": 1,
+                    "animationSpeed": 14,
+                    "rotation": -74,
+                    "hue": 68,
+                    "contrast": 1,
+                    "brightness": 0.35,
+                    "moveSpeed": 1,
+                    "sound": "slash_2",
+                    "count": 1
+                }
             
             return weapon
             
@@ -266,7 +361,7 @@ class XMLParser:
                 species.append(species_data)
         else:
             # Handle multiple species in a file
-            for species_elem in root.findall('Species'):
+            for species_elem in self._findall_with_namespace(root, 'Species'):
                 species_data = self._extract_species_data(species_elem)
                 if species_data:
                     species.append(species_data)
@@ -388,7 +483,7 @@ class XMLParser:
     def _parse_talents(self, root: ET.Element) -> List[Dict[str, Any]]:
         """Parse talents from XML (plural root tag)"""
         talents = []
-        for talent_elem in root.findall('Talent'):
+        for talent_elem in self._findall_with_namespace(root, 'Talent'):
             talent = self._extract_talent_data(talent_elem)
             if talent:
                 talents.append(talent)
@@ -533,7 +628,7 @@ class XMLParser:
         
         # Handle Armors root element containing multiple Armor elements
         if root.tag == 'Armors':
-            for armor_elem in root.findall('Armor'):
+            for armor_elem in self._findall_with_namespace(root, 'Armor'):
                 armor = self._extract_armor_data(armor_elem)
                 if armor:
                     armor_list.append(armor)
@@ -566,6 +661,9 @@ class XMLParser:
             # Apply field mapping
             mapped_data = self._apply_field_mapping('armor', raw_data)
             
+            # Set the type in data field
+            mapped_data['type'] = 'armor'
+            
             # Add default values for Realm VTT
             mapped_data.update({
                 'modifiers': [],
@@ -582,10 +680,10 @@ class XMLParser:
             
             armor = {
                 'recordType': 'items',
-                'type': 'armor',
                 'name': mapped_data.get('name', 'Unknown Armor'),
                 'description': mapped_data.get('description', ''),
                 'category': category,
+                'sources': sources,
                 'data': mapped_data,
                 # 'fields': self._get_armor_fields(),  # Commented out for now
                 'fields': {},  # Set to empty dictionary for now
@@ -602,9 +700,10 @@ class XMLParser:
         """Parse gear from XML"""
         gear_list = []
         
-        # Handle Gears root element containing multiple Gear elements
-        if root.tag == 'Gears':
-            for gear_elem in root.findall('Gear'):
+        # Handle Gears root element containing multiple Gear elements - check for local part of tag name
+        root_tag = root.tag.split('}')[-1] if '}' in root.tag else root.tag
+        if root_tag == 'Gears':
+            for gear_elem in self._findall_with_namespace(root, 'Gear'):
                 gear = self._extract_gear_data(gear_elem)
                 if gear:
                     gear_list.append(gear)
@@ -634,6 +733,9 @@ class XMLParser:
             # Apply field mapping
             mapped_data = self._apply_field_mapping('gear', raw_data)
             
+            # Set the type in data field
+            mapped_data['type'] = 'general'
+            
             # Add default values for Realm VTT
             mapped_data.update({
                 'modifiers': [],
@@ -649,9 +751,9 @@ class XMLParser:
             
             gear = {
                 'recordType': 'items',
-                'type': 'gear',
                 'name': mapped_data.get('name', 'Unknown Gear'),
                 'description': mapped_data.get('description', ''),
+                'sources': sources,
                 'category': category,
                 'data': mapped_data,
                 # 'fields': self._get_gear_fields(),  # Commented out for now
@@ -668,7 +770,7 @@ class XMLParser:
     def _parse_skills(self, root: ET.Element) -> List[Dict[str, Any]]:
         """Parse skills from XML"""
         skills = []
-        for skill_elem in root.findall('Skill'):
+        for skill_elem in self._findall_with_namespace(root, 'Skill'):
             skill = self._extract_skill_data(skill_elem)
             if skill:
                 skills.append(skill)
@@ -777,7 +879,7 @@ class XMLParser:
     
     def _get_text(self, elem: ET.Element, tag: str, default: str = '') -> str:
         """Get text content from XML element"""
-        child = elem.find(tag)
+        child = self._find_with_namespace(elem, tag)
         if child is not None and child.text:
             return child.text.strip()
         return default
@@ -797,7 +899,7 @@ class XMLParser:
     
     def _get_source(self, elem: ET.Element) -> str:
         """Get source from XML element"""
-        source_elem = elem.find('Source')
+        source_elem = self._find_with_namespace(elem, 'Source')
         if source_elem is not None:
             # Prioritize the text content (source name) over the Page attribute
             return source_elem.text or source_elem.get('Page', '') or ''
@@ -808,14 +910,14 @@ class XMLParser:
         sources = []
         
         # First, check for individual Source tags (single source)
-        for source_elem in elem.findall('Source'):
+        for source_elem in self._findall_with_namespace(elem, 'Source'):
             if source_elem.text:
                 sources.append(source_elem.text.strip())
         
         # Then, check for Sources container with multiple Source tags
-        sources_container = elem.find('Sources')
+        sources_container = self._find_with_namespace(elem, 'Sources')
         if sources_container is not None:
-            for source_elem in sources_container.findall('Source'):
+            for source_elem in self._findall_with_namespace(sources_container, 'Source'):
                 if source_elem.text:
                     sources.append(source_elem.text.strip())
         
@@ -862,15 +964,15 @@ class XMLParser:
     def _extract_qualities(self, elem: ET.Element) -> List[Dict[str, Any]]:
         """Extract weapon qualities with their counts"""
         qualities = []
-        qualities_elem = elem.find('Qualities')
+        qualities_elem = self._find_with_namespace(elem, 'Qualities')
         if qualities_elem:
-            for quality in qualities_elem.findall('Quality'):
+            for quality in self._findall_with_namespace(qualities_elem, 'Quality'):
                 quality_data = {}
-                key_elem = quality.find('Key')
+                key_elem = self._find_with_namespace(quality, 'Key')
                 if key_elem is not None and key_elem.text:
                     quality_data['Key'] = key_elem.text
                 
-                count_elem = quality.find('Count')
+                count_elem = self._find_with_namespace(quality, 'Count')
                 if count_elem is not None and count_elem.text:
                     try:
                         quality_data['Count'] = int(count_elem.text)
@@ -886,7 +988,7 @@ class XMLParser:
     def _extract_starting_chars(self, elem: ET.Element) -> Dict[str, int]:
         """Extract starting characteristics"""
         chars = {}
-        chars_elem = elem.find('StartingChars')
+        chars_elem = self._find_with_namespace(elem, 'StartingChars')
         if chars_elem:
             for char in ['Brawn', 'Agility', 'Intellect', 'Cunning', 'Willpower', 'Presence']:
                 chars[char.lower()] = self._get_int(chars_elem, char, 1)
@@ -895,7 +997,7 @@ class XMLParser:
     def _extract_starting_attrs(self, elem: ET.Element) -> Dict[str, int]:
         """Extract starting attributes"""
         attrs = {}
-        attrs_elem = elem.find('StartingAttrs')
+        attrs_elem = self._find_with_namespace(elem, 'StartingAttrs')
         if attrs_elem:
             attrs['woundThreshold'] = self._get_int(attrs_elem, 'WoundThreshold', 10)
             attrs['strainThreshold'] = self._get_int(attrs_elem, 'StrainThreshold', 10)
@@ -905,9 +1007,9 @@ class XMLParser:
     def _extract_skill_modifiers(self, elem: ET.Element) -> List[Dict[str, Any]]:
         """Extract skill modifiers"""
         modifiers = []
-        mods_elem = elem.find('SkillModifiers')
+        mods_elem = self._find_with_namespace(elem, 'SkillModifiers')
         if mods_elem:
-            for mod in mods_elem.findall('SkillModifier'):
+            for mod in self._findall_with_namespace(mods_elem, 'SkillModifier'):
                 modifiers.append({
                     'skill': self._get_text(mod, 'Key'),
                     'rankStart': self._get_int(mod, 'RankStart', 0),
@@ -918,9 +1020,9 @@ class XMLParser:
     def _extract_talent_modifiers(self, elem: ET.Element) -> List[Dict[str, Any]]:
         """Extract talent modifiers"""
         modifiers = []
-        mods_elem = elem.find('TalentModifiers')
+        mods_elem = self._find_with_namespace(elem, 'TalentModifiers')
         if mods_elem:
-            for mod in mods_elem.findall('TalentModifier'):
+            for mod in self._findall_with_namespace(mods_elem, 'TalentModifier'):
                 modifiers.append({
                     'talent': self._get_text(mod, 'Key'),
                     'rankAdd': self._get_int(mod, 'RankAdd', 0)
@@ -930,9 +1032,9 @@ class XMLParser:
     def _extract_career_skills(self, elem: ET.Element) -> List[str]:
         """Extract career skills"""
         skills = []
-        skills_elem = elem.find('CareerSkills')
+        skills_elem = self._find_with_namespace(elem, 'CareerSkills')
         if skills_elem:
-            for skill in skills_elem.findall('Key'):
+            for skill in self._findall_with_namespace(skills_elem, 'Key'):
                 if skill.text:
                     skills.append(skill.text)
         return skills
@@ -940,9 +1042,9 @@ class XMLParser:
     def _extract_specializations(self, elem: ET.Element) -> List[str]:
         """Extract specializations"""
         specs = []
-        specs_elem = elem.find('Specializations')
+        specs_elem = self._find_with_namespace(elem, 'Specializations')
         if specs_elem:
-            for spec in specs_elem.findall('Key'):
+            for spec in self._findall_with_namespace(specs_elem, 'Key'):
                 if spec.text:
                     specs.append(spec.text)
         return specs
@@ -950,9 +1052,9 @@ class XMLParser:
     def _extract_spec_skills(self, elem: ET.Element) -> List[str]:
         """Extract specialization skills"""
         skills = []
-        skills_elem = elem.find('Skills')
+        skills_elem = self._find_with_namespace(elem, 'Skills')
         if skills_elem:
-            for skill in skills_elem.findall('Key'):
+            for skill in self._findall_with_namespace(skills_elem, 'Key'):
                 if skill.text:
                     skills.append(skill.text)
         return skills
@@ -960,9 +1062,9 @@ class XMLParser:
     def _extract_spec_talents(self, elem: ET.Element) -> List[str]:
         """Extract specialization talents"""
         talents = []
-        talents_elem = elem.find('Talents')
+        talents_elem = self._find_with_namespace(elem, 'Talents')
         if talents_elem:
-            for talent in talents_elem.findall('Key'):
+            for talent in self._findall_with_namespace(talents_elem, 'Key'):
                 if talent.text:
                     talents.append(talent.text)
         return talents
@@ -970,9 +1072,9 @@ class XMLParser:
     def _extract_upgrades(self, elem: ET.Element) -> List[Dict[str, Any]]:
         """Extract force power upgrades"""
         upgrades = []
-        upgrades_elem = elem.find('Upgrades')
+        upgrades_elem = self._find_with_namespace(elem, 'Upgrades')
         if upgrades_elem:
-            for upgrade in upgrades_elem.findall('Upgrade'):
+            for upgrade in self._findall_with_namespace(upgrades_elem, 'Upgrade'):
                 upgrades.append({
                     'name': self._get_text(upgrade, 'Name'),
                     'description': self._get_text(upgrade, 'Description'),
@@ -983,7 +1085,7 @@ class XMLParser:
     def _parse_item_attachments(self, root: ET.Element) -> List[Dict[str, Any]]:
         """Parse item attachments from XML"""
         attachments = []
-        for attachment_elem in root.findall('ItemAttachment'):
+        for attachment_elem in self._findall_with_namespace(root, 'ItemAttachment'):
             attachment = self._extract_item_attachment_data(attachment_elem)
             if attachment:
                 attachments.append(attachment)
@@ -1035,6 +1137,7 @@ class XMLParser:
                 'name': mapped_data.get('name', 'Unknown Item Attachment'),
                 'description': mapped_data.get('description', ''),
                 'category': category,
+                'sources': sources,
                 'data': mapped_data,
                 'fields': {},
                 'unidentifiedName': 'Unknown Item Attachment',
@@ -1044,6 +1147,8 @@ class XMLParser:
             
         except Exception as e:
             print(f"Error extracting item attachment data: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     def _get_weapon_fields(self) -> Dict[str, Any]:
@@ -1127,6 +1232,13 @@ class XMLParser:
             # Get sources for this record
             sources = record.get('sources', [])
             
+            # If the record has no sources (empty list), include it as a universal/core item
+            if not sources:
+                # Set a default category for universal items
+                record['category'] = 'Core'
+                filtered_records.append(record)
+                continue
+            
             # Find the first source that matches our selected sources
             matching_source = None
             for source in sources:
@@ -1170,8 +1282,7 @@ class XMLParser:
             'skills': [],
             'specializations': [],
             'species': [],
-            'talents': [],
-            'item_attachments': []
+            'talents': []
         }
         
         directory = Path(directory_path)
@@ -1194,7 +1305,10 @@ class XMLParser:
             # Categorize records by type
             for record in records:
                 record_type = record.get('recordType', 'unknown')
-                if record_type in all_records:
+                if record_type == 'items':
+                    # All items (weapons, armor, gear, item_attachments) go into the items category
+                    all_records['items'].append(record)
+                elif record_type in all_records:
                     all_records[record_type].append(record)
                 else:
                     print(f"Unknown record type: {record_type}")
@@ -1205,17 +1319,17 @@ class XMLParser:
             if len(records) > 0:
                 print(f"  {record_type}: {len(records)}")
         
-        return all_records 
+        return all_records
 
     def _extract_base_mods(self, elem: ET.Element) -> str:
         """Extract BaseMods and convert to string using ItemDescriptors"""
         try:
-            base_mods_elem = elem.find('BaseMods')
+            base_mods_elem = self._find_with_namespace(elem, 'BaseMods')
             if base_mods_elem is None:
                 return ""
             
             mods = []
-            for mod_elem in base_mods_elem.findall('Mod'):
+            for mod_elem in self._findall_with_namespace(base_mods_elem, 'Mod'):
                 key = self._get_text(mod_elem, 'Key')
                 count = self._get_int(mod_elem, 'Count', 1)
                 
@@ -1286,7 +1400,7 @@ class XMLParser:
             root = tree.getroot()
             
             self._item_descriptors = {}
-            for descriptor_elem in root.findall('ItemDescriptor'):
+            for descriptor_elem in self._findall_with_namespace(root, 'ItemDescriptor'):
                 key = self._get_text(descriptor_elem, 'Key')
                 if key:
                     self._item_descriptors[key] = {
