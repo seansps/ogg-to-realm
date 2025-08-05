@@ -63,6 +63,12 @@ def test_weapon_conversion():
             else:
                 print(f"  ✗ Auto-fire count field not found")
             
+            # Test that no 'qualities' field exists in the final data
+            if 'qualities' not in converted['data']:
+                print(f"  ✓ No 'qualities' field in final data (correct)")
+            else:
+                print(f"  ✗ 'qualities' field found in final data (incorrect)")
+            
             return True
         else:
             print("No weapon extracted")
