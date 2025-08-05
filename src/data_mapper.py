@@ -108,6 +108,12 @@ class DataMapper:
         # Handle weapon-specific conversions
         if item_type == 'weapon':
             data = self._convert_weapon_data(data, item)
+        elif item_type == 'gear':
+            data = self._convert_gear_data(data, item)
+        elif item_type == 'armor':
+            data = self._convert_armor_data(data, item)
+        elif item_type in ['weapon attachment', 'armor attachment', 'vehicle attachment']:
+            data = self._convert_attachment_data(data, item)
         
         realm_item = {
             "name": item.get('name', 'Unknown Item'),
@@ -124,15 +130,112 @@ class DataMapper:
         
         return realm_item
     
+    def _map_skill_key(self, skill_key: str) -> str:
+        """Map OggDude skill keys to Realm VTT skill names"""
+        skill_mapping = {
+            'RANGLT': 'Ranged (Light)',
+            'RANGHV': 'Ranged (Heavy)',
+            'RANGHVY': 'Ranged (Heavy)',
+            'MECH': 'Mechanics',
+            'GUNN': 'Gunnery',
+            'GUNNERY': 'Gunnery',
+            'MELEE': 'Melee',
+            'BRAWL': 'Brawl',
+            'LIGHTSABER': 'Lightsaber',
+            'LTSABER': 'Lightsaber',
+            'LIGHT': 'Ranged (Light)',
+            'HEAVY': 'Ranged (Heavy)'
+        }
+        return skill_mapping.get(skill_key, skill_key)
+    
+    def _convert_armor_data(self, data: Dict[str, Any], item: Dict[str, Any]) -> Dict[str, Any]:
+        """Convert armor-specific data"""
+        # Set type to 'armor' for armor items
+        data['type'] = 'armor'
+        
+        # Convert qualities - check both 'qualities' and 'special' fields
+        qualities = data.get('qualities', data.get('special', []))
+        if qualities:
+            mapped_qualities, quality_counts = self._map_qualities_with_counts(qualities)
+            data['special'] = mapped_qualities
+            
+            # Set quality count fields
+            for quality_name, count in quality_counts.items():
+                data[quality_name] = count
+            
+            # Remove the old qualities field if it exists
+            data.pop('qualities', None)
+        else:
+            data['special'] = []
+        
+        # Set default values for missing fields
+        defaults = {
+            'modifiers': [],
+            'consumable': False,
+            'hasUseBtn': False,
+            'attachments': [],
+            'slotsUsed': 0
+        }
+        
+        for key, default_value in defaults.items():
+            if key not in data:
+                data[key] = default_value
+        
+        return data
+    
+    def _convert_gear_data(self, data: Dict[str, Any], item: Dict[str, Any]) -> Dict[str, Any]:
+        """Convert gear-specific data"""
+        # Get the original type from the item data
+        original_type = item.get('data', {}).get('type', 'general')
+        
+        # Set type to 'general' for gear items
+        data['type'] = 'general'
+        
+        # Set subtype to the original OggDude Type
+        data['subtype'] = original_type
+        
+        # Set default values for missing fields
+        defaults = {
+            'modifiers': [],
+            'hasUseBtn': False,
+            'attachments': [],
+            'slotsUsed': 0
+        }
+        
+        for key, default_value in defaults.items():
+            if key not in data:
+                data[key] = default_value
+        
+        return data
+    
     def _convert_weapon_data(self, data: Dict[str, Any], item: Dict[str, Any]) -> Dict[str, Any]:
         """Convert weapon-specific data"""
-        # Handle weapon type and subtype
+        # Handle weapon type and subtype based on Type and SkillKey
         weapon_type = data.get('type', '')
+        skill_key = data.get('weaponSkill', '')
+        original_skill_key = data.get('originalSkillKey', skill_key)  # Use original if available
+        original_type = data.get('originalType', weapon_type)  # Use original type if available
+        
         if weapon_type == 'Vehicle':
             data['type'] = 'ranged weapon'
             data['subtype'] = 'Vehicle Weapon'
-        elif not weapon_type or weapon_type == '':
-            data['type'] = 'ranged weapon'
+        else:
+            # Check original SkillKey for melee weapons
+            if original_skill_key in ['MELEE', 'BRAWL', 'LIGHTSABER', 'LTSABER']:
+                data['type'] = 'melee weapon'
+            else:
+                data['type'] = 'ranged weapon'
+            
+            # Set subtype to the original OggDude Type for non-vehicle weapons
+            data['subtype'] = original_type
+        
+        # Map weaponSkill to proper Realm VTT values (if not already mapped)
+        if skill_key and not skill_key.startswith('Ranged') and not skill_key in ['Melee', 'Brawl', 'Lightsaber', 'Gunnery']:
+            data['weaponSkill'] = self._map_skill_key(skill_key)
+        
+        # Remove the original skill key and type as they're not needed in final output
+        data.pop('originalSkillKey', None)
+        data.pop('originalType', None)
         
         # Convert range values
         if 'range' in data and data['range']:
@@ -573,6 +676,29 @@ class DataMapper:
         realm_npc['data']['armor'] = linked_armor
         
         return realm_npc
+    
+    def _convert_attachment_data(self, data: Dict[str, Any], item: Dict[str, Any]) -> Dict[str, Any]:
+        """Convert attachment-specific data"""
+        # The type should already be set correctly (weapon attachment, armor attachment, vehicle attachment)
+        # Just ensure it's set
+        if 'type' not in data:
+            data['type'] = item.get('type', 'weapon attachment')
+        
+        # Set default values for missing fields
+        defaults = {
+            'modifiers': [],
+            'equipEffect': None,
+            'consumable': False,
+            'hasUseBtn': False,
+            'attachments': [],
+            'slotsUsed': 0
+        }
+        
+        for key, default_value in defaults.items():
+            if key not in data:
+                data[key] = default_value
+        
+        return data
     
     def _convert_description(self, description: str) -> str:
         """

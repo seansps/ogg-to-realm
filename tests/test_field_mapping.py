@@ -92,7 +92,7 @@ def test_field_mapping_application():
         mapped_armor = parser._apply_field_mapping('armor', armor_data)
         
         assert mapped_armor['name'] == 'Test Armor', f"Armor name not mapped: {mapped_armor.get('name')}"
-        assert mapped_armor['soak'] == 2, f"Armor soak not mapped: {mapped_armor.get('soak')}"
+        assert mapped_armor['soakBonus'] == 2, f"Armor soakBonus not mapped: {mapped_armor.get('soakBonus')}"
         assert mapped_armor['defense'] == 1, f"Armor defense not mapped: {mapped_armor.get('defense')}"
         assert mapped_armor['hardpoints'] == 3, f"Armor hardpoints not mapped: {mapped_armor.get('hardpoints')}"
         

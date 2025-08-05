@@ -147,8 +147,12 @@ class XMLParser:
                 records = self._parse_armor(root)
             elif root.tag == 'Gear':
                 records = self._parse_gear(root)
+            elif root.tag == 'Gears':
+                records = self._parse_gear(root)
             elif root.tag == 'Skills':
                 records = self._parse_skills(root)
+            elif root.tag == 'ItemAttachments':
+                records = self._parse_item_attachments(root)
             else:
                 # Generic parsing for other types
                 records = self._parse_generic(root)
@@ -194,12 +198,20 @@ class XMLParser:
             # Apply field mapping
             mapped_data = self._apply_field_mapping('weapons', raw_data)
             
+            # Store original skill key and type for weapon type determination
+            original_skill_key = mapped_data.get('weaponSkill', '')
+            original_type = raw_data.get('Type', '')  # Store the original OggDude Type
+            
             # Apply additional transformations
             if 'weaponSkill' in mapped_data and mapped_data['weaponSkill']:
                 mapped_data['weaponSkill'] = self._map_skill_key(mapped_data['weaponSkill'])
             
             if 'range' in mapped_data and mapped_data['range']:
                 mapped_data['range'] = self._map_range(mapped_data['range'])
+            
+            # Store original skill key and type for later use
+            mapped_data['originalSkillKey'] = original_skill_key
+            mapped_data['originalType'] = original_type
             
             # Add default values for Realm VTT
             mapped_data.update({
@@ -517,8 +529,21 @@ class XMLParser:
     
     def _parse_armor(self, root: ET.Element) -> List[Dict[str, Any]]:
         """Parse armor from XML"""
-        armor = self._extract_armor_data(root)
-        return [armor] if armor else []
+        armor_list = []
+        
+        # Handle Armors root element containing multiple Armor elements
+        if root.tag == 'Armors':
+            for armor_elem in root.findall('Armor'):
+                armor = self._extract_armor_data(armor_elem)
+                if armor:
+                    armor_list.append(armor)
+        else:
+            # Handle single Armor element (fallback)
+            armor = self._extract_armor_data(root)
+            if armor:
+                armor_list.append(armor)
+        
+        return armor_list
     
     def _extract_armor_data(self, armor_elem: ET.Element) -> Optional[Dict[str, Any]]:
         """Extract armor data from XML element"""
@@ -534,7 +559,8 @@ class XMLParser:
                 'Restricted': self._get_text(armor_elem, 'Restricted', 'no'),
                 'Soak': self._get_int(armor_elem, 'Soak', 0),
                 'Defense': self._get_int(armor_elem, 'Defense', 0),
-                'HP': self._get_int(armor_elem, 'HP', 0)
+                'HP': self._get_int(armor_elem, 'HP', 0),
+                'Qualities': self._extract_qualities(armor_elem)
             }
             
             # Apply field mapping
@@ -574,8 +600,21 @@ class XMLParser:
     
     def _parse_gear(self, root: ET.Element) -> List[Dict[str, Any]]:
         """Parse gear from XML"""
-        gear = self._extract_gear_data(root)
-        return [gear] if gear else []
+        gear_list = []
+        
+        # Handle Gears root element containing multiple Gear elements
+        if root.tag == 'Gears':
+            for gear_elem in root.findall('Gear'):
+                gear = self._extract_gear_data(gear_elem)
+                if gear:
+                    gear_list.append(gear)
+        else:
+            # Handle single Gear element (fallback)
+            gear = self._extract_gear_data(root)
+            if gear:
+                gear_list.append(gear)
+        
+        return gear_list
     
     def _extract_gear_data(self, gear_elem: ET.Element) -> Optional[Dict[str, Any]]:
         """Extract gear data from XML element"""
@@ -584,7 +623,7 @@ class XMLParser:
             raw_data = {
                 'Name': self._get_text(gear_elem, 'Name'),
                 'Description': self._get_text(gear_elem, 'Description'),
-                'Type': 'gear',
+                'Type': self._get_text(gear_elem, 'Type', 'general'),  # Read actual Type from XML
                 'Encumbrance': self._get_int(gear_elem, 'Encumbrance', 0),
                 'Price': self._get_text(gear_elem, 'Price', '0'),
                 'Rarity': self._get_int(gear_elem, 'Rarity', 0),
@@ -726,7 +765,9 @@ class XMLParser:
     def _get_text(self, elem: ET.Element, tag: str, default: str = '') -> str:
         """Get text content from XML element"""
         child = elem.find(tag)
-        return child.text if child is not None and child.text else default
+        if child is not None and child.text:
+            return child.text.strip()
+        return default
     
     def _get_int(self, elem: ET.Element, tag: str, default: int = 0) -> int:
         """Get integer content from XML element"""
@@ -781,12 +822,16 @@ class XMLParser:
         skill_mapping = {
             'RANGLT': 'Ranged (Light)',
             'RANGHV': 'Ranged (Heavy)',
+            'RANGHVY': 'Ranged (Heavy)',
+            'MECH': 'Mechanics',
             'GUNN': 'Gunnery',
+            'GUNNERY': 'Gunnery',
             'MELEE': 'Melee',
             'BRAWL': 'Brawl',
-            'LIGHT': 'Light',
-            'HEAVY': 'Heavy',
-            'GUNNERY': 'Gunnery'
+            'LIGHTSABER': 'Lightsaber',
+            'LTSABER': 'Lightsaber',
+            'LIGHT': 'Ranged (Light)',
+            'HEAVY': 'Ranged (Heavy)'
         }
         return skill_mapping.get(skill_key, skill_key)
     
@@ -922,6 +967,72 @@ class XMLParser:
                 })
         return upgrades
     
+    def _parse_item_attachments(self, root: ET.Element) -> List[Dict[str, Any]]:
+        """Parse item attachments from XML"""
+        attachments = []
+        for attachment_elem in root.findall('ItemAttachment'):
+            attachment = self._extract_item_attachment_data(attachment_elem)
+            if attachment:
+                attachments.append(attachment)
+        return attachments
+
+    def _extract_item_attachment_data(self, attachment_elem: ET.Element) -> Optional[Dict[str, Any]]:
+        """Extract item attachment data from XML element"""
+        try:
+            # Extract raw data using OggDude field names
+            raw_data = {
+                'Name': self._get_text(attachment_elem, 'Name'),
+                'Description': self._get_text(attachment_elem, 'Description'),
+                'Type': self._get_text(attachment_elem, 'Type', 'general'),
+                'Price': self._get_text(attachment_elem, 'Price', '0'),
+                'Rarity': self._get_int(attachment_elem, 'Rarity', 0),
+                'HP': self._get_int(attachment_elem, 'HP', 0),
+                'BaseMods': self._extract_base_mods(attachment_elem)
+            }
+            
+            # Apply field mapping
+            mapped_data = self._apply_field_mapping('attachments', raw_data)
+            
+            # Convert type to Realm VTT format
+            attachment_type = raw_data.get('Type', '').lower()
+            if attachment_type == 'vehicle':
+                mapped_data['type'] = 'vehicle attachment'
+            elif attachment_type == 'armor':
+                mapped_data['type'] = 'armor attachment'
+            elif attachment_type == 'weapon':
+                mapped_data['type'] = 'weapon attachment'
+            else:
+                mapped_data['type'] = 'weapon attachment'
+            
+            # Add default values for Realm VTT
+            mapped_data.update({
+                'modifiers': [],
+                'equipEffect': None,
+                'hasUseBtn': False,
+                'attachments': [],
+                'slotsUsed': 0
+            })
+            
+            # Get sources and convert to category
+            sources = self._get_sources(attachment_elem)
+            category = self._get_category_from_sources(sources)
+            
+            attachment = {
+                'recordType': 'items',
+                'name': mapped_data.get('name', 'Unknown Item Attachment'),
+                'description': mapped_data.get('description', ''),
+                'category': category,
+                'data': mapped_data,
+                'fields': {},
+                'unidentifiedName': 'Unknown Item Attachment',
+                'locked': True
+            }
+            return attachment
+            
+        except Exception as e:
+            print(f"Error extracting item attachment data: {e}")
+            return None
+    
     def _get_weapon_fields(self) -> Dict[str, Any]:
         """Get weapon field configuration"""
         return {
@@ -1007,9 +1118,14 @@ class XMLParser:
             matching_source = None
             for source in sources:
                 for source_config in self.sources_config['sources']:
-                    if source_config['key'] in selected_sources and source_config['name'] == source:
-                        matching_source = source
-                        break
+                    if source_config['key'] in selected_sources:
+                        # Check if the source matches any of the oggdude_sources for this config
+                        for oggdude_source in source_config.get('oggdude_sources', []):
+                            if oggdude_source.lower() == source.lower():
+                                matching_source = source_config['name']
+                                break
+                        if matching_source:
+                            break
                 if matching_source:
                     break
             
@@ -1041,7 +1157,8 @@ class XMLParser:
             'skills': [],
             'specializations': [],
             'species': [],
-            'talents': []
+            'talents': [],
+            'item_attachments': []
         }
         
         directory = Path(directory_path)
@@ -1076,3 +1193,207 @@ class XMLParser:
                 print(f"  {record_type}: {len(records)}")
         
         return all_records 
+
+    def _extract_base_mods(self, elem: ET.Element) -> str:
+        """Extract BaseMods and convert to string using ItemDescriptors"""
+        try:
+            base_mods_elem = elem.find('BaseMods')
+            if base_mods_elem is None:
+                return ""
+            
+            mods = []
+            for mod_elem in base_mods_elem.findall('Mod'):
+                key = self._get_text(mod_elem, 'Key')
+                count = self._get_int(mod_elem, 'Count', 1)
+                
+                # Get the description from ItemDescriptors
+                description = self._get_item_descriptor_description(key)
+                if description:
+                    # Convert OggDude format to plain text
+                    plain_text = self._convert_oggdude_format_to_plain_text(description)
+                    # Replace {0} with the count (even if count is 1)
+                    if '{0}' in plain_text:
+                        plain_text = plain_text.replace('{0}', str(count))
+                    mods.append(plain_text)
+                else:
+                    # Fallback if no description found
+                    if count > 1:
+                        mods.append(f"{key} {count}")
+                    else:
+                        mods.append(key)
+            
+            return "; ".join(mods) if mods else ""
+            
+        except Exception as e:
+            print(f"Error extracting base mods: {e}")
+            return ""
+    
+    def _get_item_descriptor_description(self, key: str) -> Optional[str]:
+        """Get description from ItemDescriptors.xml for a given key"""
+        try:
+            # Check if we have already loaded ItemDescriptors
+            if not hasattr(self, '_item_descriptors'):
+                self._load_item_descriptors()
+            
+            if hasattr(self, '_item_descriptors') and key in self._item_descriptors:
+                # Use QualDesc for attachments (supports {0} placeholder), fallback to ModDesc, then Description
+                descriptor = self._item_descriptors[key]
+                return descriptor.get('qualDesc', descriptor.get('modDesc', descriptor.get('description', '')))
+            
+            return None
+            
+        except Exception as e:
+            print(f"Error getting item descriptor description for {key}: {e}")
+            return None
+    
+    def _load_item_descriptors(self):
+        """Load ItemDescriptors.xml into memory"""
+        try:
+            # Look for ItemDescriptors.xml in the same directory as other XML files
+            item_descriptors_path = None
+            
+            # Check common locations
+            possible_paths = [
+                'ItemDescriptors.xml',
+                'OggData/ItemDescriptors.xml',
+                '../OggData/ItemDescriptors.xml'
+            ]
+            
+            for path in possible_paths:
+                if os.path.exists(path):
+                    item_descriptors_path = path
+                    break
+            
+            if not item_descriptors_path:
+                print("Warning: ItemDescriptors.xml not found")
+                self._item_descriptors = {}
+                return
+            
+            tree = ET.parse(item_descriptors_path)
+            root = tree.getroot()
+            
+            self._item_descriptors = {}
+            for descriptor_elem in root.findall('ItemDescriptor'):
+                key = self._get_text(descriptor_elem, 'Key')
+                if key:
+                    self._item_descriptors[key] = {
+                        'name': self._get_text(descriptor_elem, 'Name'),
+                        'description': self._get_text(descriptor_elem, 'Description'),
+                        'modDesc': self._get_text(descriptor_elem, 'ModDesc'),
+                        'qualDesc': self._get_text(descriptor_elem, 'QualDesc'),
+                        'isQuality': self._get_bool(descriptor_elem, 'IsQuality', False)
+                    }
+            
+            print(f"Loaded {len(self._item_descriptors)} item descriptors")
+            
+        except Exception as e:
+            print(f"Error loading ItemDescriptors.xml: {e}")
+            self._item_descriptors = {}
+    
+    def _convert_oggdude_format_to_plain_text(self, text: str) -> str:
+        """Convert OggDude format to plain text"""
+        if not text:
+            return ""
+        
+        import re
+        
+        # Handle multiple instances first (before single replacements)
+        # Count and replace multiple instances for each tag type
+        di_count = text.count('[DI]')
+        if di_count > 1:
+            text = text.replace('[DI]' * di_count, f'{di_count} difficulty')
+        
+        bo_count = text.count('[BO]')
+        if bo_count > 1:
+            text = text.replace('[BO]' * bo_count, f'{bo_count} Boost')
+        
+        su_count = text.count('[SU]')
+        if su_count > 1:
+            text = text.replace('[SU]' * su_count, f'{su_count} success')
+        
+        ad_count = text.count('[AD]')
+        if ad_count > 1:
+            text = text.replace('[AD]' * ad_count, f'{ad_count} advantage')
+        
+        th_count = text.count('[TH]')
+        if th_count > 1:
+            text = text.replace('[TH]' * th_count, f'{th_count} threat')
+        
+        ab_count = text.count('[AB]')
+        if ab_count > 1:
+            text = text.replace('[AB]' * ab_count, f'{ab_count} ability')
+        
+        pr_count = text.count('[PR]')
+        if pr_count > 1:
+            text = text.replace('[PR]' * pr_count, f'{pr_count} proficiency')
+        
+        ch_count = text.count('[CH]')
+        if ch_count > 1:
+            text = text.replace('[CH]' * ch_count, f'{ch_count} challenge')
+        
+        se_count = text.count('[SE]')
+        if se_count > 1:
+            text = text.replace('[SE]' * se_count, f'{se_count} Setback')
+        
+        fa_count = text.count('[FA]')
+        if fa_count > 1:
+            text = text.replace('[FA]' * fa_count, f'{fa_count} failure')
+        
+        tr_count = text.count('[TR]')
+        if tr_count > 1:
+            text = text.replace('[TR]' * tr_count, f'{tr_count} triumph')
+        
+        de_count = text.count('[DE]')
+        if de_count > 1:
+            text = text.replace('[DE]' * de_count, f'{de_count} despair')
+        
+        # Now handle single instances
+        # Convert [BO] to 'Boost'
+        text = text.replace('[BO]', 'Boost')
+        text = text.replace('[BOOST]', 'Boost')
+
+        # Convert [SE] to 'Setback'
+        text = text.replace('[SE]', 'Setback')
+        text = text.replace('[SETBACK]', 'Setback')
+        
+        # Convert [DI] to 'difficulty'
+        text = text.replace('[DI]', 'difficulty')
+        text = text.replace('[DIFFICULTY]', 'difficulty')
+
+        # Convert [AB] to 'ability'
+        text = text.replace('[AB]', 'ability')
+        text = text.replace('[ABILITY]', 'ability')
+
+        # Convert [PR] to 'proficiency'
+        text = text.replace('[PR]', 'proficiency')
+        text = text.replace('[PROFICIENCY]', 'proficiency')
+
+        # Convert [CH] to 'challenge'
+        text = text.replace('[CH]', 'challenge')
+        text = text.replace('[CHALLENGE]', 'challenge')
+        
+        # Convert [SU] to 'success'
+        text = text.replace('[SU]', 'success')
+        text = text.replace('[SUCCESS]', 'success')
+
+        # Convert [FA] to 'failure'
+        text = text.replace('[FA]', 'failure')
+        text = text.replace('[FAILURE]', 'failure')
+        
+        # Convert [AD] to 'advantage'
+        text = text.replace('[AD]', 'advantage')
+        text = text.replace('[ADVANTAGE]', 'advantage')
+        
+        # Convert [TH] to 'threat'
+        text = text.replace('[TH]', 'threat')
+        text = text.replace('[THREAT]', 'threat')
+        
+        # Convert [TR] to 'triumph'
+        text = text.replace('[TR]', 'triumph')
+        text = text.replace('[TRIUMPH]', 'triumph')
+        
+        # Convert [DE] to 'despair'
+        text = text.replace('[DE]', 'despair')
+        text = text.replace('[DESPAIR]', 'despair')
+        
+        return text.strip() 

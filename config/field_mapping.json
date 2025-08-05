@@ -22,9 +22,10 @@
     "Price": "price",
     "Rarity": "rarity",
     "Restricted": "restricted",
-    "Soak": "soak",
+    "Soak": "soakBonus",
     "Defense": "defense",
-    "HP": "hardpoints"
+    "HP": "hardpoints",
+    "Qualities": "special"
   },
   "gear": {
     "Name": "name",
@@ -35,6 +36,15 @@
     "Rarity": "rarity",
     "Restricted": "restricted",
     "Consumable": "consumable"
+  },
+  "attachments": {
+    "Name": "name",
+    "Description": "description",
+    "Type": "type",
+    "Price": "price",
+    "Rarity": "rarity",
+    "HP": "hardpoints",
+    "BaseMods": "modificationOptions"
   },
   "species": {
     "Name": "name",
