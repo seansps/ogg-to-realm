@@ -14,6 +14,8 @@ class ImportManager:
         self.data_mapper = DataMapper()
         self.campaign_id = None
         self.selected_sources = []
+        self.selected_record_types = []  # All record types by default
+        self.max_import_limit = 0  # No limit by default
         self.oggdude_directory = ""
         self.adversaries_directory = ""
         self.progress_callback = None
@@ -59,6 +61,14 @@ class ImportManager:
         """Set the selected sources for filtering"""
         self.selected_sources = sources
     
+    def set_selected_record_types(self, record_types: List[str]):
+        """Set the selected record types for import"""
+        self.selected_record_types = record_types
+    
+    def set_max_import_limit(self, limit: int):
+        """Set the maximum number of records to import per type (for testing)"""
+        self.max_import_limit = limit
+    
     def set_oggdude_directory(self, directory: str):
         """Set the OggDude directory path"""
         self.oggdude_directory = directory
@@ -77,16 +87,15 @@ class ImportManager:
         self._log_status("Starting file parsing...")
         
         all_records = {
-            'weapons': [],
-            'species': [],
+            'npcs': [],
             'careers': [],
-            'specializations': [],
-            'talents': [],
             'force_powers': [],
-            'vehicles': [],
-            'armor': [],
-            'gear': [],
-            'npcs': []
+            'items': [],
+            'signature_abilities': [],
+            'skills': [],
+            'specializations': [],
+            'species': [],
+            'talents': []
         }
         
         # Parse OggDude XML files
@@ -105,8 +114,31 @@ class ImportManager:
             json_records = self.json_parser.scan_directory(self.adversaries_directory, self.selected_sources)
             all_records['npcs'].extend(json_records)
         
+        # Filter by selected record types (if any are selected)
+        if self.selected_record_types:
+            filtered_records = {}
+            for record_type in self.selected_record_types:
+                if record_type in all_records:
+                    filtered_records[record_type] = all_records[record_type]
+        else:
+            # If no record types selected, use all records
+            filtered_records = all_records
+        
+        # Apply max import limit
+        limited_records = {}
+        for record_type, records in filtered_records.items():
+            if self.max_import_limit > 0 and len(records) > self.max_import_limit:
+                limited_records[record_type] = records[:self.max_import_limit]
+            else:
+                limited_records[record_type] = records
+        
         # Get counts
-        counts = self.data_mapper.get_record_counts(all_records)
+        counts = self.data_mapper.get_record_counts(limited_records)
+        
+        # Debug: Print what we found
+        print(f"DEBUG: Import manager found records:")
+        for record_type, records in limited_records.items():
+            print(f"  {record_type}: {len(records)}")
         
         self._log_status(f"Parsing complete. Found:")
         for record_type, count in counts.items():
@@ -148,16 +180,15 @@ class ImportManager:
             
             # Step 1: Parse all files
             all_records = {
-                'weapons': [],
-                'species': [],
+                'npcs': [],
                 'careers': [],
-                'specializations': [],
-                'talents': [],
                 'force_powers': [],
-                'vehicles': [],
-                'armor': [],
-                'gear': [],
-                'npcs': []
+                'items': [],
+                'signature_abilities': [],
+                'skills': [],
+                'specializations': [],
+                'species': [],
+                'talents': []
             }
             
             # Parse OggDude XML files
@@ -172,21 +203,38 @@ class ImportManager:
                 json_records = self.json_parser.scan_directory(self.adversaries_directory, self.selected_sources)
                 all_records['npcs'].extend(json_records)
             
+            # Filter by selected record types (if any are selected)
+            if self.selected_record_types:
+                filtered_records = {}
+                for record_type in self.selected_record_types:
+                    if record_type in all_records:
+                        filtered_records[record_type] = all_records[record_type]
+            else:
+                # If no record types selected, use all records
+                filtered_records = all_records
+            
+            # Apply max import limit
+            limited_records = {}
+            for record_type, records in filtered_records.items():
+                if self.max_import_limit > 0 and len(records) > self.max_import_limit:
+                    limited_records[record_type] = records[:self.max_import_limit]
+                else:
+                    limited_records[record_type] = records
+            
             # Calculate total records
-            total_records = sum(len(records) for records in all_records.values())
+            total_records = sum(len(records) for records in limited_records.values())
             current_record = 0
             
             # Step 2: Import in order (Items first, then others, then NPCs last)
             import_order = [
-                ('weapons', 'Weapons'),
-                ('armor', 'Armor'),
-                ('gear', 'Gear'),
+                ('items', 'Items'),
                 ('species', 'Species'),
                 ('talents', 'Talents'),
                 ('specializations', 'Specializations'),
                 ('careers', 'Careers'),
                 ('force_powers', 'Force Powers'),
-                ('vehicles', 'Vehicles'),
+                ('skills', 'Skills'),
+                ('signature_abilities', 'Signature Abilities'),
                 ('npcs', 'NPCs')
             ]
             
@@ -194,7 +242,7 @@ class ImportManager:
                 if not self.is_importing:
                     break
                 
-                records = all_records[record_type]
+                records = limited_records[record_type]
                 if not records:
                     continue
                 
@@ -213,7 +261,7 @@ class ImportManager:
                         # Create record in Realm VTT
                         if record_type == 'npcs':
                             created_record = self.api_client.create_npc(realm_record)
-                        elif record_type in ['weapons', 'armor', 'gear']:
+                        elif record_type == 'items':
                             created_record = self.api_client.create_item(realm_record)
                         else:
                             created_record = self.api_client.create_record(realm_record)
@@ -221,7 +269,7 @@ class ImportManager:
                         # Store mapping for later use
                         record_name = record.get('name', '')
                         if record_name:
-                            if record_type in ['weapons', 'armor', 'gear']:
+                            if record_type == 'items':
                                 self.data_mapper.add_item_mapping(record_name, created_record['_id'])
                             elif record_type == 'talents':
                                 self.data_mapper.add_talent_mapping(record_name, created_record['_id'])

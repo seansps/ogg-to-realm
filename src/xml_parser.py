@@ -55,6 +55,61 @@ class XMLParser:
         
         return mapped_data
     
+    def _get_category_from_sources(self, sources: List[str]) -> str:
+        """Convert OggDude sources to Realm VTT category"""
+        if not sources:
+            return ""
+        
+        # Use the first source as the category
+        source_name = sources[0]
+        
+        # Map source names to category names (use full names for consistency)
+        category_mapping = {
+            "Edge of the Empire Core Rulebook": "Edge of the Empire Core Rulebook",
+            "Age of Rebellion Core Rulebook": "Age of Rebellion Core Rulebook", 
+            "Force and Destiny Core Rulebook": "Force and Destiny Core Rulebook",
+            "Far Horizons": "Far Horizons",
+            "Dangerous Covenants": "Dangerous Covenants",
+            "Fly Casual": "Fly Casual",
+            "Forged in Battle": "Forged in Battle",
+            "Stay on Target": "Stay on Target",
+            "Unlimited Power": "Unlimited Power",
+            "Disciples of Harmony": "Disciples of Harmony",
+            "Lords of Nal Hutta": "Lords of Nal Hutta",
+            "Suns of Fortune": "Suns of Fortune",
+            "Nexus of Power": "Nexus of Power",
+            "Fully Operational": "Fully Operational",
+            "Cyphers and Masks": "Cyphers and Masks",
+            "Rise of the Separatists": "Rise of the Separatists",
+            "Collapse of the Republic": "Collapse of the Republic",
+            "Dawn of Rebellion": "Dawn of Rebellion",
+            "Chronicles of the Gatekeeper": "Chronicles of the Gatekeeper",
+            "Savage Spirits": "Savage Spirits",
+            "Endless Vigil": "Endless Vigil",
+            "Lead by Example": "Lead by Example",
+            "Strongholds of Resistance": "Strongholds of Resistance",
+            "Special Modifications": "Special Modifications",
+            "Keeping the Peace": "Keeping the Peace",
+            "Knights of Fate": "Knights of Fate",
+            "Ghosts of Dathomir": "Ghosts of Dathomir",
+            "Mask of the Pirate Queen": "Mask of the Pirate Queen",
+            "No Disintegrations": "No Disintegrations",
+            "Onslaught at Arda I": "Onslaught at Arda I",
+            "Under a Black Sun": "Under a Black Sun",
+            "Beyond the Rim": "Beyond the Rim",
+            "Long Arm of the Hutt": "Long Arm of the Hutt",
+            "Jewel of Yavin": "Jewel of Yavin",
+            "Desperate Allies": "Desperate Allies",
+            "Friends Like These": "Friends Like These",
+            "Allies and Adversaries": "Allies and Adversaries",
+            "Force and Destiny Game Master's Kit": "Force and Destiny Game Master's Kit",
+            "Age of Rebellion Beta Rulebook": "Age of Rebellion Beta Rulebook",
+            "Force and Destiny Beta Rulebook": "Force and Destiny Beta Rulebook",
+            "Unofficial Species Menagerie": "Unofficial Species Menagerie"
+        }
+        
+        return category_mapping.get(source_name, source_name)
+    
     def parse_xml_file(self, file_path: str) -> List[Dict[str, Any]]:
         """
         Parse a single XML file and extract records
@@ -82,6 +137,8 @@ class XMLParser:
                 records = self._parse_specialization(root)
             elif root.tag == 'Talent':
                 records = self._parse_talent(root)
+            elif root.tag == 'Talents':
+                records = self._parse_talents(root)
             elif root.tag == 'ForcePower':
                 records = self._parse_force_power(root)
             elif root.tag == 'Vehicle':
@@ -90,6 +147,8 @@ class XMLParser:
                 records = self._parse_armor(root)
             elif root.tag == 'Gear':
                 records = self._parse_gear(root)
+            elif root.tag == 'Skills':
+                records = self._parse_skills(root)
             else:
                 # Generic parsing for other types
                 records = self._parse_generic(root)
@@ -153,12 +212,16 @@ class XMLParser:
                 'slotsUsed': 0
             })
             
+            # Get sources and convert to category
+            sources = self._get_sources(weapon_elem)
+            category = self._get_category_from_sources(sources)
+            
             weapon = {
-                'recordType': 'weapons',
+                'recordType': 'items',
                 'type': 'weapon',
                 'name': mapped_data.get('name', 'Unknown Weapon'),
                 'description': mapped_data.get('description', ''),
-                'sources': self._get_sources(weapon_elem),
+                'category': category,
                 'data': mapped_data,
                 'fields': self._get_weapon_fields(),
                 'unidentifiedName': 'Unidentified Items',
@@ -181,10 +244,20 @@ class XMLParser:
     def _parse_species(self, root: ET.Element) -> List[Dict[str, Any]]:
         """Parse species from XML"""
         species = []
-        for species_elem in root.findall('Species'):
-            species_data = self._extract_species_data(species_elem)
+        
+        # Check if this is a single species file (like Bith.xml)
+        # where the species data is directly in the root element
+        if root.tag == 'Species':
+            species_data = self._extract_species_data(root)
             if species_data:
                 species.append(species_data)
+        else:
+            # Handle multiple species in a file
+            for species_elem in root.findall('Species'):
+                species_data = self._extract_species_data(species_elem)
+                if species_data:
+                    species.append(species_data)
+        
         return species
     
     def _extract_species_data(self, species_elem: ET.Element) -> Optional[Dict[str, Any]]:
@@ -203,11 +276,15 @@ class XMLParser:
             # Apply field mapping
             mapped_data = self._apply_field_mapping('species', raw_data)
             
+            # Get sources and convert to category
+            sources = self._get_sources(species_elem)
+            category = self._get_category_from_sources(sources)
+            
             species = {
                 'recordType': 'species',
                 'name': mapped_data.get('name', 'Unknown Species'),
                 'description': mapped_data.get('description', ''),
-                'sources': self._get_sources(species_elem),
+                'category': category,
                 'data': mapped_data,
                 'unidentifiedName': 'Unknown Species',
                 'locked': True
@@ -237,11 +314,15 @@ class XMLParser:
             # Apply field mapping
             mapped_data = self._apply_field_mapping('careers', raw_data)
             
+            # Get sources and convert to category
+            sources = self._get_sources(career_elem)
+            category = self._get_category_from_sources(sources)
+            
             career = {
                 'recordType': 'careers',
                 'name': mapped_data.get('name', 'Unknown Career'),
                 'description': mapped_data.get('description', ''),
-                'sources': self._get_sources(career_elem),
+                'category': category,
                 'data': mapped_data,
                 'unidentifiedName': 'Unknown Career',
                 'locked': True
@@ -272,11 +353,15 @@ class XMLParser:
             # Apply field mapping
             mapped_data = self._apply_field_mapping('specializations', raw_data)
             
+            # Get sources and convert to category
+            sources = self._get_sources(spec_elem)
+            category = self._get_category_from_sources(sources)
+            
             spec = {
                 'recordType': 'specializations',
                 'name': mapped_data.get('name', 'Unknown Specialization'),
                 'description': mapped_data.get('description', ''),
-                'sources': self._get_sources(spec_elem),
+                'category': category,
                 'data': mapped_data,
                 'unidentifiedName': 'Unknown Specialization',
                 'locked': True
@@ -287,8 +372,17 @@ class XMLParser:
             print(f"Error extracting specialization data: {e}")
             return None
     
+    def _parse_talents(self, root: ET.Element) -> List[Dict[str, Any]]:
+        """Parse talents from XML (plural root tag)"""
+        talents = []
+        for talent_elem in root.findall('Talent'):
+            talent = self._extract_talent_data(talent_elem)
+            if talent:
+                talents.append(talent)
+        return talents
+    
     def _parse_talent(self, root: ET.Element) -> List[Dict[str, Any]]:
-        """Parse talent from XML"""
+        """Parse talent from XML (singular root tag)"""
         talent = self._extract_talent_data(root)
         return [talent] if talent else []
     
@@ -307,11 +401,15 @@ class XMLParser:
             # Apply field mapping
             mapped_data = self._apply_field_mapping('talents', raw_data)
             
+            # Get sources and convert to category
+            sources = self._get_sources(talent_elem)
+            category = self._get_category_from_sources(sources)
+            
             talent = {
                 'recordType': 'talents',
                 'name': mapped_data.get('name', 'Unknown Talent'),
                 'description': mapped_data.get('description', ''),
-                'sources': self._get_sources(talent_elem),
+                'category': category,
                 'data': mapped_data,
                 'unidentifiedName': 'Unknown Talent',
                 'locked': True
@@ -342,11 +440,15 @@ class XMLParser:
             # Apply field mapping
             mapped_data = self._apply_field_mapping('force_powers', raw_data)
             
+            # Get sources and convert to category
+            sources = self._get_sources(power_elem)
+            category = self._get_category_from_sources(sources)
+            
             power = {
                 'recordType': 'force_powers',
                 'name': mapped_data.get('name', 'Unknown Force Power'),
                 'description': mapped_data.get('description', ''),
-                'sources': self._get_sources(power_elem),
+                'category': category,
                 'data': mapped_data,
                 'unidentifiedName': 'Unknown Force Power',
                 'locked': True
@@ -358,7 +460,7 @@ class XMLParser:
             return None
     
     def _parse_vehicle(self, root: ET.Element) -> List[Dict[str, Any]]:
-        """Parse vehicle from XML"""
+        """Parse vehicle from XML - vehicles are npcs in Realm VTT"""
         vehicle = self._extract_vehicle_data(root)
         return [vehicle] if vehicle else []
     
@@ -389,12 +491,20 @@ class XMLParser:
             # Apply field mapping
             mapped_data = self._apply_field_mapping('vehicles', raw_data)
             
+            # Get sources and convert to category
+            sources = self._get_sources(vehicle_elem)
+            category = self._get_category_from_sources(sources)
+            
+            # Vehicles are npcs in Realm VTT with type = 'vehicle'
             vehicle = {
-                'recordType': 'vehicles',
+                'recordType': 'npcs',
                 'name': mapped_data.get('name', 'Unknown Vehicle'),
                 'description': mapped_data.get('description', ''),
-                'sources': self._get_sources(vehicle_elem),
-                'data': mapped_data,
+                'category': category,
+                'data': {
+                    'type': 'vehicle',
+                    **mapped_data
+                },
                 'unidentifiedName': 'Unknown Vehicle',
                 'locked': True
             }
@@ -439,12 +549,16 @@ class XMLParser:
                 'slotsUsed': 0
             })
             
+            # Get sources and convert to category
+            sources = self._get_sources(armor_elem)
+            category = self._get_category_from_sources(sources)
+            
             armor = {
                 'recordType': 'items',
                 'type': 'armor',
                 'name': mapped_data.get('name', 'Unknown Armor'),
                 'description': mapped_data.get('description', ''),
-                'sources': self._get_sources(armor_elem),
+                'category': category,
                 'data': mapped_data,
                 'fields': self._get_armor_fields(),
                 'unidentifiedName': 'Unidentified Items',
@@ -488,12 +602,16 @@ class XMLParser:
                 'slotsUsed': 0
             })
             
+            # Get sources and convert to category
+            sources = self._get_sources(gear_elem)
+            category = self._get_category_from_sources(sources)
+            
             gear = {
                 'recordType': 'items',
                 'type': 'gear',
                 'name': mapped_data.get('name', 'Unknown Gear'),
                 'description': mapped_data.get('description', ''),
-                'sources': self._get_sources(gear_elem),
+                'category': category,
                 'data': mapped_data,
                 'fields': self._get_gear_fields(),
                 'unidentifiedName': 'Unidentified Items',
@@ -503,6 +621,49 @@ class XMLParser:
             
         except Exception as e:
             print(f"Error extracting gear data: {e}")
+            return None
+    
+    def _parse_skills(self, root: ET.Element) -> List[Dict[str, Any]]:
+        """Parse skills from XML"""
+        skills = []
+        for skill_elem in root.findall('Skill'):
+            skill = self._extract_skill_data(skill_elem)
+            if skill:
+                skills.append(skill)
+        return skills
+    
+    def _extract_skill_data(self, skill_elem: ET.Element) -> Optional[Dict[str, Any]]:
+        """Extract skill data from XML element"""
+        try:
+            # Extract raw data using OggDude field names
+            raw_data = {
+                'Name': self._get_text(skill_elem, 'Name'),
+                'Description': self._get_text(skill_elem, 'Description'),
+                'Key': self._get_text(skill_elem, 'Key'),
+                'Characteristic': self._get_text(skill_elem, 'Characteristic'),
+                'Type': self._get_text(skill_elem, 'Type', 'general')
+            }
+            
+            # Apply field mapping
+            mapped_data = self._apply_field_mapping('skills', raw_data)
+            
+            # Get sources and convert to category
+            sources = self._get_sources(skill_elem)
+            category = self._get_category_from_sources(sources)
+            
+            skill = {
+                'recordType': 'skills',
+                'name': mapped_data.get('name', 'Unknown Skill'),
+                'description': mapped_data.get('description', ''),
+                'category': category,
+                'data': mapped_data,
+                'unidentifiedName': 'Unknown Skill',
+                'locked': True
+            }
+            return skill
+            
+        except Exception as e:
+            print(f"Error extracting skill data: {e}")
             return None
     
     def _parse_generic(self, root: ET.Element) -> List[Dict[str, Any]]:
@@ -539,11 +700,15 @@ class XMLParser:
             else:
                 mapped_data = raw_data
             
+            # Get sources and convert to category
+            sources = self._get_sources(elem)
+            category = self._get_category_from_sources(sources)
+            
             record = {
                 'recordType': record_type.lower(),
                 'name': mapped_data.get('name', f'Unknown {record_type}'),
                 'description': mapped_data.get('description', ''),
-                'sources': self._get_sources(elem),
+                'category': category,
                 'data': mapped_data,
                 'unidentifiedName': f'Unknown {record_type}',
                 'locked': True
@@ -819,23 +984,16 @@ class XMLParser:
         
         filtered_records = []
         for record in records:
-            # Get all sources for this record
-            record_sources = record.get('sources', [])
+            # Get category for this record
+            category = record.get('category', '')
             
-            # Check if any of the record's sources match any selected source
-            for record_source in record_sources:
-                for source_config in self.sources_config['sources']:
-                    if source_config['key'] in selected_sources:
-                        for oggdude_source in source_config['oggdude_sources']:
-                            if oggdude_source.lower() in record_source.lower():
-                                filtered_records.append(record)
-                                break
-                        else:
-                            continue
+            # Check if the category matches any selected source
+            for source_config in self.sources_config['sources']:
+                if source_config['key'] in selected_sources:
+                    # Compare category with the source name (not oggdude_sources)
+                    if source_config['name'] == category:
+                        filtered_records.append(record)
                         break
-                else:
-                    continue
-                break  # Found a match, no need to check other record sources
         
         return filtered_records
     
@@ -851,16 +1009,15 @@ class XMLParser:
             Dictionary mapping record types to lists of records
         """
         all_records = {
-            'weapons': [],
-            'species': [],
+            'npcs': [],
             'careers': [],
-            'specializations': [],
-            'talents': [],
             'force_powers': [],
-            'vehicles': [],
-            'armor': [],
-            'gear': [],
-            'npcs': []
+            'items': [],
+            'signature_abilities': [],
+            'skills': [],
+            'specializations': [],
+            'species': [],
+            'talents': []
         }
         
         directory = Path(directory_path)
@@ -887,5 +1044,11 @@ class XMLParser:
                     all_records[record_type].append(record)
                 else:
                     print(f"Unknown record type: {record_type}")
+        
+        # Debug: Print what we found
+        print(f"DEBUG: XML parser scan_directory found:")
+        for record_type, records in all_records.items():
+            if len(records) > 0:
+                print(f"  {record_type}: {len(records)}")
         
         return all_records 

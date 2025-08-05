@@ -229,8 +229,15 @@ class OggDudeImporterGUI:
             lambda e: sources_canvas.configure(scrollregion=sources_canvas.bbox("all"))
         )
         
-        sources_canvas.create_window((0, 0), window=sources_scrollable_frame, anchor="nw")
+        # Create the window in the canvas with proper width handling
+        sources_canvas_window = sources_canvas.create_window((0, 0), window=sources_scrollable_frame, anchor="nw")
         sources_canvas.configure(yscrollcommand=sources_scrollbar.set)
+        
+        # Function to update the canvas window width when canvas is resized
+        def on_sources_canvas_configure(event):
+            sources_canvas.itemconfig(sources_canvas_window, width=event.width)
+        
+        sources_canvas.bind('<Configure>', on_sources_canvas_configure)
         
         # Create checkboxes for sources
         self.source_vars = {}
@@ -273,12 +280,32 @@ class OggDudeImporterGUI:
     
     def create_import_tab(self, parent):
         """Create import tab"""
+        # Create a canvas with scrollbar
+        canvas = tk.Canvas(parent)
+        scrollbar = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        # Create the window in the canvas
+        canvas_window = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Function to update the canvas window width when canvas is resized
+        def on_canvas_configure(event):
+            canvas.itemconfig(canvas_window, width=event.width)
+        
+        canvas.bind('<Configure>', on_canvas_configure)
+        
         # Title
-        title_label = ttk.Label(parent, text="Import Data", font=("Arial", 16, "bold"))
+        title_label = ttk.Label(scrollable_frame, text="Import Data", font=("Arial", 16, "bold"))
         title_label.pack(pady=20)
         
         # Buttons frame
-        buttons_frame = ttk.Frame(parent)
+        buttons_frame = ttk.Frame(scrollable_frame)
         buttons_frame.pack(pady=10)
         
         # Check setup button
@@ -289,32 +316,80 @@ class OggDudeImporterGUI:
         parse_button = ttk.Button(buttons_frame, text="Parse Files", command=self.parse_files)
         parse_button.pack(side=tk.LEFT, padx=5)
         
+        # Record type selection frame
+        selection_frame = ttk.LabelFrame(scrollable_frame, text="Select Record Types to Import", padding=20)
+        selection_frame.pack(fill=tk.X, padx=20, pady=10)
+        
+        # Create checkboxes for record types
+        self.record_type_vars = {}
+        record_types = [
+            'items', 'species', 'careers', 'specializations', 
+            'talents', 'force_powers', 'skills', 'npcs'
+        ]
+        
+        for i, record_type in enumerate(record_types):
+            # Special display name for NPCs to show it includes vehicles
+            if record_type == 'npcs':
+                display_name = 'NPCs / Vehicles'
+            elif record_type == 'force_powers':
+                display_name = 'Force Powers'
+            else:
+                display_name = record_type.title()
+            
+            var = tk.BooleanVar(value=True)  # Default to checked
+            self.record_type_vars[record_type] = var
+            
+            checkbox = ttk.Checkbutton(selection_frame, text=display_name, variable=var, 
+                                      command=self.update_warnings)
+            checkbox.grid(row=i//2, column=i%2, sticky=tk.W, padx=10, pady=5)
+        
+        # Warning messages frame
+        self.warnings_frame = ttk.LabelFrame(scrollable_frame, text="Import Warnings", padding=10)
+        self.warnings_frame.pack(fill=tk.X, padx=20, pady=5)
+        
+        # Warning labels (initially hidden)
+        self.npc_warning_label = ttk.Label(self.warnings_frame, text="⚠️ Vehicles and NPCs will be missing equipment unless Items are also parsed.", foreground="orange")
+        self.spec_warning_label = ttk.Label(self.warnings_frame, text="⚠️ Specializations without Talents also parsed will be missing the Talent records.", foreground="orange")
+        
+        # Max import frame
+        max_import_frame = ttk.LabelFrame(scrollable_frame, text="Testing Options", padding=10)
+        max_import_frame.pack(fill=tk.X, padx=20, pady=5)
+        
+        ttk.Label(max_import_frame, text="Max records per type (for testing, 0 = no limit):").pack(side=tk.LEFT, padx=5)
+        self.max_import_var = tk.StringVar(value="0")
+        max_import_entry = ttk.Entry(max_import_frame, textvariable=self.max_import_var, width=10)
+        max_import_entry.pack(side=tk.LEFT, padx=5)
+        
         # Record counts frame
-        counts_frame = ttk.LabelFrame(parent, text="Record Counts", padding=20)
+        counts_frame = ttk.LabelFrame(scrollable_frame, text="Record Counts", padding=20)
         counts_frame.pack(fill=tk.X, padx=20, pady=10)
         
         # Create labels for record counts
         self.count_labels = {}
-        record_types = [
-            'weapons', 'species', 'careers', 'specializations', 
-            'talents', 'force_powers', 'vehicles', 'armor', 'gear', 'npcs'
-        ]
         
         for i, record_type in enumerate(record_types):
-            label = ttk.Label(counts_frame, text=f"{record_type.title()}: 0")
+            # Special display name for NPCs to show it includes vehicles
+            if record_type == 'npcs':
+                display_name = 'NPCs / Vehicles'
+            elif record_type == 'force_powers':
+                display_name = 'Force Powers'
+            else:
+                display_name = record_type.title()
+            
+            label = ttk.Label(counts_frame, text=f"{display_name}: 0")
             label.grid(row=i//2, column=i%2, sticky=tk.W, padx=10, pady=5)
             self.count_labels[record_type] = label
         
         # Import button
-        self.import_button = ttk.Button(parent, text="Start Import", command=self.start_import, state=tk.DISABLED)
+        self.import_button = ttk.Button(scrollable_frame, text="Start Import", command=self.start_import, state=tk.DISABLED)
         self.import_button.pack(pady=10)
         
         # Stop button
-        self.stop_button = ttk.Button(parent, text="Stop Import", command=self.stop_import, state=tk.DISABLED)
+        self.stop_button = ttk.Button(scrollable_frame, text="Stop Import", command=self.stop_import, state=tk.DISABLED)
         self.stop_button.pack(pady=5)
         
         # Progress frame
-        progress_frame = ttk.LabelFrame(parent, text="Import Progress", padding=20)
+        progress_frame = ttk.LabelFrame(scrollable_frame, text="Import Progress", padding=20)
         progress_frame.pack(fill=tk.X, padx=20, pady=10)
         
         # Progress bar
@@ -329,6 +404,16 @@ class OggDudeImporterGUI:
         # Current operation label
         self.operation_label = ttk.Label(progress_frame, text="", font=("Arial", 10))
         self.operation_label.pack(pady=5)
+        
+        # Pack the canvas and scrollbar
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        
+        # Bind mouse wheel to canvas
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)
     
     def create_status_tab(self, parent):
         """Create status tab"""
@@ -508,31 +593,97 @@ class OggDudeImporterGUI:
                                "Browse for your OggDude or Adversaries directories in the Configuration tab.")
             return
         
+        # Check 3: Selected record types
+        selected_record_types = self.get_selected_record_types()
+        if not selected_record_types:
+            messagebox.showerror("No Record Types Selected", 
+                               "Please select at least one record type to import.\n\n"
+                               "Check the record types you want to import above.")
+            return
+        
         # Set selected sources in import manager
         self.import_manager.set_selected_sources(selected_sources)
+        
+        # Set selected record types in import manager
+        self.import_manager.set_selected_record_types(selected_record_types)
+        
+        # Set max import limit in import manager
+        max_import_limit = self.get_max_import_limit()
+        self.import_manager.set_max_import_limit(max_import_limit)
         
         try:
             # Parse files
             counts = self.import_manager.parse_files()
             
+            # Debug: Print the counts we received
+            print(f"DEBUG: Received counts from import manager: {counts}")
+            
+            # Filter counts based on selected record types
+            filtered_counts = {record_type: count for record_type, count in counts.items() 
+                             if record_type in selected_record_types}
+            
             # Update count labels
             for record_type, count in counts.items():
                 if record_type in self.count_labels:
-                    self.count_labels[record_type].config(text=f"{record_type.title()}: {count}")
+                    # Use the same display name logic as when creating labels
+                    if record_type == 'npcs':
+                        display_name = 'NPCs / Vehicles'
+                    elif record_type == 'force_powers':
+                        display_name = 'Force Powers'
+                    else:
+                        display_name = record_type.title()
+                    
+                    # Show count in parentheses if not selected
+                    if record_type in selected_record_types:
+                        self.count_labels[record_type].config(text=f"{display_name}: {count}")
+                    else:
+                        self.count_labels[record_type].config(text=f"{display_name}: {count} (not selected)")
+                    
+                    print(f"DEBUG: Updated {record_type} label to {count}")
+                else:
+                    print(f"DEBUG: Record type '{record_type}' not found in count_labels: {list(self.count_labels.keys())}")
             
-            # Enable import button if we have records
-            total_records = sum(counts.values())
+            # Update warnings
+            self.update_warnings()
+            
+            # Enable import button if we have records in selected types
+            total_records = sum(filtered_counts.values())
             if total_records > 0:
                 self.import_button.config(state=tk.NORMAL)
-                messagebox.showinfo("Success", f"Found {total_records} records to import")
+                messagebox.showinfo("Success", f"Found {total_records} records to import from selected types")
             else:
                 self.import_button.config(state=tk.DISABLED)
-                messagebox.showwarning("Warning", "No records found matching selected sources")
+                messagebox.showwarning("Warning", "No records found in selected record types")
                 
         except Exception as e:
             self.import_button.config(state=tk.DISABLED)
             messagebox.showerror("Error", f"Failed to parse files: {e}")
             self.update_status(f"Parse error: {e}")
+    
+    def update_warnings(self):
+        """Update warning messages based on selected record types"""
+        # Hide all warnings initially
+        self.npc_warning_label.pack_forget()
+        self.spec_warning_label.pack_forget()
+        
+        # Check if NPCs are selected but Items are not
+        if self.record_type_vars['npcs'].get() and not self.record_type_vars['items'].get():
+            self.npc_warning_label.pack(fill=tk.X, padx=5, pady=2)
+        
+        # Check if Specializations are selected but Talents are not
+        if self.record_type_vars['specializations'].get() and not self.record_type_vars['talents'].get():
+            self.spec_warning_label.pack(fill=tk.X, padx=5, pady=2)
+    
+    def get_selected_record_types(self) -> List[str]:
+        """Get list of selected record types"""
+        return [record_type for record_type, var in self.record_type_vars.items() if var.get()]
+    
+    def get_max_import_limit(self) -> int:
+        """Get the max import limit from the entry field"""
+        try:
+            return int(self.max_import_var.get())
+        except ValueError:
+            return 0
     
     def validate_setup(self) -> tuple[bool, list[str]]:
         """
@@ -636,6 +787,13 @@ class OggDudeImporterGUI:
                                    f"This action cannot be undone.")
         if not result:
             return
+        
+        # Set selected record types and max import limit
+        selected_record_types = self.get_selected_record_types()
+        max_import_limit = self.get_max_import_limit()
+        
+        self.import_manager.set_selected_record_types(selected_record_types)
+        self.import_manager.set_max_import_limit(max_import_limit)
         
         # Start import
         self.import_manager.start_import()
