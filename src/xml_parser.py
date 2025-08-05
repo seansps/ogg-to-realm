@@ -154,11 +154,11 @@ class XMLParser:
             })
             
             weapon = {
-                'recordType': 'items',
+                'recordType': 'weapons',
                 'type': 'weapon',
                 'name': mapped_data.get('name', 'Unknown Weapon'),
                 'description': mapped_data.get('description', ''),
-                'source': self._get_source(weapon_elem),
+                'sources': self._get_sources(weapon_elem),
                 'data': mapped_data,
                 'fields': self._get_weapon_fields(),
                 'unidentifiedName': 'Unidentified Items',
@@ -207,7 +207,7 @@ class XMLParser:
                 'recordType': 'species',
                 'name': mapped_data.get('name', 'Unknown Species'),
                 'description': mapped_data.get('description', ''),
-                'source': self._get_source(species_elem),
+                'sources': self._get_sources(species_elem),
                 'data': mapped_data,
                 'unidentifiedName': 'Unknown Species',
                 'locked': True
@@ -241,7 +241,7 @@ class XMLParser:
                 'recordType': 'careers',
                 'name': mapped_data.get('name', 'Unknown Career'),
                 'description': mapped_data.get('description', ''),
-                'source': self._get_source(career_elem),
+                'sources': self._get_sources(career_elem),
                 'data': mapped_data,
                 'unidentifiedName': 'Unknown Career',
                 'locked': True
@@ -276,7 +276,7 @@ class XMLParser:
                 'recordType': 'specializations',
                 'name': mapped_data.get('name', 'Unknown Specialization'),
                 'description': mapped_data.get('description', ''),
-                'source': self._get_source(spec_elem),
+                'sources': self._get_sources(spec_elem),
                 'data': mapped_data,
                 'unidentifiedName': 'Unknown Specialization',
                 'locked': True
@@ -311,7 +311,7 @@ class XMLParser:
                 'recordType': 'talents',
                 'name': mapped_data.get('name', 'Unknown Talent'),
                 'description': mapped_data.get('description', ''),
-                'source': self._get_source(talent_elem),
+                'sources': self._get_sources(talent_elem),
                 'data': mapped_data,
                 'unidentifiedName': 'Unknown Talent',
                 'locked': True
@@ -346,7 +346,7 @@ class XMLParser:
                 'recordType': 'force_powers',
                 'name': mapped_data.get('name', 'Unknown Force Power'),
                 'description': mapped_data.get('description', ''),
-                'source': self._get_source(power_elem),
+                'sources': self._get_sources(power_elem),
                 'data': mapped_data,
                 'unidentifiedName': 'Unknown Force Power',
                 'locked': True
@@ -393,7 +393,7 @@ class XMLParser:
                 'recordType': 'vehicles',
                 'name': mapped_data.get('name', 'Unknown Vehicle'),
                 'description': mapped_data.get('description', ''),
-                'source': self._get_source(vehicle_elem),
+                'sources': self._get_sources(vehicle_elem),
                 'data': mapped_data,
                 'unidentifiedName': 'Unknown Vehicle',
                 'locked': True
@@ -444,7 +444,7 @@ class XMLParser:
                 'type': 'armor',
                 'name': mapped_data.get('name', 'Unknown Armor'),
                 'description': mapped_data.get('description', ''),
-                'source': self._get_source(armor_elem),
+                'sources': self._get_sources(armor_elem),
                 'data': mapped_data,
                 'fields': self._get_armor_fields(),
                 'unidentifiedName': 'Unidentified Items',
@@ -493,7 +493,7 @@ class XMLParser:
                 'type': 'gear',
                 'name': mapped_data.get('name', 'Unknown Gear'),
                 'description': mapped_data.get('description', ''),
-                'source': self._get_source(gear_elem),
+                'sources': self._get_sources(gear_elem),
                 'data': mapped_data,
                 'fields': self._get_gear_fields(),
                 'unidentifiedName': 'Unidentified Items',
@@ -543,7 +543,7 @@ class XMLParser:
                 'recordType': record_type.lower(),
                 'name': mapped_data.get('name', f'Unknown {record_type}'),
                 'description': mapped_data.get('description', ''),
-                'source': self._get_source(elem),
+                'sources': self._get_sources(elem),
                 'data': mapped_data,
                 'unidentifiedName': f'Unknown {record_type}',
                 'locked': True
@@ -577,8 +577,27 @@ class XMLParser:
         """Get source from XML element"""
         source_elem = elem.find('Source')
         if source_elem is not None:
-            return source_elem.get('Page', '') or source_elem.text or ''
+            # Prioritize the text content (source name) over the Page attribute
+            return source_elem.text or source_elem.get('Page', '') or ''
         return ''
+    
+    def _get_sources(self, elem: ET.Element) -> List[str]:
+        """Get all sources from XML element (handles multiple sources)"""
+        sources = []
+        
+        # First, check for individual Source tags (single source)
+        for source_elem in elem.findall('Source'):
+            if source_elem.text:
+                sources.append(source_elem.text.strip())
+        
+        # Then, check for Sources container with multiple Source tags
+        sources_container = elem.find('Sources')
+        if sources_container is not None:
+            for source_elem in sources_container.findall('Source'):
+                if source_elem.text:
+                    sources.append(source_elem.text.strip())
+        
+        return sources
     
     def _get_element_value(self, elem: ET.Element) -> Any:
         """Get value from XML element, handling different types"""
@@ -740,7 +759,7 @@ class XMLParser:
             "stunBtn": {"hidden": True},
             "weaponAttached": {"hidden": True},
             "weaponAttachedLabel": {"hidden": True},
-            "weaponAttachmentProperties": {"hidden": True},
+            "weaponAttachmentProperties": {"hidden": False},
             "weaponProperties": {"hidden": False},
             "weaponType": {"hidden": True},
             "weaponAttachmentsProperties": {"hidden": False},
@@ -800,16 +819,23 @@ class XMLParser:
         
         filtered_records = []
         for record in records:
-            record_source = record.get('source', '')
-            for source_config in self.sources_config['sources']:
-                if source_config['key'] in selected_sources:
-                    for oggdude_source in source_config['oggdude_sources']:
-                        if oggdude_source.lower() in record_source.lower():
-                            filtered_records.append(record)
-                            break
-                    else:
-                        continue
-                    break
+            # Get all sources for this record
+            record_sources = record.get('sources', [])
+            
+            # Check if any of the record's sources match any selected source
+            for record_source in record_sources:
+                for source_config in self.sources_config['sources']:
+                    if source_config['key'] in selected_sources:
+                        for oggdude_source in source_config['oggdude_sources']:
+                            if oggdude_source.lower() in record_source.lower():
+                                filtered_records.append(record)
+                                break
+                        else:
+                            continue
+                        break
+                else:
+                    continue
+                break  # Found a match, no need to check other record sources
         
         return filtered_records
     
