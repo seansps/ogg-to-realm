@@ -5,6 +5,7 @@ import threading
 from typing import Dict, List, Any
 from .api_client import RealmVTTClient
 from .import_manager import ImportManager
+import os
 
 class OggDudeImporterGUI:
     def __init__(self, root):
@@ -40,6 +41,9 @@ class OggDudeImporterGUI:
         self.sources_config = self.load_sources_config()
         
         self.create_widgets()
+        
+        # Load saved credentials on startup
+        self.load_credentials_on_startup()
     
     def center_window(self):
         """Center the window on the screen"""
@@ -69,6 +73,20 @@ class OggDudeImporterGUI:
         # Go up one level to get the project root
         project_root = os.path.dirname(src_dir)
         return project_root
+    
+    def get_default_oggdata_directory(self):
+        """Get the default OggData directory"""
+        import os
+        project_root = self.get_default_directory()
+        oggdata_dir = os.path.join(project_root, "OggData")
+        return oggdata_dir
+    
+    def get_default_adversaries_directory(self):
+        """Get the default Adversaries directory"""
+        import os
+        project_root = self.get_default_directory()
+        adversaries_dir = os.path.join(project_root, "Adversaries")
+        return adversaries_dir
     
     def load_sources_config(self) -> Dict[str, Any]:
         """Load sources configuration"""
@@ -109,12 +127,32 @@ class OggDudeImporterGUI:
     
     def create_login_tab(self, parent):
         """Create login tab"""
+        # Create a canvas with scrollbar
+        canvas = tk.Canvas(parent)
+        scrollbar = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        # Create the window in the canvas with proper width handling
+        canvas_window = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Function to update the canvas window width when canvas is resized
+        def on_canvas_configure(event):
+            canvas.itemconfig(canvas_window, width=event.width)
+        
+        canvas.bind('<Configure>', on_canvas_configure)
+        
         # Title
-        title_label = ttk.Label(parent, text="Realm VTT Login", font=("Arial", 16, "bold"))
+        title_label = ttk.Label(scrollable_frame, text="Realm VTT Login", font=("Arial", 16, "bold"))
         title_label.pack(pady=20)
         
         # Login frame
-        login_frame = ttk.LabelFrame(parent, text="Login Credentials", padding=20)
+        login_frame = ttk.LabelFrame(scrollable_frame, text="Login Credentials", padding=20)
         login_frame.pack(fill=tk.X, padx=20, pady=10)
         
         # Email
@@ -139,6 +177,11 @@ class OggDudeImporterGUI:
         self.login_button = ttk.Button(login_button_frame, text="Login", command=self.login)
         self.login_button.pack(side=tk.LEFT, padx=5)
         
+        # Save credentials checkbox
+        self.save_credentials_var = tk.BooleanVar()
+        save_checkbox = ttk.Checkbutton(login_button_frame, text="Save credentials", variable=self.save_credentials_var)
+        save_checkbox.pack(side=tk.LEFT, padx=10)
+        
         # Login status indicator
         self.login_status_frame = ttk.Frame(login_button_frame)
         self.login_status_frame.pack(side=tk.LEFT, padx=10)
@@ -149,8 +192,29 @@ class OggDudeImporterGUI:
         self.login_status_text = ttk.Label(self.login_status_frame, text="", font=("Arial", 10))
         self.login_status_text.pack(side=tk.LEFT, padx=5)
         
+        # Warning about plain text storage
+        warning_frame = ttk.Frame(login_frame)
+        warning_frame.grid(row=4, column=0, columnspan=2, pady=5)
+        
+        warning_label = ttk.Label(warning_frame, text="⚠️ Warning: Credentials will be stored in plain text", 
+                                 foreground="orange", font=("Arial", 9))
+        warning_label.pack()
+        
+        # Save/Load buttons frame
+        save_load_frame = ttk.Frame(login_frame)
+        save_load_frame.grid(row=5, column=0, columnspan=2, pady=10)
+        
+        save_button = ttk.Button(save_load_frame, text="Save Credentials", command=self.save_credentials)
+        save_button.pack(side=tk.LEFT, padx=5)
+        
+        load_button = ttk.Button(save_load_frame, text="Load Credentials", command=self.load_credentials)
+        load_button.pack(side=tk.LEFT, padx=5)
+        
+        clear_button = ttk.Button(save_load_frame, text="Clear Saved", command=self.clear_saved_credentials)
+        clear_button.pack(side=tk.LEFT, padx=5)
+        
         # Campaign frame
-        campaign_frame = ttk.LabelFrame(parent, text="Campaign", padding=20)
+        campaign_frame = ttk.LabelFrame(scrollable_frame, text="Campaign", padding=20)
         campaign_frame.pack(fill=tk.X, padx=20, pady=10)
         
         # Invite code
@@ -176,7 +240,7 @@ class OggDudeImporterGUI:
         self.campaign_status_text.pack(side=tk.LEFT, padx=5)
         
         # Overall status section
-        status_frame = ttk.LabelFrame(parent, text="Connection Status", padding=20)
+        status_frame = ttk.LabelFrame(scrollable_frame, text="Connection Status", padding=20)
         status_frame.pack(fill=tk.X, padx=20, pady=10)
         
         # Connection status
@@ -190,6 +254,16 @@ class OggDudeImporterGUI:
         # Configure grid weights
         login_frame.columnconfigure(1, weight=1)
         campaign_frame.columnconfigure(1, weight=1)
+        
+        # Pack the canvas and scrollbar
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        
+        # Bind mouse wheel to canvas
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)
     
     def create_config_tab(self, parent):
         """Create configuration tab"""
@@ -277,6 +351,14 @@ class OggDudeImporterGUI:
         
         # Configure grid weights
         paths_frame.columnconfigure(1, weight=1)
+        
+        # Set default directories
+        self.oggdude_path_var.set(self.get_default_oggdata_directory())
+        self.adversaries_path_var.set(self.get_default_adversaries_directory())
+        
+        # Set the directories in the import manager
+        self.import_manager.set_oggdude_directory(self.get_default_oggdata_directory())
+        self.import_manager.set_adversaries_directory(self.get_default_adversaries_directory())
     
     def create_import_tab(self, parent):
         """Create import tab"""
@@ -493,16 +575,15 @@ class OggDudeImporterGUI:
             self.update_connection_status()
             self.update_status("Login successful")
             
-            # Show success message
-            messagebox.showinfo("Login Success", "Successfully logged in to Realm VTT!")
+            # Auto-save credentials if checkbox is checked
+            if self.save_credentials_var.get():
+                self.save_credentials()
             
         except Exception as e:
             self.update_login_status(f"Login failed: {e}", "error")
             self.update_connection_status()
             self.update_status(f"Login failed: {e}")
             
-            # Show error message
-            messagebox.showerror("Login Failed", f"Failed to login: {e}")
         finally:
             self.login_button.config(state=tk.NORMAL)
     
@@ -533,28 +614,26 @@ class OggDudeImporterGUI:
                 self.update_connection_status()
                 self.update_status(f"Campaign found: {campaign_id}")
                 
-                # Show success message
-                messagebox.showinfo("Campaign Found", f"Successfully found campaign!\nCampaign ID: {campaign_id}")
+                # Auto-save credentials if checkbox is checked
+                if self.save_credentials_var.get():
+                    self.save_credentials()
+                
             else:
                 self.update_campaign_status("Campaign not found", "error")
                 self.update_connection_status()
                 self.update_status("Campaign not found")
                 
-                # Show error message
-                messagebox.showerror("Campaign Not Found", "The campaign invite code was not found or you don't have access to it.")
         except Exception as e:
             self.update_campaign_status(f"Lookup failed: {e}", "error")
             self.update_connection_status()
             self.update_status(f"Campaign lookup failed: {e}")
             
-            # Show error message
-            messagebox.showerror("Campaign Lookup Failed", f"Failed to lookup campaign: {e}")
         finally:
             self.lookup_button.config(state=tk.NORMAL)
     
     def browse_oggdude_directory(self):
         """Browse for OggDude directory"""
-        default_dir = self.get_default_directory()
+        default_dir = self.get_default_oggdata_directory()
         directory = filedialog.askdirectory(
             title="Select OggDude Directory",
             initialdir=default_dir
@@ -565,7 +644,7 @@ class OggDudeImporterGUI:
     
     def browse_adversaries_directory(self):
         """Browse for Adversaries directory"""
-        default_dir = self.get_default_directory()
+        default_dir = self.get_default_adversaries_directory()
         directory = filedialog.askdirectory(
             title="Select Adversaries Directory",
             initialdir=default_dir
@@ -707,8 +786,18 @@ class OggDudeImporterGUI:
         if not selected_sources:
             issues.append("No data sources selected")
         
-        # Check directories
-        if not self.oggdude_path_var.get() and not self.adversaries_path_var.get():
+        # Check directories - check if they exist, not just if they're set
+        oggdude_path = self.oggdude_path_var.get()
+        adversaries_path = self.adversaries_path_var.get()
+        
+        # Check if directories are set and exist
+        valid_directories = []
+        if oggdude_path and os.path.exists(oggdude_path):
+            valid_directories.append(oggdude_path)
+        if adversaries_path and os.path.exists(adversaries_path):
+            valid_directories.append(adversaries_path)
+        
+        if not valid_directories:
             issues.append("No directories selected")
         
         # Check if files were parsed (import button should be enabled)
@@ -879,3 +968,71 @@ class OggDudeImporterGUI:
     def clear_status(self):
         """Clear status log"""
         self.status_text.delete(1.0, tk.END) 
+    
+    def save_credentials(self):
+        """Save current credentials to a file"""
+        email = self.email_var.get()
+        password = self.password_var.get()
+        two_fa = self.two_fa_var.get()
+        invite_code = self.invite_code_var.get()
+        save_credentials = self.save_credentials_var.get()
+        
+        if not email or not password:
+            self.update_login_status("Please enter email and password first.", "error")
+            return
+        
+        credentials = {
+            "email": email,
+            "password": password,
+            "two_fa": two_fa,
+            "invite_code": invite_code
+        }
+        
+        if save_credentials:
+            try:
+                with open('credentials.json', 'w') as f:
+                    json.dump(credentials, f, indent=4)
+                self.update_login_status("Credentials saved.", "success")
+            except Exception as e:
+                self.update_login_status(f"Failed to save credentials: {e}", "error")
+        else:
+            self.update_login_status("Credentials will not be saved.", "info")
+    
+    def load_credentials(self, silent=False):
+        """Load credentials from a file"""
+        try:
+            with open('credentials.json', 'r') as f:
+                credentials = json.load(f)
+                self.email_var.set(credentials.get("email", ""))
+                self.password_var.set(credentials.get("password", ""))
+                self.two_fa_var.set(credentials.get("two_fa", ""))
+                self.invite_code_var.set(credentials.get("invite_code", ""))
+                self.save_credentials_var.set(True) # Assume saved if file exists
+                
+                if not silent:
+                    self.update_login_status("Credentials loaded.", "success")
+        except FileNotFoundError:
+            if not silent:
+                self.update_login_status("No saved credentials found.", "info")
+        except Exception as e:
+            if not silent:
+                self.update_login_status(f"Failed to load credentials: {e}", "error")
+    
+    def clear_saved_credentials(self):
+        """Clear saved credentials from the file"""
+        if messagebox.askyesno("Clear Saved Credentials", "Are you sure you want to clear saved credentials?"):
+            try:
+                with open('credentials.json', 'w') as f:
+                    json.dump({}, f)
+                self.email_var.set("")
+                self.password_var.set("")
+                self.two_fa_var.set("")
+                self.invite_code_var.set("")
+                self.save_credentials_var.set(False)
+                self.update_login_status("Credentials cleared.", "success")
+            except Exception as e:
+                self.update_login_status(f"Failed to clear credentials: {e}", "error")
+    
+    def load_credentials_on_startup(self):
+        """Load credentials from 'credentials.json' on application startup"""
+        self.load_credentials(silent=True) 

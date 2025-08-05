@@ -137,7 +137,7 @@ class RealmVTTClient:
         
         try:
             response = requests.post(
-                f"{self.base_url}/items",
+                f"{self.base_url}/records",
                 json=item_data,
                 headers=self.headers
             )

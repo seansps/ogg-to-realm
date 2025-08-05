@@ -25,6 +25,10 @@ def test_validation_methods():
         # Create the GUI
         app = OggDudeImporterGUI(root)
         
+        # Clear directory paths to test "No directories selected" scenario
+        app.oggdude_path_var.set("")
+        app.adversaries_path_var.set("")
+        
         # Test validation with empty setup (should fail)
         is_valid, issues = app.validate_setup()
         print(f"Empty setup validation: valid={is_valid}, issues={len(issues)}")
@@ -76,6 +80,10 @@ def test_validation_logic():
         
         # Create the GUI
         app = OggDudeImporterGUI(root)
+        
+        # Clear directory paths to test "No directories selected" scenario
+        app.oggdude_path_var.set("")
+        app.adversaries_path_var.set("")
         
         # Test 1: Check that validation catches missing authentication
         is_valid, issues = app.validate_setup()

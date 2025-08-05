@@ -27,8 +27,23 @@ class JSONParser:
             List of dictionaries containing parsed records
         """
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
+            # Try different encodings
+            encodings = ['utf-8-sig', 'utf-8', 'latin-1', 'cp1252']
+            data = None
+            
+            for encoding in encodings:
+                try:
+                    with open(file_path, 'r', encoding=encoding) as f:
+                        data = json.load(f)
+                    break
+                except UnicodeDecodeError:
+                    continue
+                except json.JSONDecodeError:
+                    continue
+            
+            if data is None:
+                print(f"Error: Could not parse {file_path} with any supported encoding")
+                return []
             
             records = []
             
@@ -72,7 +87,20 @@ class JSONParser:
             # Handle different NPC data structures
             name = npc_data.get('name') or npc_data.get('Name') or 'Unknown NPC'
             description = npc_data.get('description') or npc_data.get('Description') or ''
-            source = npc_data.get('source') or npc_data.get('Source') or ''
+            
+            # Extract source from tags or direct source field
+            source = ''
+            tags = npc_data.get('tags', [])
+            if isinstance(tags, list):
+                # Look for source-related tags
+                for tag in tags:
+                    if isinstance(tag, str) and (tag.startswith('source:') or tag.startswith('adventure:') or tag.startswith('book:')):
+                        source = tag
+                        break
+            
+            # If no source found in tags, try direct source field
+            if not source:
+                source = npc_data.get('source') or npc_data.get('Source') or ''
             
             # Extract characteristics
             characteristics = self._extract_characteristics(npc_data)
@@ -104,10 +132,10 @@ class JSONParser:
                     'equipment': equipment,
                     'weapons': weapons,
                     'armor': armor,
-                    'woundThreshold': npc_data.get('woundThreshold', npc_data.get('WoundThreshold', 10)),
+                    'woundThreshold': npc_data.get('woundThreshold', npc_data.get('WoundThreshold', npc_data.get('derived', {}).get('wounds', 10))),
                     'strainThreshold': npc_data.get('strainThreshold', npc_data.get('StrainThreshold', 10)),
-                    'soak': npc_data.get('soak', npc_data.get('Soak', 0)),
-                    'defense': npc_data.get('defense', npc_data.get('Defense', 0)),
+                    'soak': npc_data.get('soak', npc_data.get('Soak', npc_data.get('derived', {}).get('soak', 0))),
+                    'defense': npc_data.get('defense', npc_data.get('Defense', npc_data.get('derived', {}).get('defence', 0))),
                     'species': npc_data.get('species', npc_data.get('Species', '')),
                     'career': npc_data.get('career', npc_data.get('Career', '')),
                     'specialization': npc_data.get('specialization', npc_data.get('Specialization', '')),
@@ -173,6 +201,11 @@ class JSONParser:
                         skills[skill] = int(rank)
                     except ValueError:
                         skills[skill] = 0
+        elif isinstance(skills_data, list):
+            # Handle skills as a list (e.g., ["Athletics", "Discipline", "Melee"])
+            for skill in skills_data:
+                if isinstance(skill, str):
+                    skills[skill] = 1  # Default rank of 1 for list format
         
         return skills
     
@@ -290,10 +323,15 @@ class JSONParser:
         filtered_records = []
         for record in records:
             record_source = record.get('source', '')
+            # Ensure record_source is a string
+            if not isinstance(record_source, str):
+                record_source = str(record_source) if record_source else ''
+            
             for source_config in self.sources_config['sources']:
                 if source_config['key'] in selected_sources:
                     for adversaries_source in source_config['adversaries_sources']:
-                        if adversaries_source.lower() in record_source.lower():
+                        # Ensure adversaries_source is a string
+                        if isinstance(adversaries_source, str) and adversaries_source.lower() in record_source.lower():
                             filtered_records.append(record)
                             break
                     else:

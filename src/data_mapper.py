@@ -89,33 +89,48 @@ class DataMapper:
         elif record_type == 'npcs':
             return self._convert_npc(oggdude_record, campaign_id, category)
         else:
-            return self._convert_generic(oggdude_record, campaign_id, category)
+            print(f"Warning: Unknown record type '{record_type}' for record '{oggdude_record.get('name', 'Unknown')}' - skipping")
+            return None
     
     def _convert_item(self, item: Dict[str, Any], campaign_id: str, category: str) -> Dict[str, Any]:
         """Convert item to Realm VTT format"""
         item_type = item.get('type', 'gear')
+        
+        # Get the data and ensure it's a dict
+        data = item.get('data', {})
+        if not isinstance(data, dict):
+            data = {}
+        
+        # Convert description and add to data
+        if 'description' in item:
+            data['description'] = self._convert_description(item['description'])
         
         realm_item = {
             "name": item.get('name', 'Unknown Item'),
             "recordType": "items",
             "campaignId": campaign_id,
             "category": category,
-            "unidentifiedName": "Unidentified Items",
+            "unidentifiedName": "Unidentified Item",
             "identified": True,
             "shared": False,
             "locked": True,
-            "data": item.get('data', {}),
+            "data": data,
             "fields": item.get('fields', {})
         }
-        
-        # Convert description
-        if 'description' in item:
-            realm_item['description'] = self._convert_description(item['description'])
         
         return realm_item
     
     def _convert_species(self, species: Dict[str, Any], campaign_id: str, category: str) -> Dict[str, Any]:
         """Convert species to Realm VTT format"""
+        # Get the data and ensure it's a dict
+        data = species.get('data', {})
+        if not isinstance(data, dict):
+            data = {}
+        
+        # Convert description and add to data
+        if 'description' in species:
+            data['description'] = self._convert_description(species['description'])
+        
         realm_species = {
             "name": species.get('name', 'Unknown Species'),
             "recordType": "species",
@@ -125,17 +140,22 @@ class DataMapper:
             "identified": True,
             "shared": False,
             "locked": True,
-            "data": species.get('data', {})
+            "data": data
         }
-        
-        # Convert description
-        if 'description' in species:
-            realm_species['description'] = self._convert_description(species['description'])
         
         return realm_species
     
     def _convert_career(self, career: Dict[str, Any], campaign_id: str, category: str) -> Dict[str, Any]:
         """Convert career to Realm VTT format"""
+        # Get the data and ensure it's a dict
+        data = career.get('data', {})
+        if not isinstance(data, dict):
+            data = {}
+        
+        # Convert description and add to data
+        if 'description' in career:
+            data['description'] = self._convert_description(career['description'])
+        
         realm_career = {
             "name": career.get('name', 'Unknown Career'),
             "recordType": "careers",
@@ -145,17 +165,22 @@ class DataMapper:
             "identified": True,
             "shared": False,
             "locked": True,
-            "data": career.get('data', {})
+            "data": data
         }
-        
-        # Convert description
-        if 'description' in career:
-            realm_career['description'] = self._convert_description(career['description'])
         
         return realm_career
     
     def _convert_specialization(self, spec: Dict[str, Any], campaign_id: str, category: str) -> Dict[str, Any]:
         """Convert specialization to Realm VTT format"""
+        # Get the data and ensure it's a dict
+        data = spec.get('data', {})
+        if not isinstance(data, dict):
+            data = {}
+        
+        # Convert description and add to data
+        if 'description' in spec:
+            data['description'] = self._convert_description(spec['description'])
+        
         realm_spec = {
             "name": spec.get('name', 'Unknown Specialization'),
             "recordType": "specializations",
@@ -165,17 +190,22 @@ class DataMapper:
             "identified": True,
             "shared": False,
             "locked": True,
-            "data": spec.get('data', {})
+            "data": data
         }
-        
-        # Convert description
-        if 'description' in spec:
-            realm_spec['description'] = self._convert_description(spec['description'])
         
         return realm_spec
     
     def _convert_talent(self, talent: Dict[str, Any], campaign_id: str, category: str) -> Dict[str, Any]:
         """Convert talent to Realm VTT format"""
+        # Get the data and ensure it's a dict
+        data = talent.get('data', {})
+        if not isinstance(data, dict):
+            data = {}
+        
+        # Convert description and add to data
+        if 'description' in talent:
+            data['description'] = self._convert_description(talent['description'])
+        
         realm_talent = {
             "name": talent.get('name', 'Unknown Talent'),
             "recordType": "talents",
@@ -185,17 +215,22 @@ class DataMapper:
             "identified": True,
             "shared": False,
             "locked": True,
-            "data": talent.get('data', {})
+            "data": data
         }
-        
-        # Convert description
-        if 'description' in talent:
-            realm_talent['description'] = self._convert_description(talent['description'])
         
         return realm_talent
     
     def _convert_force_power(self, power: Dict[str, Any], campaign_id: str, category: str) -> Dict[str, Any]:
         """Convert force power to Realm VTT format"""
+        # Get the data and ensure it's a dict
+        data = power.get('data', {})
+        if not isinstance(data, dict):
+            data = {}
+        
+        # Convert description and add to data
+        if 'description' in power:
+            data['description'] = self._convert_description(power['description'])
+        
         realm_power = {
             "name": power.get('name', 'Unknown Force Power'),
             "recordType": "force_powers",
@@ -205,17 +240,22 @@ class DataMapper:
             "identified": True,
             "shared": False,
             "locked": True,
-            "data": power.get('data', {})
+            "data": data
         }
-        
-        # Convert description
-        if 'description' in power:
-            realm_power['description'] = self._convert_description(power['description'])
         
         return realm_power
     
     def _convert_vehicle(self, vehicle: Dict[str, Any], campaign_id: str, category: str) -> Dict[str, Any]:
         """Convert vehicle to Realm VTT format"""
+        # Get the data and ensure it's a dict
+        data = vehicle.get('data', {})
+        if not isinstance(data, dict):
+            data = {}
+        
+        # Convert description and add to data
+        if 'description' in vehicle:
+            data['description'] = self._convert_description(vehicle['description'])
+        
         realm_vehicle = {
             "name": vehicle.get('name', 'Unknown Vehicle'),
             "recordType": "vehicles",
@@ -225,17 +265,22 @@ class DataMapper:
             "identified": True,
             "shared": False,
             "locked": True,
-            "data": vehicle.get('data', {})
+            "data": data
         }
-        
-        # Convert description
-        if 'description' in vehicle:
-            realm_vehicle['description'] = self._convert_description(vehicle['description'])
         
         return realm_vehicle
     
     def _convert_npc(self, npc: Dict[str, Any], campaign_id: str, category: str) -> Dict[str, Any]:
         """Convert NPC to Realm VTT format"""
+        # Get the data and ensure it's a dict
+        data = npc.get('data', {})
+        if not isinstance(data, dict):
+            data = {}
+        
+        # Convert description and add to data
+        if 'description' in npc:
+            data['description'] = self._convert_description(npc['description'])
+        
         realm_npc = {
             "name": npc.get('name', 'Unknown NPC'),
             "recordType": "npcs",
@@ -245,12 +290,8 @@ class DataMapper:
             "identified": False,
             "shared": False,
             "locked": True,
-            "data": npc.get('data', {})
+            "data": data
         }
-        
-        # Convert description
-        if 'description' in npc:
-            realm_npc['description'] = self._convert_description(npc['description'])
         
         # Link equipment to existing items
         equipment = realm_npc['data'].get('equipment', [])
@@ -367,26 +408,6 @@ class DataMapper:
         realm_npc['data']['armor'] = linked_armor
         
         return realm_npc
-    
-    def _convert_generic(self, record: Dict[str, Any], campaign_id: str, category: str) -> Dict[str, Any]:
-        """Convert generic record to Realm VTT format"""
-        realm_record = {
-            "name": record.get('name', 'Unknown Record'),
-            "recordType": record.get('recordType', 'records'),
-            "campaignId": campaign_id,
-            "category": category,
-            "unidentifiedName": f"Unknown {record.get('recordType', 'Record')}",
-            "identified": True,
-            "shared": False,
-            "locked": True,
-            "data": record.get('data', {})
-        }
-        
-        # Convert description
-        if 'description' in record:
-            realm_record['description'] = self._convert_description(record['description'])
-        
-        return realm_record
     
     def _convert_description(self, description: str) -> str:
         """
