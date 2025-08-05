@@ -223,7 +223,8 @@ class XMLParser:
                 'sources': sources,  # Store sources for later use
                 'category': '',  # Will be determined during filtering
                 'data': mapped_data,
-                'fields': self._get_weapon_fields(),
+                # 'fields': self._get_weapon_fields(),  # Commented out for now
+                'fields': {},  # Set to empty dictionary for now
                 'unidentifiedName': 'Unidentified Items',
                 'locked': True
             }
@@ -560,7 +561,8 @@ class XMLParser:
                 'description': mapped_data.get('description', ''),
                 'category': category,
                 'data': mapped_data,
-                'fields': self._get_armor_fields(),
+                # 'fields': self._get_armor_fields(),  # Commented out for now
+                'fields': {},  # Set to empty dictionary for now
                 'unidentifiedName': 'Unidentified Items',
                 'locked': True
             }
@@ -613,7 +615,8 @@ class XMLParser:
                 'description': mapped_data.get('description', ''),
                 'category': category,
                 'data': mapped_data,
-                'fields': self._get_gear_fields(),
+                # 'fields': self._get_gear_fields(),  # Commented out for now
+                'fields': {},  # Set to empty dictionary for now
                 'unidentifiedName': 'Unidentified Items',
                 'locked': True
             }

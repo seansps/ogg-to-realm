@@ -69,6 +69,12 @@ def test_weapon_conversion():
             else:
                 print(f"  ✗ 'qualities' field found in final data (incorrect)")
             
+            # Test that fields is empty
+            if converted['fields'] == {}:
+                print(f"  ✓ Fields is empty (correct)")
+            else:
+                print(f"  ✗ Fields is not empty: {converted['fields']}")
+            
             return True
         else:
             print("No weapon extracted")
