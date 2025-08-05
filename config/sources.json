@@ -1,96 +1,262 @@
 {
   "sources": [
     {
-      "name": "Age of Rebellion",
-      "key": "book:aor",
-      "oggdude_sources": [
-        "Age of Rebellion Core Rulebook",
-        "Age of Rebellion Core",
-        "AoR"
-      ],
-      "adversaries_sources": [
-        "book:aor"
-      ]
-    },
-    {
-      "name": "Edge of the Empire",
+      "name": "Edge of the Empire Core Rulebook",
       "key": "book:eote",
       "oggdude_sources": [
         "Edge of the Empire Core Rulebook",
         "Edge of the Empire Core",
         "EotE"
       ],
-      "adversaries_sources": [
-        "book:eote"
-      ]
+      "adversaries_sources": ["book:eote"]
     },
     {
-      "name": "Force and Destiny",
+      "name": "Age of Rebellion Core Rulebook",
+      "key": "book:aor",
+      "oggdude_sources": [
+        "Age of Rebellion Core Rulebook",
+        "Age of Rebellion Core",
+        "AoR"
+      ],
+      "adversaries_sources": ["book:aor"]
+    },
+    {
+      "name": "Force and Destiny Core Rulebook",
       "key": "book:fad",
       "oggdude_sources": [
         "Force and Destiny Core Rulebook",
         "Force and Destiny Core",
         "FaD"
       ],
-      "adversaries_sources": [
-        "book:fad"
-      ]
+      "adversaries_sources": ["book:fad"]
     },
     {
       "name": "Far Horizons",
       "key": "far-horizons",
-      "oggdude_sources": [
-        "Far Horizons"
-      ],
+      "oggdude_sources": ["Far Horizons"],
       "adversaries_sources": []
     },
     {
-      "name": "Dawn of Rebellion",
-      "key": "dawn-of-rebellion",
-      "oggdude_sources": [
-        "Dawn of Rebellion"
-      ],
+      "name": "Dangerous Covenants",
+      "key": "dangerous-covenants",
+      "oggdude_sources": ["Dangerous Covenants"],
       "adversaries_sources": []
     },
     {
-      "name": "Rise of the Separatists",
-      "key": "rise-of-the-separatists",
-      "oggdude_sources": [
-        "Rise of the Separatists"
-      ],
+      "name": "Fly Casual",
+      "key": "fly-casual",
+      "oggdude_sources": ["Fly Casual"],
       "adversaries_sources": []
     },
     {
-      "name": "Collapse of the Republic",
-      "key": "collapse-of-the-republic",
-      "oggdude_sources": [
-        "Collapse of the Republic"
-      ],
+      "name": "Forged in Battle",
+      "key": "forged-in-battle",
+      "oggdude_sources": ["Forged in Battle"],
+      "adversaries_sources": []
+    },
+    {
+      "name": "Stay on Target",
+      "key": "stay-on-target",
+      "oggdude_sources": ["Stay on Target"],
+      "adversaries_sources": []
+    },
+    {
+      "name": "Unlimited Power",
+      "key": "unlimited-power",
+      "oggdude_sources": ["Unlimited Power"],
+      "adversaries_sources": []
+    },
+    {
+      "name": "Disciples of Harmony",
+      "key": "disciples-of-harmony",
+      "oggdude_sources": ["Disciples of Harmony"],
+      "adversaries_sources": []
+    },
+    {
+      "name": "Lords of Nal Hutta",
+      "key": "lords-of-nal-hutta",
+      "oggdude_sources": ["Lords of Nal Hutta"],
+      "adversaries_sources": []
+    },
+    {
+      "name": "Suns of Fortune",
+      "key": "suns-of-fortune",
+      "oggdude_sources": ["Suns of Fortune"],
       "adversaries_sources": []
     },
     {
       "name": "Nexus of Power",
       "key": "nexus-of-power",
-      "oggdude_sources": [
-        "Nexus of Power"
-      ],
+      "oggdude_sources": ["Nexus of Power", "Nexus of Power Sourcebook"],
       "adversaries_sources": []
     },
     {
-      "name": "Savage Spirits",
-      "key": "savage-spirits",
-      "oggdude_sources": [
-        "Savage Spirits"
-      ],
+      "name": "Fully Operational",
+      "key": "fully-operational",
+      "oggdude_sources": ["Fully Operational"],
+      "adversaries_sources": []
+    },
+    {
+      "name": "Cyphers and Masks",
+      "key": "cyphers-and-masks",
+      "oggdude_sources": ["Cyphers and Masks"],
+      "adversaries_sources": []
+    },
+    {
+      "name": "Rise of the Separatists",
+      "key": "rise-of-the-separatists",
+      "oggdude_sources": ["Rise of the Separatists"],
+      "adversaries_sources": []
+    },
+    {
+      "name": "Collapse of the Republic",
+      "key": "collapse-of-the-republic",
+      "oggdude_sources": ["Collapse of the Republic"],
+      "adversaries_sources": []
+    },
+    {
+      "name": "Dawn of Rebellion",
+      "key": "dawn-of-rebellion",
+      "oggdude_sources": ["Dawn of Rebellion"],
       "adversaries_sources": []
     },
     {
       "name": "Chronicles of the Gatekeeper",
       "key": "chronicles-of-the-gatekeeper",
-      "oggdude_sources": [
-        "Chronicles of the Gatekeeper"
-      ],
+      "oggdude_sources": ["Chronicles of the Gatekeeper"],
+      "adversaries_sources": []
+    },
+    {
+      "name": "Savage Spirits",
+      "key": "savage-spirits",
+      "oggdude_sources": ["Savage Spirits"],
+      "adversaries_sources": []
+    },
+    {
+      "name": "Endless Vigil",
+      "key": "endless-vigil",
+      "oggdude_sources": ["Endless Vigil"],
+      "adversaries_sources": []
+    },
+    {
+      "name": "Lead by Example",
+      "key": "lead-by-example",
+      "oggdude_sources": ["Lead by Example"],
+      "adversaries_sources": []
+    },
+    {
+      "name": "Strongholds of Resistance",
+      "key": "strongholds-of-resistance",
+      "oggdude_sources": ["Strongholds of Resistance"],
+      "adversaries_sources": []
+    },
+    {
+      "name": "Special Modifications",
+      "key": "special-modifications",
+      "oggdude_sources": ["Special Modifications"],
+      "adversaries_sources": []
+    },
+    {
+      "name": "Keeping the Peace",
+      "key": "keeping-the-peace",
+      "oggdude_sources": ["Keeping the Peace", "Keeping the Peace source book"],
+      "adversaries_sources": []
+    },
+    {
+      "name": "Knights of Fate",
+      "key": "knights-of-fate",
+      "oggdude_sources": ["Knights of Fate"],
+      "adversaries_sources": []
+    },
+    {
+      "name": "Ghosts of Dathomir",
+      "key": "ghosts-of-dathomir",
+      "oggdude_sources": ["Ghosts of Dathomir"],
+      "adversaries_sources": []
+    },
+    {
+      "name": "Mask of the Pirate Queen",
+      "key": "mask-of-the-pirate-queen",
+      "oggdude_sources": ["Mask of the Pirate Queen"],
+      "adversaries_sources": []
+    },
+    {
+      "name": "No Disintegrations",
+      "key": "no-disintegrations",
+      "oggdude_sources": ["No Disintegrations"],
+      "adversaries_sources": []
+    },
+    {
+      "name": "Onslaught at Arda I",
+      "key": "onslaught-at-arda-i",
+      "oggdude_sources": ["Onslaught at Arda I"],
+      "adversaries_sources": []
+    },
+    {
+      "name": "Under a Black Sun",
+      "key": "under-a-black-sun",
+      "oggdude_sources": ["Under a Black Sun"],
+      "adversaries_sources": []
+    },
+    {
+      "name": "Beyond the Rim",
+      "key": "beyond-the-rim",
+      "oggdude_sources": ["Beyond the Rim"],
+      "adversaries_sources": []
+    },
+    {
+      "name": "Long Arm of the Hutt",
+      "key": "long-arm-of-the-hutt",
+      "oggdude_sources": ["Long Arm of the Hutt"],
+      "adversaries_sources": []
+    },
+    {
+      "name": "Jewel of Yavin",
+      "key": "jewel-of-yavin",
+      "oggdude_sources": ["Jewel of Yavin"],
+      "adversaries_sources": []
+    },
+    {
+      "name": "Desperate Allies",
+      "key": "desperate-allies",
+      "oggdude_sources": ["Desperate Allies"],
+      "adversaries_sources": []
+    },
+    {
+      "name": "Friends Like These",
+      "key": "friends-like-these",
+      "oggdude_sources": ["Friends Like These"],
+      "adversaries_sources": []
+    },
+    {
+      "name": "Allies and Adversaries",
+      "key": "allies-and-adversaries",
+      "oggdude_sources": ["Allies and Adversaries"],
+      "adversaries_sources": []
+    },
+    {
+      "name": "Force and Destiny Game Master's Kit",
+      "key": "force-and-destiny-gm-kit",
+      "oggdude_sources": ["Force and Destiny Game Master's Kit"],
+      "adversaries_sources": []
+    },
+    {
+      "name": "Age of Rebellion Beta Rulebook",
+      "key": "age-of-rebellion-beta",
+      "oggdude_sources": ["Age of Rebellion Beta Rulebook"],
+      "adversaries_sources": []
+    },
+    {
+      "name": "Force and Destiny Beta Rulebook",
+      "key": "force-and-destiny-beta",
+      "oggdude_sources": ["Force and Destiny Beta Rulebook"],
+      "adversaries_sources": []
+    },
+    {
+      "name": "Unofficial Species Menagerie",
+      "key": "unofficial-species-menagerie",
+      "oggdude_sources": ["Unofficial Species Menagerie"],
       "adversaries_sources": []
     }
   ]
-} 
+}

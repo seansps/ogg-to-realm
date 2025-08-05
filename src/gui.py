@@ -12,6 +12,9 @@ class OggDudeImporterGUI:
         self.root.title("OggDude to Realm VTT Importer")
         self.root.geometry("800x600")
         
+        # Center the window on screen
+        self.center_window()
+        
         # Initialize components
         self.api_client = RealmVTTClient()
         self.import_manager = ImportManager(self.api_client)
@@ -37,7 +40,36 @@ class OggDudeImporterGUI:
         self.sources_config = self.load_sources_config()
         
         self.create_widgets()
+    
+    def center_window(self):
+        """Center the window on the screen"""
+        # Update the window to get accurate dimensions
+        self.root.update_idletasks()
         
+        # Get screen dimensions
+        screen_width = self.root.winfo_screenwidth()
+        screen_height = self.root.winfo_screenheight()
+        
+        # Get window dimensions
+        window_width = self.root.winfo_width()
+        window_height = self.root.winfo_height()
+        
+        # Calculate position
+        x = (screen_width - window_width) // 2
+        y = (screen_height - window_height) // 2
+        
+        # Set window position
+        self.root.geometry(f"{window_width}x{window_height}+{x}+{y}")
+    
+    def get_default_directory(self):
+        """Get the default directory (project root directory)"""
+        import os
+        # Get the src directory
+        src_dir = os.path.dirname(os.path.abspath(__file__))
+        # Go up one level to get the project root
+        project_root = os.path.dirname(src_dir)
+        return project_root
+    
     def load_sources_config(self) -> Dict[str, Any]:
         """Load sources configuration"""
         try:
@@ -169,13 +201,54 @@ class OggDudeImporterGUI:
         sources_frame = ttk.LabelFrame(parent, text="Data Sources", padding=20)
         sources_frame.pack(fill=tk.X, padx=20, pady=10)
         
+        # Set a maximum height for the sources frame (about 300 pixels)
+        sources_frame.configure(height=300)
+        sources_frame.pack_propagate(False)  # Prevent the frame from expanding to fit content
+        
+        # Select/Deselect All buttons frame
+        select_buttons_frame = ttk.Frame(sources_frame)
+        select_buttons_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        select_all_button = ttk.Button(select_buttons_frame, text="Select All", command=self.select_all_sources)
+        select_all_button.pack(side=tk.LEFT, padx=5)
+        
+        deselect_all_button = ttk.Button(select_buttons_frame, text="Deselect All", command=self.deselect_all_sources)
+        deselect_all_button.pack(side=tk.LEFT, padx=5)
+        
+        # Create a frame for the scrollable area
+        sources_scroll_frame = ttk.Frame(sources_frame)
+        sources_scroll_frame.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
+        
+        # Create canvas and scrollbar for sources
+        sources_canvas = tk.Canvas(sources_scroll_frame)
+        sources_scrollbar = ttk.Scrollbar(sources_scroll_frame, orient="vertical", command=sources_canvas.yview)
+        sources_scrollable_frame = ttk.Frame(sources_canvas)
+        
+        sources_scrollable_frame.bind(
+            "<Configure>",
+            lambda e: sources_canvas.configure(scrollregion=sources_canvas.bbox("all"))
+        )
+        
+        sources_canvas.create_window((0, 0), window=sources_scrollable_frame, anchor="nw")
+        sources_canvas.configure(yscrollcommand=sources_scrollbar.set)
+        
         # Create checkboxes for sources
         self.source_vars = {}
         for i, source in enumerate(self.sources_config.get('sources', [])):
             var = tk.BooleanVar()
             self.source_vars[source['key']] = var
-            cb = ttk.Checkbutton(sources_frame, text=source['name'], variable=var)
+            cb = ttk.Checkbutton(sources_scrollable_frame, text=source['name'], variable=var)
             cb.grid(row=i//2, column=i%2, sticky=tk.W, padx=10, pady=5)
+        
+        # Pack canvas and scrollbar
+        sources_canvas.pack(side="left", fill="both", expand=True)
+        sources_scrollbar.pack(side="right", fill="y")
+        
+        # Configure canvas scrolling with mouse wheel
+        def _on_mousewheel(event):
+            sources_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        
+        sources_canvas.bind_all("<MouseWheel>", _on_mousewheel)
         
         # File paths frame
         paths_frame = ttk.LabelFrame(parent, text="File Paths", padding=20)
@@ -396,14 +469,22 @@ class OggDudeImporterGUI:
     
     def browse_oggdude_directory(self):
         """Browse for OggDude directory"""
-        directory = filedialog.askdirectory(title="Select OggDude Directory")
+        default_dir = self.get_default_directory()
+        directory = filedialog.askdirectory(
+            title="Select OggDude Directory",
+            initialdir=default_dir
+        )
         if directory:
             self.oggdude_path_var.set(directory)
             self.import_manager.set_oggdude_directory(directory)
     
     def browse_adversaries_directory(self):
         """Browse for Adversaries directory"""
-        directory = filedialog.askdirectory(title="Select Adversaries Directory")
+        default_dir = self.get_default_directory()
+        directory = filedialog.askdirectory(
+            title="Select Adversaries Directory",
+            initialdir=default_dir
+        )
         if directory:
             self.adversaries_path_var.set(directory)
             self.import_manager.set_adversaries_directory(directory)
@@ -620,6 +701,16 @@ class OggDudeImporterGUI:
         self.progress_label.config(text=f"{message} ({current}/{total})")
         self.operation_label.config(text=f"Current: {message}")
         self.update_status(message)
+    
+    def select_all_sources(self):
+        """Select all source checkboxes"""
+        for var in self.source_vars.values():
+            var.set(True)
+    
+    def deselect_all_sources(self):
+        """Deselect all source checkboxes"""
+        for var in self.source_vars.values():
+            var.set(False)
     
     def update_status(self, message: str):
         """Update status log"""
