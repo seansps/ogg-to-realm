@@ -82,17 +82,24 @@ def test_source_extraction():
             # Check that all records are items type (weapons are items in Realm VTT)
             for record in records:
                 assert record.get('recordType') == 'items', f"Expected recordType 'items', got '{record.get('recordType')}'"
-                assert record.get('type') == 'weapon', f"Expected type 'weapon', got '{record.get('type')}'"
+                # Check that the type is either 'ranged weapon' or 'melee weapon' (new format)
+                weapon_type = record.get('data', {}).get('type', '')
+                assert weapon_type in ['ranged weapon', 'melee weapon'], f"Expected type 'ranged weapon' or 'melee weapon', got '{weapon_type}'"
+            
+            # Apply filtering to get categories set
+            # We need to select sources that match our test data
+            selected_sources = ['book:eote', 'far-horizons', 'knights-of-fate']  # Add the source keys that match our test data
+            filtered_records = parser.filter_by_sources(records, selected_sources)
             
             # Check that categories are extracted correctly
-            categories = [record.get('category', '') for record in records]
+            categories = [record.get('category', '') for record in filtered_records]
             expected_categories = ['Far Horizons', 'Knights of Fate', 'Edge of the Empire Core Rulebook', 'Edge of the Empire Core Rulebook']
             
             for expected in expected_categories:
                 assert expected in categories, f"Expected category '{expected}' not found in {categories}"
             
             # Check multiple sources handling (should use first source as category)
-            weapon4 = records[3]  # The weapon with multiple sources
+            weapon4 = filtered_records[3]  # The weapon with multiple sources
             assert 'category' in weapon4, "Weapon should have 'category' field"
             assert weapon4['category'] == 'Edge of the Empire Core Rulebook', f"Expected category 'Edge of the Empire Core Rulebook', got '{weapon4['category']}'"
             
@@ -141,7 +148,9 @@ def test_real_weapons_file():
         # Check that all records are items type
         for record in records:
             assert record.get('recordType') == 'items', f"Expected recordType 'items', got '{record.get('recordType')}'"
-            assert record.get('type') == 'weapon', f"Expected type 'weapon', got '{record.get('type')}'"
+            # Check that the type is either 'ranged weapon' or 'melee weapon' (new format)
+            weapon_type = record.get('data', {}).get('type', '')
+            assert weapon_type in ['ranged weapon', 'melee weapon'], f"Expected type 'ranged weapon' or 'melee weapon', got '{weapon_type}'"
         
         # Check that categories are present
         categories = set(record.get('category', '') for record in records)
@@ -186,7 +195,8 @@ def test_scan_directory_categorization():
                 f.write(weapons_content)
             
             parser = XMLParser()
-            all_records = parser.scan_directory(temp_dir)
+            # Pass selected sources to enable filtering and category assignment
+            all_records = parser.scan_directory(temp_dir, selected_sources=['book:eote'])
             
             # Check that items key exists and contains weapons
             assert 'items' in all_records, "'items' key should be in all_records"
@@ -195,7 +205,9 @@ def test_scan_directory_categorization():
             # Check that the weapon is properly categorized
             weapon = all_records['items'][0]
             assert weapon['recordType'] == 'items', f"Expected recordType 'items', got '{weapon['recordType']}'"
-            assert weapon['type'] == 'weapon', f"Expected type 'weapon', got '{weapon['type']}'"
+            # Check that the type is either 'ranged weapon' or 'melee weapon' (new format)
+            weapon_type = weapon.get('data', {}).get('type', '')
+            assert weapon_type in ['ranged weapon', 'melee weapon'], f"Expected type 'ranged weapon' or 'melee weapon', got '{weapon_type}'"
             assert weapon['category'] == 'Edge of the Empire Core Rulebook', f"Expected category 'Edge of the Empire Core Rulebook', got '{weapon['category']}'"
             
             print("✓ Scan directory categorization test passed")

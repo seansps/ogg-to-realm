@@ -96,19 +96,20 @@ class DataMapper:
     
     def _convert_item(self, item: Dict[str, Any], campaign_id: str, category: str) -> Dict[str, Any]:
         """Convert item to Realm VTT format"""
-        item_type = item.get('type', 'gear')
-        
         # Get the data and ensure it's a dict
         data = item.get('data', {})
         if not isinstance(data, dict):
             data = {}
         
+        # Get item type from either the top level or the data field
+        item_type = item.get('type', data.get('type', 'gear'))
+        
         # Convert description and add to data
         if 'description' in item:
             data['description'] = self._convert_description(item['description'])
         
-        # Handle weapon-specific conversions
-        if item_type == 'weapon':
+        # Handle weapon-specific conversions (check for both 'weapon' and 'ranged weapon'/'melee weapon')
+        if item_type == 'weapon' or 'weapon' in item_type:
             data = self._convert_weapon_data(data, item)
         elif item_type == 'gear':
             data = self._convert_gear_data(data, item)
@@ -194,7 +195,7 @@ class DataMapper:
         data['type'] = 'general'
         
         # Set subtype to the original OggDude Type
-        data['subtype'] = original_type
+        data['subtype'] = 'Gear'
         
         # Set default values for missing fields
         defaults = {

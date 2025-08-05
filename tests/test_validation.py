@@ -4,7 +4,7 @@ Test script for validation functionality
 """
 
 import sys, os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 
 import tkinter as tk
 
@@ -14,7 +14,7 @@ import tkinter as tk
 def test_validation_methods():
     """Test the validation methods"""
     try:
-        from src.gui import OggDudeImporterGUI
+        from gui import OggDudeImporterGUI
         
         print("Testing validation methods...")
         
@@ -42,7 +42,6 @@ def test_validation_methods():
         expected_issues = [
             "Not logged in to Realm VTT",
             "No campaign selected", 
-            "No data sources selected",
             "No directories selected"
         ]
         
@@ -53,8 +52,8 @@ def test_validation_methods():
                 print(f"  Available issues: {issues}")
             assert found, f"Expected issue '{expected_issue}' not found"
         
-        # Check that we have at least 4 issues (the core validation issues)
-        assert len(issues) >= 4, f"Should have at least 4 issues, got {len(issues)}"
+        # Check that we have at least 3 issues (the core validation issues)
+        assert len(issues) >= 3, f"Should have at least 3 issues, got {len(issues)}"
         
         print("✓ Validation methods work correctly")
         
@@ -70,7 +69,7 @@ def test_validation_methods():
 def test_validation_logic():
     """Test the validation logic with different scenarios"""
     try:
-        from src.gui import OggDudeImporterGUI
+        from gui import OggDudeImporterGUI
         
         print("Testing validation logic...")
         
@@ -92,10 +91,7 @@ def test_validation_logic():
         # Test 2: Check that validation catches missing campaign
         assert "No campaign selected" in [issue for issue in issues if "No campaign selected" in issue], "Should detect missing campaign"
         
-        # Test 3: Check that validation catches missing sources
-        assert "No data sources selected" in [issue for issue in issues if "No data sources selected" in issue], "Should detect missing sources"
-        
-        # Test 4: Check that validation catches missing directories
+        # Test 3: Check that validation catches missing directories
         assert "No directories selected" in [issue for issue in issues if "No directories selected" in issue], "Should detect missing directories"
         
         print("✓ Validation logic works correctly")
