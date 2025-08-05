@@ -6,16 +6,16 @@ This script tests basic functionality without requiring GUI or network access.
 """
 
 import sys, os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 
 def test_imports():
     """Test that all modules can be imported"""
     try:
-        from src.api_client import RealmVTTClient
-        from src.xml_parser import XMLParser
-        from src.json_parser import JSONParser
-        from src.data_mapper import DataMapper
-        from src.import_manager import ImportManager
+        from api_client import RealmVTTClient
+        from xml_parser import XMLParser
+        from json_parser import JSONParser
+        from data_mapper import DataMapper
+        from import_manager import ImportManager
         print("✓ All modules imported successfully")
         return True
     except ImportError as e:
@@ -41,7 +41,7 @@ def test_config_files():
 def test_xml_parser():
     """Test XML parser basic functionality"""
     try:
-        from src.xml_parser import XMLParser
+        from xml_parser import XMLParser
         parser = XMLParser()
         print("✓ XML parser created successfully")
         return True
@@ -52,7 +52,7 @@ def test_xml_parser():
 def test_json_parser():
     """Test JSON parser basic functionality"""
     try:
-        from src.json_parser import JSONParser
+        from json_parser import JSONParser
         parser = JSONParser()
         print("✓ JSON parser created successfully")
         return True
@@ -63,7 +63,7 @@ def test_json_parser():
 def test_data_mapper():
     """Test data mapper basic functionality"""
     try:
-        from src.data_mapper import DataMapper
+        from data_mapper import DataMapper
         mapper = DataMapper()
         print("✓ Data mapper created successfully")
         return True

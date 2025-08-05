@@ -1102,13 +1102,13 @@ class XMLParser:
                 'Price': self._get_text(attachment_elem, 'Price', '0'),
                 'Rarity': self._get_int(attachment_elem, 'Rarity', 0),
                 'HP': self._get_int(attachment_elem, 'HP', 0),
-                'BaseMods': self._extract_base_mods(attachment_elem)
+                'AddedMods': self._extract_added_mods(attachment_elem)
             }
             
             # Apply field mapping
             mapped_data = self._apply_field_mapping('attachments', raw_data)
             
-            # Convert type to Realm VTT format
+            # Convert type to Realm VTT format - this should be the main type, not subtype
             attachment_type = raw_data.get('Type', '').lower()
             if attachment_type == 'vehicle':
                 mapped_data['type'] = 'vehicle attachment'
@@ -1119,13 +1119,15 @@ class XMLParser:
             else:
                 mapped_data['type'] = 'weapon attachment'
             
+            # Set subtype to empty for attachments
+            mapped_data['subtype'] = ''
+            
             # Add default values for Realm VTT
             mapped_data.update({
                 'modifiers': [],
                 'equipEffect': None,
                 'hasUseBtn': False,
-                'attachments': [],
-                'slotsUsed': 0
+                'attachments': []
             })
             
             # Get sources and convert to category
@@ -1353,6 +1355,40 @@ class XMLParser:
             
         except Exception as e:
             print(f"Error extracting base mods: {e}")
+            return ""
+    
+    def _extract_added_mods(self, elem: ET.Element) -> str:
+        """Extract AddedMods and convert to string using ItemDescriptors"""
+        try:
+            added_mods_elem = self._find_with_namespace(elem, 'AddedMods')
+            if added_mods_elem is None:
+                return ""
+            
+            mods = []
+            for mod_elem in self._findall_with_namespace(added_mods_elem, 'Mod'):
+                key = self._get_text(mod_elem, 'Key')
+                count = self._get_int(mod_elem, 'Count', 1)
+                
+                # Get the description from ItemDescriptors
+                description = self._get_item_descriptor_description(key)
+                if description:
+                    # Convert OggDude format to plain text
+                    plain_text = self._convert_oggdude_format_to_plain_text(description)
+                    # Replace {0} with the count (even if count is 1)
+                    if '{0}' in plain_text:
+                        plain_text = plain_text.replace('{0}', str(count))
+                    mods.append(plain_text)
+                else:
+                    # Fallback if no description found
+                    if count > 1:
+                        mods.append(f"{key} {count}")
+                    else:
+                        mods.append(key)
+            
+            return "; ".join(mods) if mods else ""
+            
+        except Exception as e:
+            print(f"Error extracting added mods: {e}")
             return ""
     
     def _get_item_descriptor_description(self, key: str) -> Optional[str]:

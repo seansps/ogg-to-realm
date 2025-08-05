@@ -193,10 +193,7 @@ class DataMapper:
         
         # Set type to 'general' for gear items
         data['type'] = 'general'
-        
-        # Set subtype to the original OggDude Type
-        data['subtype'] = 'Gear'
-        
+    
         # Set default values for missing fields
         defaults = {
             'modifiers': [],

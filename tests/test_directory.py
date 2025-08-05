@@ -7,12 +7,12 @@ import sys, os
 import tkinter as tk
 
 # Add src directory to path for imports
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 
 def test_default_directory():
     """Test that the default directory is correctly determined"""
     try:
-        from src.gui import OggDudeImporterGUI
+        from gui import OggDudeImporterGUI
         
         print("Testing default directory functionality...")
         
@@ -45,7 +45,7 @@ def test_default_directory():
 def test_window_centering():
     """Test that the window centering functionality works"""
     try:
-        from src.gui import OggDudeImporterGUI
+        from gui import OggDudeImporterGUI
         
         print("Testing window centering functionality...")
         

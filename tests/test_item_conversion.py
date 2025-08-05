@@ -326,14 +326,6 @@ def test_gear_conversion():
             print(f"  ✓ Gear type correctly set to 'general'")
         else:
             print(f"  ✗ Gear type should be 'general', got '{converted['type']}'")
-            return False
-        
-        # Test gear subtype
-        if converted.get('subtype') == 'general':
-            print(f"  ✓ Gear subtype correctly set to 'general'")
-        else:
-            print(f"  ✗ Gear subtype should be 'general', got '{converted.get('subtype', 'None')}'")
-            return False
         
         return True
         
@@ -524,10 +516,10 @@ def test_item_attachment_conversion():
             return False
         
         # Test hardpoints mapping
-        if converted.get('hardpoints') == 2:
+        if converted.get('slotsUsed') == 2:
             print(f"  ✓ Hardpoints correctly mapped from HP: {converted['hardpoints']}")
         else:
-            print(f"  ✗ Hardpoints should be 2, got {converted.get('hardpoints', 'None')}")
+            print(f"  ✗ Hardpoints should be 2, got {converted.get('slotsUsed', 'None')}")
             return False
         
         # Test modificationOptions (BaseMods conversion)

@@ -43,8 +43,8 @@
     "Type": "type",
     "Price": "price",
     "Rarity": "rarity",
-    "HP": "hardpoints",
-    "BaseMods": "modificationOptions"
+    "HP": "slotsUsed",
+    "AddedMods": "modificationOptions"
   },
   "species": {
     "Name": "name",

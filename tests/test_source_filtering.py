@@ -126,6 +126,7 @@ def test_real_weapons_file():
         possible_paths = [
             'Weapons.xml',
             'data/Weapons.xml',
+            'OggData/Weapons.xml',
             '../Weapons.xml',
             '../../Weapons.xml'
         ]

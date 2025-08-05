@@ -4,14 +4,14 @@ Test script for GUI functionality
 """
 
 import sys, os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 
 import tkinter as tk
 
 def test_gui_creation():
     """Test that the GUI can be created without errors"""
     try:
-        from src.gui import OggDudeImporterGUI
+        from gui import OggDudeImporterGUI
         
         print("Testing GUI creation...")
         
@@ -43,7 +43,7 @@ def test_gui_creation():
 def test_status_methods():
     """Test the status update methods"""
     try:
-        from src.gui import OggDudeImporterGUI
+        from gui import OggDudeImporterGUI
         
         print("Testing status update methods...")
         
