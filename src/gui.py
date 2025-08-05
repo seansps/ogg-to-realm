@@ -363,24 +363,24 @@ class OggDudeImporterGUI:
     def create_import_tab(self, parent):
         """Create import tab"""
         # Create a canvas with scrollbar
-        canvas = tk.Canvas(parent)
-        scrollbar = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
-        scrollable_frame = ttk.Frame(canvas)
+        self.import_canvas = tk.Canvas(parent)  # Store reference to canvas
+        scrollbar = ttk.Scrollbar(parent, orient="vertical", command=self.import_canvas.yview)
+        scrollable_frame = ttk.Frame(self.import_canvas)
         
         scrollable_frame.bind(
             "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+            lambda e: self.import_canvas.configure(scrollregion=self.import_canvas.bbox("all"))
         )
         
         # Create the window in the canvas
-        canvas_window = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas_window = self.import_canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        self.import_canvas.configure(yscrollcommand=scrollbar.set)
         
         # Function to update the canvas window width when canvas is resized
         def on_canvas_configure(event):
-            canvas.itemconfig(canvas_window, width=event.width)
+            self.import_canvas.itemconfig(canvas_window, width=event.width)
         
-        canvas.bind('<Configure>', on_canvas_configure)
+        self.import_canvas.bind('<Configure>', on_canvas_configure)
         
         # Title
         title_label = ttk.Label(scrollable_frame, text="Import Data", font=("Arial", 16, "bold"))
@@ -397,6 +397,14 @@ class OggDudeImporterGUI:
         # Parse button
         parse_button = ttk.Button(buttons_frame, text="Parse Files", command=self.parse_files)
         parse_button.pack(side=tk.LEFT, padx=5)
+        
+        # Import button
+        self.import_button = ttk.Button(buttons_frame, text="Start Import", command=self.start_import, state=tk.DISABLED)
+        self.import_button.pack(side=tk.LEFT, padx=5)
+        
+        # Stop button
+        self.stop_button = ttk.Button(buttons_frame, text="Stop Import", command=self.stop_import, state=tk.DISABLED)
+        self.stop_button.pack(side=tk.LEFT, padx=5)
         
         # Record type selection frame
         selection_frame = ttk.LabelFrame(scrollable_frame, text="Select Record Types to Import", padding=20)
@@ -450,6 +458,15 @@ class OggDudeImporterGUI:
         update_checkbox = ttk.Checkbutton(update_frame, text="Update Existing Records", variable=self.update_existing_var)
         update_checkbox.pack(anchor=tk.W, padx=5)
         
+        # Category frame
+        category_frame = ttk.Frame(update_frame)
+        category_frame.pack(fill=tk.X, padx=5, pady=5)
+        
+        ttk.Label(category_frame, text="Category for all imported records:").pack(side=tk.LEFT, padx=5)
+        self.category_var = tk.StringVar()
+        category_entry = ttk.Entry(category_frame, textvariable=self.category_var, width=30)
+        category_entry.pack(side=tk.LEFT, padx=5)
+        
         # Record counts frame
         counts_frame = ttk.LabelFrame(scrollable_frame, text="Record Counts", padding=20)
         counts_frame.pack(fill=tk.X, padx=20, pady=10)
@@ -470,40 +487,29 @@ class OggDudeImporterGUI:
             label.grid(row=i//2, column=i%2, sticky=tk.W, padx=10, pady=5)
             self.count_labels[record_type] = label
         
-        # Import button
-        self.import_button = ttk.Button(scrollable_frame, text="Start Import", command=self.start_import, state=tk.DISABLED)
-        self.import_button.pack(pady=10)
-        
-        # Stop button
-        self.stop_button = ttk.Button(scrollable_frame, text="Stop Import", command=self.stop_import, state=tk.DISABLED)
-        self.stop_button.pack(pady=5)
-        
         # Progress frame
-        progress_frame = ttk.LabelFrame(scrollable_frame, text="Import Progress", padding=20)
-        progress_frame.pack(fill=tk.X, padx=20, pady=10)
+        self.progress_frame = ttk.LabelFrame(scrollable_frame, text="Import Progress", padding=10)
+        self.progress_frame.pack(fill=tk.X, padx=20, pady=5)
         
-        # Progress bar
         self.progress_var = tk.DoubleVar()
-        self.progress_bar = ttk.Progressbar(progress_frame, variable=self.progress_var, maximum=100)
-        self.progress_bar.pack(fill=tk.X, pady=5)
+        self.progress_bar = ttk.Progressbar(self.progress_frame, variable=self.progress_var, maximum=100)
+        self.progress_bar.pack(fill=tk.X, padx=10, pady=5)
         
-        # Progress label
-        self.progress_label = ttk.Label(progress_frame, text="Ready to import")
+        self.progress_label = ttk.Label(self.progress_frame, text="Progress: 0/0 (0.0%)")
         self.progress_label.pack(pady=5)
         
-        # Current operation label
-        self.operation_label = ttk.Label(progress_frame, text="", font=("Arial", 10))
+        self.operation_label = ttk.Label(self.progress_frame, text="Current: None")
         self.operation_label.pack(pady=5)
         
         # Pack the canvas and scrollbar
-        canvas.pack(side="left", fill="both", expand=True)
+        self.import_canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
         
         # Bind mouse wheel to canvas
         def _on_mousewheel(event):
-            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+            self.import_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
         
-        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        self.import_canvas.bind_all("<MouseWheel>", _on_mousewheel)
     
     def create_status_tab(self, parent):
         """Create status tab"""
@@ -661,8 +667,27 @@ class OggDudeImporterGUI:
             self.adversaries_path_var.set(directory)
             self.import_manager.set_adversaries_directory(directory)
     
+    def scroll_to_bottom(self):
+        """Scroll to the bottom of the import panel"""
+        if hasattr(self, 'import_canvas'):
+            self.import_canvas.yview_moveto(1.0)
+    
+    def update_category_from_sources(self):
+        """Update the category field to the first selected source"""
+        selected_sources = [key for key, var in self.source_vars.items() if var.get()]
+        if selected_sources:
+            # Get the name of the first selected source
+            first_source_key = selected_sources[0]
+            for source in self.sources_config['sources']:
+                if source['key'] == first_source_key:
+                    self.category_var.set(source['name'])
+                    break
+        else:
+            # Clear the category if no sources are selected
+            self.category_var.set("")
+    
     def parse_files(self):
-        """Parse files and show counts"""
+        """Parse files and show counts. Returns True if successful, False otherwise."""
         # Get selected sources
         selected_sources = [key for key, var in self.source_vars.items() if var.get()]
         
@@ -671,14 +696,14 @@ class OggDudeImporterGUI:
             messagebox.showerror("No Sources Selected", 
                                "Please select at least one data source.\n\n"
                                "Check the sources you want to import in the Configuration tab.")
-            return
+            return False
         
         # Check 2: Directory paths
         if not self.oggdude_path_var.get() and not self.adversaries_path_var.get():
             messagebox.showerror("No Directories Selected", 
                                "Please select at least one directory.\n\n"
                                "Browse for your OggDude or Adversaries directories in the Configuration tab.")
-            return
+            return False
         
         # Check 3: Selected record types
         selected_record_types = self.get_selected_record_types()
@@ -686,7 +711,7 @@ class OggDudeImporterGUI:
             messagebox.showerror("No Record Types Selected", 
                                "Please select at least one record type to import.\n\n"
                                "Check the record types you want to import above.")
-            return
+            return False
         
         # Set selected sources in import manager
         self.import_manager.set_selected_sources(selected_sources)
@@ -697,6 +722,9 @@ class OggDudeImporterGUI:
         # Set max import limit in import manager
         max_import_limit = self.get_max_import_limit()
         self.import_manager.set_max_import_limit(max_import_limit)
+        
+        # Update category from selected sources
+        self.update_category_from_sources()
         
         try:
             # Parse files
@@ -738,14 +766,17 @@ class OggDudeImporterGUI:
             if total_records > 0:
                 self.import_button.config(state=tk.NORMAL)
                 messagebox.showinfo("Success", f"Found {total_records} records to import from selected types")
+                return True
             else:
                 self.import_button.config(state=tk.DISABLED)
                 messagebox.showwarning("Warning", "No records found in selected record types")
+                return False
                 
         except Exception as e:
             self.import_button.config(state=tk.DISABLED)
             messagebox.showerror("Error", f"Failed to parse files: {e}")
             self.update_status(f"Parse error: {e}")
+            return False
     
     def update_warnings(self):
         """Update warning messages based on selected record types"""
@@ -775,6 +806,10 @@ class OggDudeImporterGUI:
     def get_update_existing_setting(self) -> bool:
         """Get the update existing records setting from the GUI"""
         return self.update_existing_var.get()
+    
+    def get_category_setting(self) -> str:
+        """Get the category setting from the GUI"""
+        return self.category_var.get()
     
     def validate_setup(self) -> tuple[bool, list[str]]:
         """
@@ -872,12 +907,20 @@ class OggDudeImporterGUI:
                                "Go to the Configuration tab and browse for your OggDude or Adversaries directories.")
             return
         
-        # Check 5: Import button should be enabled (meaning files were parsed successfully)
+        # Check 5: If import button is disabled, try to parse files automatically
         if self.import_button.cget('state') == tk.DISABLED:
-            messagebox.showerror("No Records Found", 
-                               "No records were found to import.\n\n"
-                               "Please click 'Parse Files' first to scan for available records.")
-            return
+            try:
+                # Try to parse files automatically
+                if not self.parse_files():
+                    messagebox.showerror("No Records Found", 
+                                       "No records were found to import.\n\n"
+                                       "Please check your source selection and directory paths.")
+                    return
+            except Exception as e:
+                messagebox.showerror("Parse Error", 
+                                   f"Failed to automatically parse files: {e}\n\n"
+                                   "Please click 'Parse Files' manually to see the error details.")
+                return
         
         # All validations passed - confirm import
         result = messagebox.askyesno("Confirm Import", 
@@ -893,10 +936,15 @@ class OggDudeImporterGUI:
         selected_record_types = self.get_selected_record_types()
         max_import_limit = self.get_max_import_limit()
         update_existing = self.get_update_existing_setting()
+        category = self.get_category_setting()
         
         self.import_manager.set_selected_record_types(selected_record_types)
         self.import_manager.set_max_import_limit(max_import_limit)
         self.import_manager.set_update_existing(update_existing)
+        self.import_manager.set_category(category)
+        
+        # Scroll to bottom to show progress
+        self.scroll_to_bottom()
         
         # Start import
         self.import_manager.start_import()

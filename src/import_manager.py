@@ -17,6 +17,7 @@ class ImportManager:
         self.selected_record_types = []  # All record types by default
         self.max_import_limit = 0  # No limit by default
         self.update_existing = False  # Don't update existing by default
+        self.category = ""  # No category by default
         self.oggdude_directory = ""
         self.adversaries_directory = ""
         self.progress_callback = None
@@ -75,6 +76,10 @@ class ImportManager:
     def set_update_existing(self, update_existing: bool):
         """Set whether to update existing records instead of creating new ones"""
         self.update_existing = update_existing
+    
+    def set_category(self, category: str):
+        """Set the category for all imported records"""
+        self.category = category
     
     def set_oggdude_directory(self, directory: str):
         """Set the OggDude directory path"""
@@ -343,18 +348,8 @@ class ImportManager:
             self.is_importing = False
     
     def _get_category_for_record(self, record: Dict[str, Any]) -> str:
-        """Get the category for a record based on its source"""
-        source = record.get('source', '')
-        
-        # Map source to category based on selected sources
-        for source_config in self.xml_parser.sources_config['sources']:
-            if source_config['key'] in self.selected_sources:
-                for oggdude_source in source_config['oggdude_sources']:
-                    if oggdude_source.lower() in source.lower():
-                        return source_config['name']
-        
-        # Default category
-        return "Star Wars RPG"
+        """Get the category for a record - now simply returns the category setting"""
+        return self.category if self.category else "Star Wars RPG"
     
     def is_import_running(self) -> bool:
         """Check if import is currently running"""
