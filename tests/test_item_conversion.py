@@ -459,7 +459,7 @@ def test_item_attachment_conversion():
                 <Price>9000</Price>
                 <Rarity>7</Rarity>
                 <HP>2</HP>
-                <BaseMods>
+                <AddedMods>
                     <Mod>
                         <Key>SPEEDADD</Key>
                         <Count>1</Count>
@@ -468,7 +468,7 @@ def test_item_attachment_conversion():
                         <Key>HANDLINGSUB</Key>
                         <Count>1</Count>
                     </Mod>
-                </BaseMods>
+                </AddedMods>
                 <Sources>
                     <Source>Special Modifications</Source>
                 </Sources>
@@ -505,7 +505,7 @@ def test_item_attachment_conversion():
         print(f"\nConverted attachment:")
         print(f"  Name: {attachment['name']}")
         print(f"  Type: {converted['type']}")
-        print(f"  Hardpoints: {converted.get('hardpoints', 'None')}")
+        print(f"  Hardpoints: {converted.get('slotsUsed', 'None')}")
         print(f"  ModificationOptions: {converted.get('modificationOptions', 'None')}")
         
         # Test attachment type determination
@@ -517,7 +517,7 @@ def test_item_attachment_conversion():
         
         # Test hardpoints mapping
         if converted.get('slotsUsed') == 2:
-            print(f"  ✓ Hardpoints correctly mapped from HP: {converted['hardpoints']}")
+            print(f"  ✓ Hardpoints correctly mapped from HP: {converted['slotsUsed']}")
         else:
             print(f"  ✗ Hardpoints should be 2, got {converted.get('slotsUsed', 'None')}")
             return False
@@ -556,7 +556,7 @@ def test_item_descriptors_conversion():
                 <Price>5000</Price>
                 <Rarity>5</Rarity>
                 <HP>1</HP>
-                <BaseMods>
+                <AddedMods>
                     <Mod>
                         <Key>SPEEDADD</Key>
                         <Count>2</Count>
@@ -569,7 +569,7 @@ def test_item_descriptors_conversion():
                         <Key>ACCURATE</Key>
                         <Count>1</Count>
                     </Mod>
-                </BaseMods>
+                </AddedMods>
                 <Sources>
                     <Source>Edge of the Empire Core Rulebook</Source>
                 </Sources>
@@ -591,6 +591,10 @@ def test_item_descriptors_conversion():
         print(f"  Name: {attachment['name']}")
         print(f"  Type: {attachment['data']['type']}")
         print(f"  ModificationOptions: {attachment['data'].get('modificationOptions', 'None')}")
+        
+        # Load ItemDescriptors if not already loaded
+        if not hasattr(parser, '_item_descriptors'):
+            parser._load_item_descriptors()
         
         # Test that ItemDescriptors were loaded
         if not hasattr(parser, '_item_descriptors'):
