@@ -1,0 +1,106 @@
+{
+  "weapons": {
+    "Name": "name",
+    "Description": "description",
+    "Type": "type",
+    "Encumbrance": "encumbrance",
+    "Price": "price",
+    "Rarity": "rarity",
+    "Restricted": "restricted",
+    "SkillKey": "weaponSkill",
+    "Damage": "damage",
+    "Crit": "crit",
+    "RangeValue": "range",
+    "Qualities": "special",
+    "HP": "hardpoints"
+  },
+  "armor": {
+    "Name": "name",
+    "Description": "description",
+    "Type": "type",
+    "Encumbrance": "encumbrance",
+    "Price": "price",
+    "Rarity": "rarity",
+    "Restricted": "restricted",
+    "Soak": "soak",
+    "Defense": "defense",
+    "HP": "hardpoints"
+  },
+  "gear": {
+    "Name": "name",
+    "Description": "description",
+    "Type": "type",
+    "Encumbrance": "encumbrance",
+    "Price": "price",
+    "Rarity": "rarity",
+    "Restricted": "restricted",
+    "Consumable": "consumable"
+  },
+  "species": {
+    "Name": "name",
+    "Description": "description",
+    "StartingChars": "startingCharacteristics",
+    "StartingAttrs": "startingAttributes",
+    "SkillModifiers": "skillModifiers",
+    "TalentModifiers": "talentModifiers"
+  },
+  "careers": {
+    "Name": "name",
+    "Description": "description",
+    "CareerSkills": "careerSkills",
+    "Specializations": "specializations"
+  },
+  "specializations": {
+    "Name": "name",
+    "Description": "description",
+    "CareerKey": "careerKey",
+    "Skills": "skills",
+    "Talents": "talents"
+  },
+  "talents": {
+    "Name": "name",
+    "Description": "description",
+    "Activation": "activation",
+    "Ranked": "ranked",
+    "Trees": "trees"
+  },
+  "force_powers": {
+    "Name": "name",
+    "Description": "description",
+    "Activation": "activation",
+    "ForcePowerType": "forcePowerType",
+    "Upgrades": "upgrades"
+  },
+  "vehicles": {
+    "Name": "name",
+    "Description": "description",
+    "Type": "type",
+    "Encumbrance": "encumbrance",
+    "Price": "price",
+    "Rarity": "rarity",
+    "Restricted": "restricted",
+    "Silhouette": "silhouette",
+    "Speed": "speed",
+    "Handling": "handling",
+    "Armor": "armor",
+    "HullTrauma": "hullTrauma",
+    "SystemStrain": "systemStrain",
+    "PassengerCapacity": "passengerCapacity",
+    "EncumbranceCapacity": "encumbranceCapacity",
+    "Consumables": "consumables",
+    "Hyperdrive": "hyperdrive"
+  },
+  "npcs": {
+    "Name": "name",
+    "Description": "description",
+    "SpeciesKey": "speciesKey",
+    "CareerKey": "careerKey",
+    "SpecializationKey": "specializationKey",
+    "Characteristics": "characteristics",
+    "Skills": "skills",
+    "Talents": "talents",
+    "Equipment": "equipment",
+    "Weapons": "weapons",
+    "Armor": "armor"
+  }
+}

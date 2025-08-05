@@ -1,0 +1,96 @@
+{
+  "sources": [
+    {
+      "name": "Age of Rebellion",
+      "key": "book:aor",
+      "oggdude_sources": [
+        "Age of Rebellion Core Rulebook",
+        "Age of Rebellion Core",
+        "AoR"
+      ],
+      "adversaries_sources": [
+        "book:aor"
+      ]
+    },
+    {
+      "name": "Edge of the Empire",
+      "key": "book:eote",
+      "oggdude_sources": [
+        "Edge of the Empire Core Rulebook",
+        "Edge of the Empire Core",
+        "EotE"
+      ],
+      "adversaries_sources": [
+        "book:eote"
+      ]
+    },
+    {
+      "name": "Force and Destiny",
+      "key": "book:fad",
+      "oggdude_sources": [
+        "Force and Destiny Core Rulebook",
+        "Force and Destiny Core",
+        "FaD"
+      ],
+      "adversaries_sources": [
+        "book:fad"
+      ]
+    },
+    {
+      "name": "Far Horizons",
+      "key": "far-horizons",
+      "oggdude_sources": [
+        "Far Horizons"
+      ],
+      "adversaries_sources": []
+    },
+    {
+      "name": "Dawn of Rebellion",
+      "key": "dawn-of-rebellion",
+      "oggdude_sources": [
+        "Dawn of Rebellion"
+      ],
+      "adversaries_sources": []
+    },
+    {
+      "name": "Rise of the Separatists",
+      "key": "rise-of-the-separatists",
+      "oggdude_sources": [
+        "Rise of the Separatists"
+      ],
+      "adversaries_sources": []
+    },
+    {
+      "name": "Collapse of the Republic",
+      "key": "collapse-of-the-republic",
+      "oggdude_sources": [
+        "Collapse of the Republic"
+      ],
+      "adversaries_sources": []
+    },
+    {
+      "name": "Nexus of Power",
+      "key": "nexus-of-power",
+      "oggdude_sources": [
+        "Nexus of Power"
+      ],
+      "adversaries_sources": []
+    },
+    {
+      "name": "Savage Spirits",
+      "key": "savage-spirits",
+      "oggdude_sources": [
+        "Savage Spirits"
+      ],
+      "adversaries_sources": []
+    },
+    {
+      "name": "Chronicles of the Gatekeeper",
+      "key": "chronicles-of-the-gatekeeper",
+      "oggdude_sources": [
+        "Chronicles of the Gatekeeper"
+      ],
+      "adversaries_sources": []
+    }
+  ]
+} 
