@@ -242,10 +242,11 @@ class ImportManager:
                 if not self.is_importing:
                     break
                 
-                records = limited_records[record_type]
-                if not records:
+                # Only process record types that exist in limited_records
+                if record_type not in limited_records or not limited_records[record_type]:
                     continue
                 
+                records = limited_records[record_type]
                 self._log_status(f"Importing {display_name}...")
                 
                 for i, record in enumerate(records):
