@@ -44,14 +44,11 @@ class XMLParser:
         mapping = self.field_mapping[record_type]
         mapped_data = {}
         
+        # First, add all mapped fields (with None for missing ones)
         for oggdude_field, realm_field in mapping.items():
-            if oggdude_field in data:
-                mapped_data[realm_field] = data[oggdude_field]
-            else:
-                # If field doesn't exist, use the original field name
-                mapped_data[oggdude_field] = data.get(oggdude_field, None)
+            mapped_data[realm_field] = data.get(oggdude_field, None)
         
-        # Add any fields that weren't in the mapping
+        # Then add any fields that weren't in the mapping
         for field, value in data.items():
             if field not in mapping:
                 mapped_data[field] = value

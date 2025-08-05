@@ -71,6 +71,9 @@ class OggDudeImporterGUI:
         status_frame = ttk.Frame(notebook)
         notebook.add(status_frame, text="Status")
         self.create_status_tab(status_frame)
+        
+        # Initialize connection status
+        self.update_connection_status()
     
     def create_login_tab(self, parent):
         """Create login tab"""
@@ -97,9 +100,22 @@ class OggDudeImporterGUI:
         two_fa_entry = ttk.Entry(login_frame, textvariable=self.two_fa_var, width=40)
         two_fa_entry.grid(row=2, column=1, sticky=(tk.W, tk.E), padx=5, pady=5)
         
-        # Login button
-        login_button = ttk.Button(login_frame, text="Login", command=self.login)
-        login_button.grid(row=3, column=0, columnspan=2, pady=20)
+        # Login button and status
+        login_button_frame = ttk.Frame(login_frame)
+        login_button_frame.grid(row=3, column=0, columnspan=2, pady=20)
+        
+        self.login_button = ttk.Button(login_button_frame, text="Login", command=self.login)
+        self.login_button.pack(side=tk.LEFT, padx=5)
+        
+        # Login status indicator
+        self.login_status_frame = ttk.Frame(login_button_frame)
+        self.login_status_frame.pack(side=tk.LEFT, padx=10)
+        
+        self.login_status_icon = ttk.Label(self.login_status_frame, text="", font=("Arial", 14))
+        self.login_status_icon.pack(side=tk.LEFT)
+        
+        self.login_status_text = ttk.Label(self.login_status_frame, text="", font=("Arial", 10))
+        self.login_status_text.pack(side=tk.LEFT, padx=5)
         
         # Campaign frame
         campaign_frame = ttk.LabelFrame(parent, text="Campaign", padding=20)
@@ -110,13 +126,38 @@ class OggDudeImporterGUI:
         invite_entry = ttk.Entry(campaign_frame, textvariable=self.invite_code_var, width=40)
         invite_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=5, pady=5)
         
-        # Lookup button
-        lookup_button = ttk.Button(campaign_frame, text="Lookup Campaign", command=self.lookup_campaign)
-        lookup_button.grid(row=1, column=0, columnspan=2, pady=20)
+        # Lookup button and status
+        lookup_button_frame = ttk.Frame(campaign_frame)
+        lookup_button_frame.grid(row=1, column=0, columnspan=2, pady=20)
         
-        # Status label
-        self.login_status_label = ttk.Label(parent, text="", foreground="red")
-        self.login_status_label.pack(pady=10)
+        self.lookup_button = ttk.Button(lookup_button_frame, text="Lookup Campaign", command=self.lookup_campaign)
+        self.lookup_button.pack(side=tk.LEFT, padx=5)
+        
+        # Campaign status indicator
+        self.campaign_status_frame = ttk.Frame(lookup_button_frame)
+        self.campaign_status_frame.pack(side=tk.LEFT, padx=10)
+        
+        self.campaign_status_icon = ttk.Label(self.campaign_status_frame, text="", font=("Arial", 14))
+        self.campaign_status_icon.pack(side=tk.LEFT)
+        
+        self.campaign_status_text = ttk.Label(self.campaign_status_frame, text="", font=("Arial", 10))
+        self.campaign_status_text.pack(side=tk.LEFT, padx=5)
+        
+        # Overall status section
+        status_frame = ttk.LabelFrame(parent, text="Connection Status", padding=20)
+        status_frame.pack(fill=tk.X, padx=20, pady=10)
+        
+        # Connection status
+        self.connection_status_label = ttk.Label(status_frame, text="Not connected", font=("Arial", 12))
+        self.connection_status_label.pack(pady=5)
+        
+        # Campaign info
+        self.campaign_info_label = ttk.Label(status_frame, text="No campaign selected", font=("Arial", 10))
+        self.campaign_info_label.pack(pady=5)
+        
+        # Configure grid weights
+        login_frame.columnconfigure(1, weight=1)
+        campaign_frame.columnconfigure(1, weight=1)
     
     def create_config_tab(self, parent):
         """Create configuration tab"""
@@ -163,9 +204,17 @@ class OggDudeImporterGUI:
         title_label = ttk.Label(parent, text="Import Data", font=("Arial", 16, "bold"))
         title_label.pack(pady=20)
         
+        # Buttons frame
+        buttons_frame = ttk.Frame(parent)
+        buttons_frame.pack(pady=10)
+        
+        # Check setup button
+        check_setup_button = ttk.Button(buttons_frame, text="Check Setup", command=self.show_setup_status)
+        check_setup_button.pack(side=tk.LEFT, padx=5)
+        
         # Parse button
-        parse_button = ttk.Button(parent, text="Parse Files", command=self.parse_files)
-        parse_button.pack(pady=10)
+        parse_button = ttk.Button(buttons_frame, text="Parse Files", command=self.parse_files)
+        parse_button.pack(side=tk.LEFT, padx=5)
         
         # Record counts frame
         counts_frame = ttk.LabelFrame(parent, text="Record Counts", padding=20)
@@ -222,6 +271,48 @@ class OggDudeImporterGUI:
         clear_button = ttk.Button(parent, text="Clear Log", command=self.clear_status)
         clear_button.pack(pady=10)
     
+    def update_login_status(self, message: str, status_type: str = "info"):
+        """Update login status with visual indicators"""
+        if status_type == "success":
+            self.login_status_icon.config(text="✓", foreground="green")
+            self.login_status_text.config(text=message, foreground="green")
+        elif status_type == "error":
+            self.login_status_icon.config(text="✗", foreground="red")
+            self.login_status_text.config(text=message, foreground="red")
+        elif status_type == "loading":
+            self.login_status_icon.config(text="⟳", foreground="blue")
+            self.login_status_text.config(text=message, foreground="blue")
+        else:
+            self.login_status_icon.config(text="ℹ", foreground="black")
+            self.login_status_text.config(text=message, foreground="black")
+    
+    def update_campaign_status(self, message: str, status_type: str = "info"):
+        """Update campaign status with visual indicators"""
+        if status_type == "success":
+            self.campaign_status_icon.config(text="✓", foreground="green")
+            self.campaign_status_text.config(text=message, foreground="green")
+        elif status_type == "error":
+            self.campaign_status_icon.config(text="✗", foreground="red")
+            self.campaign_status_text.config(text=message, foreground="red")
+        elif status_type == "loading":
+            self.campaign_status_icon.config(text="⟳", foreground="blue")
+            self.campaign_status_text.config(text=message, foreground="blue")
+        else:
+            self.campaign_status_icon.config(text="ℹ", foreground="black")
+            self.campaign_status_text.config(text=message, foreground="black")
+    
+    def update_connection_status(self):
+        """Update the overall connection status display"""
+        if self.api_client.is_authenticated():
+            self.connection_status_label.config(text="✓ Connected to Realm VTT", foreground="green")
+            if self.campaign_id:
+                self.campaign_info_label.config(text=f"Campaign ID: {self.campaign_id}", foreground="green")
+            else:
+                self.campaign_info_label.config(text="No campaign selected", foreground="orange")
+        else:
+            self.connection_status_label.config(text="✗ Not connected", foreground="red")
+            self.campaign_info_label.config(text="No campaign selected", foreground="red")
+    
     def login(self):
         """Handle login"""
         email = self.email_var.get().strip()
@@ -229,29 +320,50 @@ class OggDudeImporterGUI:
         two_fa = self.two_fa_var.get().strip()
         
         if not email or not password:
-            self.login_status_label.config(text="Please enter email and password")
+            self.update_login_status("Please enter email and password", "error")
             return
+        
+        # Show loading state
+        self.update_login_status("Logging in...", "loading")
+        self.login_button.config(state=tk.DISABLED)
+        self.root.update_idletasks()
         
         try:
             # Login to Realm VTT
             result = self.api_client.login(email, password, two_fa if two_fa else None)
-            self.login_status_label.config(text="Login successful!", foreground="green")
+            self.update_login_status("Login successful!", "success")
+            self.update_connection_status()
             self.update_status("Login successful")
+            
+            # Show success message
+            messagebox.showinfo("Login Success", "Successfully logged in to Realm VTT!")
+            
         except Exception as e:
-            self.login_status_label.config(text=f"Login failed: {e}", foreground="red")
+            self.update_login_status(f"Login failed: {e}", "error")
+            self.update_connection_status()
             self.update_status(f"Login failed: {e}")
+            
+            # Show error message
+            messagebox.showerror("Login Failed", f"Failed to login: {e}")
+        finally:
+            self.login_button.config(state=tk.NORMAL)
     
     def lookup_campaign(self):
         """Handle campaign lookup"""
         invite_code = self.invite_code_var.get().strip()
         
         if not invite_code:
-            self.login_status_label.config(text="Please enter an invite code")
+            self.update_campaign_status("Please enter an invite code", "error")
             return
         
         if not self.api_client.is_authenticated():
-            self.login_status_label.config(text="Please login first")
+            self.update_campaign_status("Please login first", "error")
             return
+        
+        # Show loading state
+        self.update_campaign_status("Looking up campaign...", "loading")
+        self.lookup_button.config(state=tk.DISABLED)
+        self.root.update_idletasks()
         
         try:
             # Lookup campaign
@@ -259,14 +371,28 @@ class OggDudeImporterGUI:
             if campaign_id:
                 self.campaign_id = campaign_id
                 self.import_manager.set_campaign_id(campaign_id)
-                self.login_status_label.config(text=f"Campaign found! ID: {campaign_id}", foreground="green")
+                self.update_campaign_status("Campaign found!", "success")
+                self.update_connection_status()
                 self.update_status(f"Campaign found: {campaign_id}")
+                
+                # Show success message
+                messagebox.showinfo("Campaign Found", f"Successfully found campaign!\nCampaign ID: {campaign_id}")
             else:
-                self.login_status_label.config(text="Campaign not found", foreground="red")
+                self.update_campaign_status("Campaign not found", "error")
+                self.update_connection_status()
                 self.update_status("Campaign not found")
+                
+                # Show error message
+                messagebox.showerror("Campaign Not Found", "The campaign invite code was not found or you don't have access to it.")
         except Exception as e:
-            self.login_status_label.config(text=f"Campaign lookup failed: {e}", foreground="red")
+            self.update_campaign_status(f"Lookup failed: {e}", "error")
+            self.update_connection_status()
             self.update_status(f"Campaign lookup failed: {e}")
+            
+            # Show error message
+            messagebox.showerror("Campaign Lookup Failed", f"Failed to lookup campaign: {e}")
+        finally:
+            self.lookup_button.config(state=tk.NORMAL)
     
     def browse_oggdude_directory(self):
         """Browse for OggDude directory"""
@@ -286,12 +412,23 @@ class OggDudeImporterGUI:
         """Parse files and show counts"""
         # Get selected sources
         selected_sources = [key for key, var in self.source_vars.items() if var.get()]
-        self.import_manager.set_selected_sources(selected_sources)
         
-        # Check if directories are set
-        if not self.oggdude_path_var.get() and not self.adversaries_path_var.get():
-            messagebox.showerror("Error", "Please select at least one directory")
+        # Check 1: Selected sources
+        if not selected_sources:
+            messagebox.showerror("No Sources Selected", 
+                               "Please select at least one data source.\n\n"
+                               "Check the sources you want to import in the Configuration tab.")
             return
+        
+        # Check 2: Directory paths
+        if not self.oggdude_path_var.get() and not self.adversaries_path_var.get():
+            messagebox.showerror("No Directories Selected", 
+                               "Please select at least one directory.\n\n"
+                               "Browse for your OggDude or Adversaries directories in the Configuration tab.")
+            return
+        
+        # Set selected sources in import manager
+        self.import_manager.set_selected_sources(selected_sources)
         
         try:
             # Parse files
@@ -308,21 +445,114 @@ class OggDudeImporterGUI:
                 self.import_button.config(state=tk.NORMAL)
                 messagebox.showinfo("Success", f"Found {total_records} records to import")
             else:
+                self.import_button.config(state=tk.DISABLED)
                 messagebox.showwarning("Warning", "No records found matching selected sources")
                 
         except Exception as e:
+            self.import_button.config(state=tk.DISABLED)
             messagebox.showerror("Error", f"Failed to parse files: {e}")
             self.update_status(f"Parse error: {e}")
     
+    def validate_setup(self) -> tuple[bool, list[str]]:
+        """
+        Validate the complete setup and return status
+        
+        Returns:
+            tuple: (is_valid, list_of_issues)
+        """
+        issues = []
+        
+        # Check authentication
+        if not self.api_client.is_authenticated():
+            issues.append("Not logged in to Realm VTT")
+        
+        # Check campaign
+        if not self.campaign_id:
+            issues.append("No campaign selected")
+        
+        # Check sources
+        selected_sources = [key for key, var in self.source_vars.items() if var.get()]
+        if not selected_sources:
+            issues.append("No data sources selected")
+        
+        # Check directories
+        if not self.oggdude_path_var.get() and not self.adversaries_path_var.get():
+            issues.append("No directories selected")
+        
+        # Check if files were parsed (import button should be enabled)
+        if hasattr(self, 'import_button') and self.import_button.cget('state') == tk.DISABLED:
+            issues.append("Files not parsed (click 'Parse Files' first)")
+        
+        return len(issues) == 0, issues
+    
+    def show_setup_status(self):
+        """Show a dialog with the current setup status"""
+        is_valid, issues = self.validate_setup()
+        
+        if is_valid:
+            selected_sources = [key for key, var in self.source_vars.items() if var.get()]
+            source_names = [self.sources_config['sources'][i]['name'] for i, source in enumerate(self.sources_config['sources']) if source['key'] in selected_sources]
+            
+            messagebox.showinfo("Setup Status", 
+                              f"✅ Setup is complete and ready for import!\n\n"
+                              f"Campaign ID: {self.campaign_id}\n"
+                              f"Sources: {', '.join(source_names)}\n"
+                              f"Directories: {self.oggdude_path_var.get() or 'None'} / {self.adversaries_path_var.get() or 'None'}")
+        else:
+            message = "❌ Setup is incomplete. Please address the following issues:\n\n"
+            for i, issue in enumerate(issues, 1):
+                message += f"{i}. {issue}\n"
+            message += "\nPlease complete the setup before starting import."
+            
+            messagebox.showwarning("Setup Incomplete", message)
+    
     def start_import(self):
         """Start the import process"""
-        if not self.campaign_id:
-            messagebox.showerror("Error", "Please lookup a campaign first")
+        # Comprehensive validation before starting import
+        
+        # Check 1: Login credentials and authentication
+        if not self.api_client.is_authenticated():
+            messagebox.showerror("Authentication Required", 
+                               "Please login to Realm VTT first.\n\n"
+                               "Go to the Login tab and enter your credentials.")
             return
         
-        # Confirm import
+        # Check 2: Campaign ID
+        if not self.campaign_id:
+            messagebox.showerror("Campaign Required", 
+                               "Please lookup a campaign first.\n\n"
+                               "Go to the Login tab and enter your campaign invite code.")
+            return
+        
+        # Check 3: Selected sources
+        selected_sources = [key for key, var in self.source_vars.items() if var.get()]
+        if not selected_sources:
+            messagebox.showerror("No Sources Selected", 
+                               "Please select at least one data source.\n\n"
+                               "Go to the Configuration tab and check the sources you want to import.")
+            return
+        
+        # Check 4: Directory paths
+        if not self.oggdude_path_var.get() and not self.adversaries_path_var.get():
+            messagebox.showerror("No Directories Selected", 
+                               "Please select at least one directory.\n\n"
+                               "Go to the Configuration tab and browse for your OggDude or Adversaries directories.")
+            return
+        
+        # Check 5: Import button should be enabled (meaning files were parsed successfully)
+        if self.import_button.cget('state') == tk.DISABLED:
+            messagebox.showerror("No Records Found", 
+                               "No records were found to import.\n\n"
+                               "Please click 'Parse Files' first to scan for available records.")
+            return
+        
+        # All validations passed - confirm import
         result = messagebox.askyesno("Confirm Import", 
-                                   "Are you sure you want to start the import? This will create records in your Realm VTT campaign.")
+                                   f"Are you sure you want to start the import?\n\n"
+                                   f"This will create records in your Realm VTT campaign:\n"
+                                   f"• Campaign ID: {self.campaign_id}\n"
+                                   f"• Sources: {', '.join([self.sources_config['sources'][i]['name'] for i, source in enumerate(self.sources_config['sources']) if source['key'] in selected_sources])}\n\n"
+                                   f"This action cannot be undone.")
         if not result:
             return
         
