@@ -84,6 +84,8 @@ class DataMapper:
             return self._convert_talent(oggdude_record, campaign_id, category)
         elif record_type == 'force_powers':
             return self._convert_force_power(oggdude_record, campaign_id, category)
+        elif record_type == 'skills':
+            return self._convert_skill(oggdude_record, campaign_id, category)
         elif record_type == 'vehicles':
             return self._convert_vehicle(oggdude_record, campaign_id, category)
         elif record_type == 'npcs':
@@ -490,28 +492,59 @@ class DataMapper:
     
     def _convert_force_power(self, power: Dict[str, Any], campaign_id: str, category: str) -> Dict[str, Any]:
         """Convert force power to Realm VTT format"""
-        # Get the data and ensure it's a dict
         data = power.get('data', {})
-        if not isinstance(data, dict):
-            data = {}
         
-        # Convert description and add to data
-        if 'description' in power:
-            data['description'] = self._convert_description(power['description'])
-        
-        realm_power = {
-            "name": power.get('name', 'Unknown Force Power'),
-            "recordType": "force_powers",
-            "campaignId": campaign_id,
-            "category": category,
-            "unidentifiedName": "Unknown Force Power",
-            "identified": True,
-            "shared": False,
-            "locked": True,
-            "data": data
+        realm_record = {
+            'name': power.get('name', 'Unknown Force Power'),
+            'category': category or 'Force and Destiny Core Rulebook',
+            'campaignId': campaign_id,
+            'recordType': 'force_powers',
+            'data': {
+                'name': power.get('name', 'Unknown Force Power'),
+                'description': self._convert_description(power.get('description', '')),
+                'activation': data.get('activation', ''),
+                'forcePowerType': data.get('forcePowerType', ''),
+                'upgrades': data.get('upgrades', [])
+            },
+            'unidentifiedName': 'Unknown Force Power',
+            'locked': True
         }
         
-        return realm_power
+        return realm_record
+    
+    def _convert_skill(self, skill: Dict[str, Any], campaign_id: str, category: str) -> Dict[str, Any]:
+        """Convert skill to Realm VTT format"""
+        data = skill.get('data', {})
+        
+        # Convert skill name to handle hyphens (e.g., "Piloting - Planetary" -> "Piloting (Planetary)")
+        skill_name = skill.get('name', 'Unknown Skill')
+        converted_name = self._convert_skill_name(skill_name)
+        
+        realm_record = {
+            'name': converted_name,
+            'category': category or 'Edge of the Empire Core Rulebook',
+            'campaignId': campaign_id,
+            'recordType': 'skills',
+            'data': {
+                'name': converted_name,
+                'description': self._convert_description(skill.get('description', '')),
+                'stat': data.get('stat', 'agility'),
+                'group': data.get('group', 'General')
+            },
+            'unidentifiedName': 'Unknown Skill',
+            'locked': True
+        }
+        
+        return realm_record
+    
+    def _convert_skill_name(self, skill_name: str) -> str:
+        """Convert skill name to handle hyphens (e.g., 'Piloting - Planetary' -> 'Piloting (Planetary)')"""
+        if ' - ' in skill_name:
+            # Split on ' - ' and convert to parentheses format
+            parts = skill_name.split(' - ', 1)
+            if len(parts) == 2:
+                return f"{parts[0]} ({parts[1]})"
+        return skill_name
     
     def _convert_vehicle(self, vehicle: Dict[str, Any], campaign_id: str, category: str) -> Dict[str, Any]:
         """Convert vehicle to Realm VTT format"""

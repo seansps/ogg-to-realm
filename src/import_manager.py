@@ -271,11 +271,12 @@ class ImportManager:
                             record, self.campaign_id, self._get_category_for_record(record)
                         )
                         
-                        record_name = record.get('name', '')
+                        # Use the converted name for lookups (important for skills with hyphens)
+                        record_name = realm_record.get('name', '') if realm_record else record.get('name', '')
                         
                         # Check if we should update existing records
                         if self.update_existing and record_name:
-                            # Try to find existing record by name
+                            # Try to find existing record by name (using converted name)
                             existing_record = self.api_client.find_record_by_name(record_type, record_name)
                             
                             if existing_record:
@@ -327,10 +328,12 @@ class ImportManager:
                         time.sleep(0.1)
                         
                     except Exception as e:
-                        self._log_status(f"Error importing {record.get('name', 'Unknown')}: {e}")
+                        # Use converted name for error logging if available
+                        error_name = realm_record.get('name', '') if realm_record else record.get('name', 'Unknown')
+                        self._log_status(f"Error importing {error_name}: {e}")
                         current_record += 1
                         self._update_progress(
-                            f"Failed to import {record.get('name', 'Unknown')}",
+                            f"Failed to import {error_name}",
                             current_record,
                             total_records
                         )

@@ -682,12 +682,24 @@ class XMLParser:
                 'Name': self._get_text(skill_elem, 'Name'),
                 'Description': self._get_text(skill_elem, 'Description'),
                 'Key': self._get_text(skill_elem, 'Key'),
-                'Characteristic': self._get_text(skill_elem, 'Characteristic'),
-                'Type': self._get_text(skill_elem, 'Type', 'general')
+                'CharKey': self._get_text(skill_elem, 'CharKey'),
+                'TypeValue': self._get_text(skill_elem, 'TypeValue', 'general')
             }
             
             # Apply field mapping
             mapped_data = self._apply_field_mapping('skills', raw_data)
+            
+            # Convert CharKey to Realm VTT characteristic values
+            if 'stat' in mapped_data and mapped_data['stat']:
+                mapped_data['stat'] = self._convert_char_key_to_stat(mapped_data['stat'])
+            
+            # Convert TypeValue to Realm VTT group format and set type to 'group'
+            if 'type' in mapped_data and mapped_data['type']:
+                mapped_data['group'] = self._convert_type_value_to_group(mapped_data['type'])
+                mapped_data['type'] = 'group'
+            else:
+                mapped_data['group'] = 'general'
+                mapped_data['type'] = 'group'
             
             # Get sources and convert to category
             sources = self._get_sources(skill_elem)
@@ -698,6 +710,7 @@ class XMLParser:
                 'name': mapped_data.get('name', 'Unknown Skill'),
                 'description': mapped_data.get('description', ''),
                 'category': category,
+                'sources': sources,  # Add sources field for filtering
                 'data': mapped_data,
                 'unidentifiedName': 'Unknown Skill',
                 'locked': True
@@ -1397,3 +1410,26 @@ class XMLParser:
         text = text.replace('[DESPAIR]', 'despair')
         
         return text.strip() 
+
+    def _convert_char_key_to_stat(self, char_key: str) -> str:
+        """Convert OggDude characteristic key to Realm VTT characteristic value"""
+        char_mapping = {
+            'BR': 'brawn',
+            'AG': 'agility', 
+            'INT': 'intellect',
+            'CUN': 'cunning',
+            'WIL': 'willpower',
+            'PR': 'presence'
+        }
+        return char_mapping.get(char_key.upper(), 'intellect')  # Default to intellect if unknown
+    
+    def _convert_type_value_to_group(self, type_value: str) -> str:
+        """Convert OggDude TypeValue to Realm VTT group format"""
+        if not type_value:
+            return 'general'
+        
+        # Remove 'st' prefix if present
+        if type_value.startswith('st'):
+            return type_value[2:]  # Remove first 2 characters ('st')
+        
+        return type_value 

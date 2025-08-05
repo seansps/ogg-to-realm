@@ -112,5 +112,11 @@
     "Equipment": "equipment",
     "Weapons": "weapons",
     "Armor": "armor"
+  },
+  "skills": {
+    "Name": "name",
+    "Description": "description",
+    "CharKey": "stat",
+    "TypeValue": "type"
   }
 }
