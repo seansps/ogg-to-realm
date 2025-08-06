@@ -84,6 +84,9 @@ class ImportManager:
     def set_oggdude_directory(self, directory: str):
         """Set the OggDude directory path"""
         self.oggdude_directory = directory
+        # Update the XML parser with the new directory
+        if self.xml_parser:
+            self.xml_parser.set_data_directory(directory)
     
     def set_adversaries_directory(self, directory: str):
         """Set the Adversaries directory path"""

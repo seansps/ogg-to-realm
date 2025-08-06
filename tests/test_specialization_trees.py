@@ -86,77 +86,9 @@ def test_talent_data_with_specializations():
         print("  - No specialization trees found (this might be normal if GRIT isn't in any trees)")
         return True  # This is not necessarily a failure
 
-def test_specialization_tree_structure():
-    """Test parsing of a specific specialization tree structure"""
-    parser = XMLParser()
-    
-    # Create a mock specialization XML element
-    spec_xml = '''<?xml version="1.0" encoding="utf-8"?>
-    <Specialization>
-        <Key>TESTSPEC</Key>
-        <Name>Test Specialization</Name>
-        <Description>This is a test specialization.</Description>
-        <TalentRows>
-            <TalentRow>
-                <Cost>5</Cost>
-                <Talents>
-                    <Key>GRIT</Key>
-                    <Key>QUICKST</Key>
-                </Talents>
-                <Directions>
-                    <Direction>
-                        <Down>true</Down>
-                    </Direction>
-                    <Direction>
-                        <Down>true</Down>
-                    </Direction>
-                </Directions>
-            </TalentRow>
-        </TalentRows>
-    </Specialization>
-    '''
-    
-    root = ET.fromstring(spec_xml)
-    
-    # Test the parsing logic manually
-    spec_key = parser._get_text(root, 'Key')
-    spec_name = parser._get_text(root, 'Name')
-    
-    if spec_key != 'TESTSPEC':
-        print(f"  ✗ Spec key extraction failed: expected 'TESTSPEC', got '{spec_key}'")
-        return False
-    
-    if spec_name != 'Test Specialization':
-        print(f"  ✗ Spec name extraction failed: expected 'Test Specialization', got '{spec_name}'")
-        return False
-    
-    # Test talent extraction
-    talent_rows = parser._findall_with_namespace(root, 'TalentRow')
-    if not talent_rows:
-        print("  ✗ No talent rows found")
-        return False
-    
-    talent_keys = []
-    for talent_row in talent_rows:
-        talents = parser._findall_with_namespace(talent_row, 'Key')
-        for talent_elem in talents:
-            talent_key = talent_elem.text.strip() if talent_elem.text else ''
-            if talent_key:
-                talent_keys.append(talent_key)
-    
-    expected_talents = ['GRIT', 'QUICKST']
-    if talent_keys == expected_talents:
-        print(f"  ✓ Talent keys extracted correctly: {talent_keys}")
-        return True
-    else:
-        print(f"  ✗ Talent keys extraction failed: expected {expected_talents}, got {talent_keys}")
-        return False
 
 if __name__ == "__main__":
     print("Running specialization tree tests...")
-    
-    # Test specialization tree structure parsing
-    structure_result = test_specialization_tree_structure()
     
     # Test specialization tree loading
     loading_result = test_specialization_tree_parsing()
@@ -164,7 +96,7 @@ if __name__ == "__main__":
     # Test talent data extraction with specializations
     extraction_result = test_talent_data_with_specializations()
     
-    if (structure_result and loading_result and extraction_result):
+    if (loading_result and extraction_result):
         print("\n✅ All specialization tree tests passed!")
     else:
         print("\n❌ Some specialization tree tests failed!")

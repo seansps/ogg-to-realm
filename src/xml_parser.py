@@ -5,8 +5,13 @@ from typing import Dict, List, Any, Optional
 from pathlib import Path
 
 class XMLParser:
-    def __init__(self):
-        self.data_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'OggData')
+    def __init__(self, data_dir: Optional[str] = None):
+        # Use provided data_dir or fall back to default
+        if data_dir:
+            self.data_dir = data_dir
+        else:
+            self.data_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'OggData')
+        
         self.field_mapping = self._load_field_mapping()
         self.sources_config = self._load_sources_config()
         self._talents = {}  # Will store talent keys to names mapping
@@ -14,6 +19,20 @@ class XMLParser:
         self._talent_specializations = {}  # Will store talent-to-specialization mapping
         
         # Load reference data
+        self._load_talents()
+        self._load_skills()
+        self._load_item_descriptors()
+        self._load_specialization_trees()
+    
+    def set_data_directory(self, data_dir: str):
+        """Set the data directory and reload reference data"""
+        self.data_dir = data_dir
+        # Reload reference data with new directory
+        self._talents = {}
+        self._skills = {}
+        self._talent_specializations = {}
+        self._item_descriptors = {}
+        
         self._load_talents()
         self._load_skills()
         self._load_item_descriptors()
@@ -2006,7 +2025,12 @@ class XMLParser:
         return xml_files
     
     def _find_oggdata_directory(self) -> Optional[str]:
-        """Find the OggData directory from common locations"""
+        """Find the OggData directory from the configured data_dir"""
+        if hasattr(self, 'data_dir') and self.data_dir:
+            if os.path.exists(self.data_dir) and os.path.isdir(self.data_dir):
+                return os.path.abspath(self.data_dir)
+        
+        # Fallback to common locations if data_dir is not set or doesn't exist
         possible_paths = [
             'OggData',
             '../OggData',
