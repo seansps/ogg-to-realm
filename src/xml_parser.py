@@ -424,6 +424,41 @@ class XMLParser:
             # Apply field mapping
             mapped_data = self._apply_field_mapping('species', raw_data)
             
+            # Convert description to rich text format
+            if 'description' in mapped_data and mapped_data['description']:
+                mapped_data['description'] = self._convert_oggdude_format_to_rich_text(mapped_data['description'])
+            
+            # Map starting characteristics to individual fields
+            starting_chars = raw_data.get('StartingChars', {})
+            if starting_chars:
+                mapped_data['brawn'] = starting_chars.get('brawn', 1)
+                mapped_data['agility'] = starting_chars.get('agility', 1)
+                mapped_data['intellect'] = starting_chars.get('intellect', 1)
+                mapped_data['cunning'] = starting_chars.get('cunning', 1)
+                mapped_data['willpower'] = starting_chars.get('willpower', 1)
+                mapped_data['presence'] = starting_chars.get('presence', 1)
+            
+            # Map starting attributes to individual fields
+            starting_attrs = raw_data.get('StartingAttrs', {})
+            if starting_attrs:
+                mapped_data['woundThreshold'] = starting_attrs.get('woundThreshold', 10)
+                mapped_data['strainThreshold'] = starting_attrs.get('strainThreshold', 10)
+                mapped_data['startingXp'] = starting_attrs.get('experience', 0)
+            
+            # Convert skill modifiers to text format
+            skill_modifiers = raw_data.get('SkillModifiers', [])
+            if skill_modifiers:
+                mapped_data['startingSkills'] = self._convert_skill_modifiers_to_text(skill_modifiers)
+            else:
+                mapped_data['startingSkills'] = ""
+            
+            # Extract option choices (species abilities)
+            features = self._extract_option_choices(species_elem)
+            if features:
+                mapped_data['features'] = features
+            else:
+                mapped_data['features'] = []
+            
             # Get sources and convert to category
             sources = self._get_sources(species_elem)
             category = self._get_category_from_sources(sources)
@@ -2249,3 +2284,57 @@ class XMLParser:
         except Exception as e:
             print(f"Error loading specializations: {e}")
             self._specializations = {}
+    
+    def _extract_option_choices(self, elem: ET.Element) -> List[Dict[str, Any]]:
+        """Extract option choices (species abilities) from XML element"""
+        import uuid
+        features = []
+        choices_elem = self._find_with_namespace(elem, 'OptionChoices')
+        if choices_elem:
+            for choice in self._findall_with_namespace(choices_elem, 'OptionChoice'):
+                choice_name = self._get_text(choice, 'Name')
+                options_elem = self._find_with_namespace(choice, 'Options')
+                if options_elem:
+                    for option in self._findall_with_namespace(options_elem, 'Option'):
+                        option_name = self._get_text(option, 'Name')
+                        option_description = self._get_text(option, 'Description')
+                        
+                        # Convert description to rich text format
+                        if option_description:
+                            option_description = self._convert_oggdude_format_to_rich_text(option_description)
+                        
+                        feature = {
+                            "_id": str(uuid.uuid4()),
+                            "name": option_name or choice_name,
+                            "unidentifiedName": "Feature",
+                            "recordType": "records",
+                            "identified": True,
+                            "data": {
+                                "description": f"<p>{option_description}</p>" if option_description else "<p></p>"
+                            }
+                        }
+                        features.append(feature)
+        return features
+    
+    def _convert_skill_modifiers_to_text(self, skill_modifiers: List[Dict[str, Any]]) -> str:
+        """Convert skill modifiers to text format for species"""
+        if not skill_modifiers:
+            return ""
+        
+        descriptions = []
+        for modifier in skill_modifiers:
+            skill_key = modifier.get('skill', '')
+            rank_start = modifier.get('rankStart', 0)
+            rank_limit = modifier.get('rankLimit', 0)
+            
+            if skill_key:
+                skill_name = self._get_skill_name(skill_key) or skill_key
+                
+                if rank_start > 0 and rank_limit > 0:
+                    descriptions.append(f"Begin the game with {rank_start} rank{'s' if rank_start > 1 else ''} in {skill_name}. They still may not train {skill_name} above rank {rank_limit} during character creation.")
+                elif rank_start > 0:
+                    descriptions.append(f"Begin the game with {rank_start} rank{'s' if rank_start > 1 else ''} in {skill_name}.")
+                elif rank_limit > 0:
+                    descriptions.append(f"They still may not train {skill_name} above rank {rank_limit} during character creation.")
+        
+        return " ".join(descriptions)
