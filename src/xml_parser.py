@@ -1,6 +1,7 @@
 import xml.etree.ElementTree as ET
 import os
 import json
+import uuid
 from typing import Dict, List, Any, Optional
 from pathlib import Path
 
@@ -10,7 +11,7 @@ class XMLParser:
         if data_dir:
             self.data_dir = data_dir
         else:
-            self.data_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'OggData')
+            self.data_dir = os.path.join(os.path.dirname(__file__), '..', 'OggData')
         
         self.field_mapping = self._load_field_mapping()
         self.sources_config = self._load_sources_config()
@@ -19,6 +20,7 @@ class XMLParser:
         self._talent_specializations = {}  # Will store talent-to-specialization mapping
         self._specializations = {}  # Will store specialization keys to names mapping
         self._careers = {}  # Will store career keys to names mapping
+        self._force_abilities = {}  # Will store force ability keys to data mapping
         
         # Load reference data
         self._load_talents()
@@ -27,6 +29,7 @@ class XMLParser:
         self._load_specialization_trees()
         self._load_specializations()
         self._load_careers()
+        self._load_force_abilities()
     
     def set_data_directory(self, data_dir: str):
         """Set the data directory and reload reference data"""
@@ -38,6 +41,7 @@ class XMLParser:
         self._item_descriptors = {}
         self._specializations = {}
         self._careers = {}
+        self._force_abilities = {}
         
         self._load_talents()
         self._load_skills()
@@ -45,6 +49,7 @@ class XMLParser:
         self._load_specialization_trees()
         self._load_specializations()
         self._load_careers()
+        self._load_force_abilities()
     
     def _load_field_mapping(self) -> Dict[str, Any]:
         """Load field mapping configuration"""
@@ -747,18 +752,15 @@ class XMLParser:
         return [power] if power else []
     
     def _extract_force_power_data(self, power_elem: ET.Element) -> Optional[Dict[str, Any]]:
-        """Extract force power data from XML element"""
+        """Extract force power data from XML element with talent tree structure"""
         try:
             # Get the force power key for duplicate checking
             power_key = self._get_text(power_elem, 'Key')
             
-            # Extract raw data using OggDude field names
+            # Extract basic raw data using OggDude field names
             raw_data = {
                 'Name': self._get_text(power_elem, 'Name'),
                 'Description': self._get_text(power_elem, 'Description'),
-                'Activation': self._get_text(power_elem, 'Activation'),
-                'ForcePowerType': self._get_text(power_elem, 'ForcePowerType'),
-                'Upgrades': self._extract_upgrades(power_elem)
             }
             
             # Apply field mapping
@@ -768,6 +770,53 @@ class XMLParser:
             sources = self._get_sources(power_elem)
             category = self._get_category_from_sources(sources)
             
+            # Extract ability rows structure similar to signature abilities
+            ability_rows_elem = power_elem.find('AbilityRows')
+            if ability_rows_elem is not None:
+                ability_rows = self._extract_ability_rows(ability_rows_elem)
+                
+                if ability_rows:
+                    # Process first row to get base ability description and cost
+                    first_row = ability_rows[0]
+                    abilities = first_row.get('abilities', [])
+                    costs = first_row.get('costs', [])
+                    
+                    
+                    if abilities:
+                        base_ability_key = abilities[0]  # Get the first ability key
+                        base_description = self._get_force_ability_description(base_ability_key)
+                        if base_description:
+                            # Add the base description to the main description
+                            if mapped_data.get('description'):
+                                mapped_data['description'] += f"<br><br><strong>Base Ability:</strong> {base_description}"
+                            else:
+                                mapped_data['description'] = f"<strong>Base Ability:</strong> {base_description}"
+                        
+                        # Calculate base cost as the highest cost in the first row
+                        if costs:
+                            base_cost = max(costs)
+                            mapped_data['cost'] = base_cost
+                    
+                    # Add MinForceRating as prerequisite
+                    min_force_rating = self._get_text(power_elem, 'MinForceRating')
+                    if min_force_rating and min_force_rating != '1':
+                        mapped_data['prereqs'] = f"Force Rating {min_force_rating}+"
+                    else:
+                        mapped_data['prereqs'] = "Force Rating 1+"
+                    
+                    # Process talent rows (skip first row which is the base ability)
+                    self._process_force_power_talent_rows(mapped_data, ability_rows[1:])
+                    
+                    # Generate connector fields for the force power tree
+                    self._generate_force_power_connectors(mapped_data, ability_rows)
+                    
+                    # Generate fields structure for hiding talents and connectors
+                    fields = self._generate_force_power_fields(ability_rows[1:])  # Skip first row
+                else:
+                    fields = {}
+            else:
+                fields = {}
+            
             power = {
                 'recordType': 'force_powers',
                 'name': mapped_data.get('name', 'Unknown Force Power'),
@@ -775,6 +824,7 @@ class XMLParser:
                 'sources': sources,  # Store sources for filtering
                 'category': category,
                 'data': mapped_data,
+                'fields': fields,
                 'unidentifiedName': 'Unknown Force Power',
                 'locked': True,
                 'key': power_key  # Store the key for duplicate checking
@@ -784,6 +834,173 @@ class XMLParser:
         except Exception as e:
             print(f"Error extracting force power data: {e}")
             return None
+    
+    def _process_force_power_talent_rows(self, mapped_data: Dict[str, Any], talent_rows: List[Dict[str, Any]]):
+        """Process force power talent rows similar to signature abilities but with AbilitySpan support"""
+        try:
+            for row_index, row_data in enumerate(talent_rows):
+                actual_row_index = row_index + 1  # Skip row 0 which is the base ability
+                abilities = row_data.get('abilities', [])
+                costs = row_data.get('costs', [])
+                spans = row_data.get('spans', [])
+                
+                # Process each ability in the row with span consideration
+                for col_index, ability_key in enumerate(abilities):
+                    if ability_key:  # Skip empty abilities
+                        col_number = col_index + 1
+                        talent_field = f"talent{actual_row_index}_{col_number}"
+                        
+                        # Check if this talent should be hidden based on span
+                        should_hide = self._should_hide_talent_by_span(spans, col_index)
+                        
+                        if should_hide:
+                            # Set hide field for this position
+                            hide_field = f"hide{actual_row_index}_{col_number}"
+                            mapped_data[hide_field] = "Yes"
+                            mapped_data[talent_field] = []  # Empty array for hidden talents
+                        else:
+                            # Create the talent data
+                            talent_data = self._create_force_power_talent(
+                                ability_key, costs[col_index] if col_index < len(costs) else 0
+                            )
+                            if talent_data:
+                                mapped_data[talent_field] = [talent_data]
+        except Exception as e:
+            print(f"Error processing force power talent rows: {e}")
+    
+    def _should_hide_talent_by_span(self, spans: List[int], col_index: int) -> bool:
+        """Determine if a talent should be hidden based on AbilitySpan values"""
+        if not spans or col_index >= len(spans):
+            return False
+        
+        # If span is 0, this position should be hidden
+        if spans[col_index] == 0:
+            return True
+        
+        # If this is not the first column, check if a previous column spans into this one
+        for prev_col in range(col_index):
+            if prev_col < len(spans):
+                prev_span = spans[prev_col]
+                # If previous column spans enough to reach this column, hide this one
+                if prev_span > 1 and (prev_col + prev_span > col_index):
+                    return True
+        
+        return False
+    
+    def _create_force_power_talent(self, ability_key: str, cost: int) -> Optional[Dict[str, Any]]:
+        """Create a force power talent object similar to signature ability talents"""
+        try:
+            # Get ability data from Force Abilities
+            ability_data = self._force_abilities.get(ability_key)
+            if not ability_data:
+                print(f"Warning: Force ability '{ability_key}' not found in Force Abilities")
+                return None
+            
+            talent_name = ability_data.get('name', 'Unknown Upgrade')
+            talent_description = ability_data.get('description', '')
+            
+            # Create the talent data structure
+            talent_data = {
+                "_id": self._generate_uuid(),
+                "name": talent_name,
+                "unidentifiedName": "Upgrade",
+                "recordType": "talents",
+                "identified": True,
+                "icon": "IconStar",
+                "data": {
+                    "talentAccordion": None,
+                    "description": f"<p>{talent_description}</p>",
+                    "ranked": "yes",
+                    "cost": cost,
+                    "forceTalent": "yes",
+                    "forcePowerUpgrade": "yes"
+                },
+                "fields": {
+                    "specializationTrees": {
+                        "hidden": True
+                    }
+                }
+            }
+            
+            return talent_data
+            
+        except Exception as e:
+            print(f"Error creating force power talent: {e}")
+            return None
+    
+    def _generate_force_power_connectors(self, mapped_data: Dict[str, Any], ability_rows: List[Dict[str, Any]]):
+        """Generate connector fields for force power similar to signature abilities"""
+        try:
+            # Generate vertical connectors - skip first row (base ability)
+            for row_index in range(1, len(ability_rows)):
+                row_data = ability_rows[row_index]
+                directions = row_data.get('directions', [])
+                
+                for col_index, direction in enumerate(directions):
+                    col_number = col_index + 1
+                    connector_field = f"connector{row_index}_{col_number}"
+                    
+                    # Check if this talent has a connection up to the previous row
+                    has_connection = direction.get('up', False)
+                    mapped_data[connector_field] = "Yes" if has_connection else "No"
+            
+            # Generate horizontal connectors for all rows including first row
+            for row_index in range(len(ability_rows)):
+                row_data = ability_rows[row_index]
+                directions = row_data.get('directions', [])
+                spans = row_data.get('spans', [])
+                
+                for col_index, direction in enumerate(directions):
+                    col_number = col_index + 1
+                    
+                    # Generate horizontal connector for talents that span multiple columns
+                    # or connect to the right
+                    if col_number < 4:  # Don't create h_connector for last column
+                        h_connector_field = f"h_connector{row_index}_{col_number + 1}"
+                        
+                        # Check span logic - if current position has span > 1, create horizontal connector
+                        current_span = spans[col_index] if col_index < len(spans) else 1
+                        has_h_connection = (
+                            current_span > 1 or  # Multi-column span
+                            direction.get('right', False)  # Right connection
+                        )
+                        
+                        mapped_data[h_connector_field] = "Yes" if has_h_connection else "No"
+                        
+        except Exception as e:
+            print(f"Error generating force power connectors: {e}")
+    
+    def _generate_force_power_fields(self, talent_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Generate fields structure to hide talents and connectors based on AbilitySpan"""
+        fields = {}
+        try:
+            for row_index, row_data in enumerate(talent_rows):
+                actual_row_index = row_index + 1  # Skip row 0 which is the base ability
+                spans = row_data.get('spans', [])
+                
+                for col_index in range(4):  # Force Powers typically have 4 columns
+                    col_number = col_index + 1
+                    
+                    # Check if this talent should be hidden
+                    should_hide = self._should_hide_talent_by_span(spans, col_index)
+                    
+                    if should_hide:
+                        # Hide the talent field
+                        talent_field = f"talent{actual_row_index}_{col_number}"
+                        fields[talent_field] = {"hidden": True}
+                        
+                        # Show the no_talent field
+                        no_talent_field = f"no_talent{actual_row_index}_{col_number}"
+                        fields[no_talent_field] = {"hidden": False}
+                        
+                        # Hide the horizontal connector field if applicable
+                        if col_number > 1:  # No h_connector for column 1
+                            h_connector_field = f"h_connector{actual_row_index}_{col_number}"
+                            fields[h_connector_field] = {"hidden": True}
+        except Exception as e:
+            print(f"Error generating force power fields: {e}")
+        
+        return fields
     
     def _parse_vehicle(self, root: ET.Element) -> List[Dict[str, Any]]:
         """Parse vehicle from XML - vehicles are npcs in Realm VTT"""
@@ -1143,6 +1360,10 @@ class XMLParser:
             # Prioritize the text content (source name) over the Page attribute
             return source_elem.text or source_elem.get('Page', '') or ''
         return ''
+    
+    def _generate_uuid(self) -> str:
+        """Generate a UUID string"""
+        return str(uuid.uuid4())
     
     def _get_sources(self, elem: ET.Element) -> List[str]:
         """Get all sources from XML element (handles multiple sources)"""
@@ -2511,6 +2732,46 @@ class XMLParser:
             print(f"Error loading careers: {e}")
             self._careers = {}
     
+    def _load_force_abilities(self):
+        """Load force abilities into memory for key to ability data mapping"""
+        try:
+            force_abilities_file = os.path.join(self.data_dir, 'Force Abilities.xml')
+            if not os.path.exists(force_abilities_file):
+                print(f"Warning: Force Abilities.xml not found at {force_abilities_file}")
+                return
+                
+            tree = ET.parse(force_abilities_file)
+            root = tree.getroot()
+            
+            self._force_abilities = {}
+            
+            for ability_elem in root.findall('.//ForceAbility'):
+                key = self._get_text(ability_elem, 'Key')
+                if key:
+                    ability_data = {
+                        'name': self._get_text(ability_elem, 'Name'),
+                        'description': self._get_text(ability_elem, 'Description')
+                    }
+                    self._force_abilities[key] = ability_data
+            
+            print(f"Loading force abilities from 1 Force Abilities.xml file(s)")
+            print(f"  Loading from: {force_abilities_file}")
+            print(f"Loaded {len(self._force_abilities)} force abilities")
+            
+        except Exception as e:
+            print(f"Error loading force abilities: {e}")
+            self._force_abilities = {}
+    
+    def _get_force_ability_description(self, key: str) -> Optional[str]:
+        """Get force ability description from key"""
+        if not self._force_abilities:
+            self._load_force_abilities()
+        
+        ability_data = self._force_abilities.get(key)
+        if ability_data and isinstance(ability_data, dict):
+            return ability_data.get('description')
+        return None
+    
     def _find_careers_for_specialization(self, spec_key: str) -> List[str]:
         """Find all careers that contain this specialization"""
         try:
@@ -2978,8 +3239,14 @@ class XMLParser:
     def _extract_ability_rows(self, elem: ET.Element) -> List[Dict[str, Any]]:
         """Extract ability rows from signature ability XML"""
         ability_rows = []
-        ability_rows_elem = self._find_with_namespace(elem, 'AbilityRows')
-        if ability_rows_elem:
+        
+        # If the element is already AbilityRows, process it directly
+        if elem.tag == 'AbilityRows':
+            ability_rows_elem = elem
+        else:
+            ability_rows_elem = self._find_with_namespace(elem, 'AbilityRows')
+        
+        if ability_rows_elem is not None:
             for row_elem in self._findall_with_namespace(ability_rows_elem, 'AbilityRow'):
                 row_data = {
                     'index': self._get_int(row_elem, 'Index', 0),
