@@ -432,6 +432,7 @@ class XMLParser:
                 'recordType': 'species',
                 'name': mapped_data.get('name', 'Unknown Species'),
                 'description': mapped_data.get('description', ''),
+                'sources': sources,  # Store sources for filtering
                 'category': category,
                 'data': mapped_data,
                 'unidentifiedName': 'Unknown Species',
@@ -510,6 +511,7 @@ class XMLParser:
                 'recordType': 'careers',
                 'name': mapped_data.get('name', 'Unknown Career'),
                 'description': mapped_data.get('description', ''),
+                'sources': sources,  # Store sources for filtering
                 'category': category,
                 'data': mapped_data,
                 'unidentifiedName': 'Unknown Career',
@@ -553,6 +555,7 @@ class XMLParser:
                 'recordType': 'specializations',
                 'name': mapped_data.get('name', 'Unknown Specialization'),
                 'description': mapped_data.get('description', ''),
+                'sources': sources,  # Store sources for filtering
                 'category': category,
                 'data': mapped_data,
                 'unidentifiedName': 'Unknown Specialization',
@@ -635,6 +638,7 @@ class XMLParser:
                 'recordType': 'talents',
                 'name': mapped_data.get('name', 'Unknown Talent'),
                 'description': mapped_data.get('description', ''),
+                'sources': sources,  # Store sources for filtering
                 'category': category,
                 'data': mapped_data,
                 'unidentifiedName': 'Unknown Talent',
@@ -678,6 +682,7 @@ class XMLParser:
                 'recordType': 'force_powers',
                 'name': mapped_data.get('name', 'Unknown Force Power'),
                 'description': mapped_data.get('description', ''),
+                'sources': sources,  # Store sources for filtering
                 'category': category,
                 'data': mapped_data,
                 'unidentifiedName': 'Unknown Force Power',
@@ -1007,6 +1012,7 @@ class XMLParser:
                 'recordType': record_type.lower(),
                 'name': mapped_data.get('name', f'Unknown {record_type}'),
                 'description': mapped_data.get('description', ''),
+                'sources': sources,  # Store sources for filtering
                 'category': category,
                 'data': mapped_data,
                 'unidentifiedName': f'Unknown {record_type}',
