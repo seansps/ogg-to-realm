@@ -8,6 +8,7 @@ class XMLParser:
     def __init__(self):
         self.field_mapping = self._load_field_mapping()
         self.sources_config = self._load_sources_config()
+        self._talents = {}  # Will store talent keys to names mapping
     
     def _load_field_mapping(self) -> Dict[str, Any]:
         """Load field mapping configuration"""
@@ -1335,7 +1336,7 @@ class XMLParser:
         return all_records
 
     def _extract_base_mods(self, elem: ET.Element) -> str:
-        """Extract BaseMods and convert to string using ItemDescriptors"""
+        """Extract BaseMods and convert to string using ItemDescriptors and Talents"""
         try:
             base_mods_elem = self._find_with_namespace(elem, 'BaseMods')
             if base_mods_elem is None:
@@ -1348,35 +1349,45 @@ class XMLParser:
                 misc_desc = self._get_text(mod_elem, 'MiscDesc')
                 
                 if key:
-                    # Get the description from ItemDescriptors
-                    description = self._get_item_descriptor_description(key, use_name=True)
-                    if description:
-                        # Convert OggDude format to plain text
-                        plain_text = self._convert_oggdude_format_to_plain_text(description)
-                        # Replace {0} with the count (even if count is 1)
-                        if '{0}' in plain_text:
-                            plain_text = plain_text.replace('{0}', str(count))
-                        mods.append(plain_text)
+                    # First check if it's a talent
+                    talent_name = self._get_talent_name(key)
+                    if talent_name:
+                        mods.append(f"Innate Talent ({talent_name})")
                     else:
-                        # Fallback if no description found
-                        if count > 1:
-                            mods.append(f"{key} {count}")
+                        # Get the description from ItemDescriptors
+                        description = self._get_item_descriptor_description(key, use_name=True)
+                        if description:
+                            # Convert OggDude format to plain text (including dice keys)
+                            plain_text = self._convert_oggdude_format_to_plain_text(description)
+                            # Replace {0} with the count (even if count is 1)
+                            if '{0}' in plain_text:
+                                plain_text = plain_text.replace('{0}', str(count))
+                            mods.append(plain_text)
                         else:
-                            mods.append(key)
+                            # Fallback if no description found
+                            if count > 1:
+                                mods.append(f"{key} {count}")
+                            else:
+                                mods.append(key)
                 
                 # Add MiscDesc if present
                 if misc_desc:
+                    # Convert OggDude format to plain text (including dice keys)
                     plain_misc = self._convert_oggdude_format_to_plain_text(misc_desc)
                     mods.append(plain_misc)
             
-            return "; ".join(mods) if mods else ""
+            # Join with semicolon and clean up any extra whitespace/newlines
+            result = "; ".join(mods) if mods else ""
+            # Clean up any extra whitespace and newlines
+            result = " ".join(result.split())
+            return result
             
         except Exception as e:
             print(f"Error extracting base mods: {e}")
             return ""
     
     def _extract_added_mods(self, elem: ET.Element) -> str:
-        """Extract AddedMods and convert to string using ItemDescriptors"""
+        """Extract AddedMods and convert to string using ItemDescriptors (no rich text conversion)"""
         try:
             added_mods_elem = self._find_with_namespace(elem, 'AddedMods')
             if added_mods_elem is None:
@@ -1386,26 +1397,37 @@ class XMLParser:
             for mod_elem in self._findall_with_namespace(added_mods_elem, 'Mod'):
                 key = self._get_text(mod_elem, 'Key')
                 count = self._get_int(mod_elem, 'Count', 1)
+                misc_desc = self._get_text(mod_elem, 'MiscDesc')
                 
-                # Get the description from ItemDescriptors
-                description = self._get_item_descriptor_description(key)
-                if description:
-                    # Convert OggDude format to plain text
-                    plain_text = self._convert_oggdude_format_to_plain_text(description)
-                    # Replace {0} with the count (even if count is 1)
-                    if '{0}' in plain_text:
-                        plain_text = plain_text.replace('{0}', str(count))
-                    # Format as "count ModName" instead of "ModName +count"
+                if misc_desc:
+                    # If MiscDesc is present, use it directly
                     if count > 1:
-                        mods.append(f"{count} {plain_text}")
+                        mods.append(f"{count} {misc_desc}")
                     else:
-                        mods.append(plain_text)
+                        mods.append(misc_desc)
+                elif key:
+                    # Get the description from ItemDescriptors
+                    description = self._get_item_descriptor_description(key)
+                    if description:
+                        # For AddedMods, we want to keep the special string replacements
+                        # but NOT convert dice keys like [SE][SE] to rich text
+                        # Just do basic {0} replacement
+                        if '{0}' in description:
+                            description = description.replace('{0}', str(count))
+                        # Format as "count ModName" instead of "ModName +count"
+                        if count > 1:
+                            mods.append(f"{count} {description}")
+                        else:
+                            mods.append(description)
+                    else:
+                        # Fallback if no description found
+                        if count > 1:
+                            mods.append(f"{count} {key}")
+                        else:
+                            mods.append(key)
                 else:
-                    # Fallback if no description found
-                    if count > 1:
-                        mods.append(f"{count} {key}")
-                    else:
-                        mods.append(key)
+                    # No key or misc_desc, skip this mod
+                    continue
             
             return "; ".join(mods) if mods else ""
             
@@ -1439,6 +1461,50 @@ class XMLParser:
         except Exception as e:
             print(f"Error getting item descriptor description for {key}: {e}")
             return None
+    
+    def _load_talents(self):
+        """Load Talents.xml into memory for talent key to name mapping"""
+        try:
+            # Look for Talents.xml in the same directory as other XML files
+            talents_path = None
+            
+            # Check common locations
+            possible_paths = [
+                'OggData/Talents.xml',
+                '../OggData/Talents.xml',
+                './Talents.xml'
+            ]
+            
+            for path in possible_paths:
+                if os.path.exists(path):
+                    talents_path = path
+                    break
+            
+            if talents_path is None:
+                print("Warning: Talents.xml not found, talent key resolution will not work")
+                return
+            
+            print(f"Loading talents from {talents_path}")
+            tree = ET.parse(talents_path)
+            root = tree.getroot()
+            
+            # Parse all talents and store key -> name mapping
+            for talent_elem in self._findall_with_namespace(root, 'Talent'):
+                key = self._get_text(talent_elem, 'Key')
+                name = self._get_text(talent_elem, 'Name')
+                if key and name:
+                    self._talents[key] = name
+            
+            print(f"Loaded {len(self._talents)} talents")
+            
+        except Exception as e:
+            print(f"Error loading talents: {e}")
+    
+    def _get_talent_name(self, key: str) -> Optional[str]:
+        """Get talent name from key, returns None if not found"""
+        if not self._talents:
+            self._load_talents()
+        return self._talents.get(key)
     
     def _load_item_descriptors(self):
         """Load ItemDescriptors.xml into memory"""
