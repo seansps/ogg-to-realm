@@ -251,6 +251,9 @@ class XMLParser:
     def _extract_weapon_data(self, weapon_elem: ET.Element) -> Optional[Dict[str, Any]]:
         """Extract weapon data from XML element"""
         try:
+            # Get the weapon key for duplicate checking
+            weapon_key = self._get_text(weapon_elem, 'Key')
+            
             # Extract raw data using OggDude field names
             raw_data = {
                 'Name': self._get_text(weapon_elem, 'Name'),
@@ -316,7 +319,8 @@ class XMLParser:
                 # 'fields': self._get_weapon_fields(),  # Commented out for now
                 'fields': {},  # Set to empty dictionary for now
                 'unidentifiedName': 'Unidentified Items',
-                'locked': True
+                'locked': True,
+                'key': weapon_key  # Store the key for duplicate checking
             }
             
             # Set animation based on weapon name and type
@@ -404,6 +408,9 @@ class XMLParser:
     def _extract_species_data(self, species_elem: ET.Element) -> Optional[Dict[str, Any]]:
         """Extract species data from XML element"""
         try:
+            # Get the species key for duplicate checking
+            species_key = self._get_text(species_elem, 'Key')
+            
             # Extract raw data using OggDude field names
             raw_data = {
                 'Name': self._get_text(species_elem, 'Name'),
@@ -428,7 +435,8 @@ class XMLParser:
                 'category': category,
                 'data': mapped_data,
                 'unidentifiedName': 'Unknown Species',
-                'locked': True
+                'locked': True,
+                'key': species_key  # Store the key for duplicate checking
             }
             return species
             
@@ -522,6 +530,9 @@ class XMLParser:
     def _extract_specialization_data(self, spec_elem: ET.Element) -> Optional[Dict[str, Any]]:
         """Extract specialization data from XML element"""
         try:
+            # Get the specialization key for duplicate checking
+            spec_key = self._get_text(spec_elem, 'Key')
+            
             # Extract raw data using OggDude field names
             raw_data = {
                 'Name': self._get_text(spec_elem, 'Name'),
@@ -545,7 +556,8 @@ class XMLParser:
                 'category': category,
                 'data': mapped_data,
                 'unidentifiedName': 'Unknown Specialization',
-                'locked': True
+                'locked': True,
+                'key': spec_key  # Store the key for duplicate checking
             }
             return spec
             
@@ -626,7 +638,8 @@ class XMLParser:
                 'category': category,
                 'data': mapped_data,
                 'unidentifiedName': 'Unknown Talent',
-                'locked': True
+                'locked': True,
+                'key': talent_key  # Store the key for duplicate checking
             }
             return talent
             
@@ -642,6 +655,9 @@ class XMLParser:
     def _extract_force_power_data(self, power_elem: ET.Element) -> Optional[Dict[str, Any]]:
         """Extract force power data from XML element"""
         try:
+            # Get the force power key for duplicate checking
+            power_key = self._get_text(power_elem, 'Key')
+            
             # Extract raw data using OggDude field names
             raw_data = {
                 'Name': self._get_text(power_elem, 'Name'),
@@ -665,7 +681,8 @@ class XMLParser:
                 'category': category,
                 'data': mapped_data,
                 'unidentifiedName': 'Unknown Force Power',
-                'locked': True
+                'locked': True,
+                'key': power_key  # Store the key for duplicate checking
             }
             return power
             
@@ -681,6 +698,9 @@ class XMLParser:
     def _extract_vehicle_data(self, vehicle_elem: ET.Element) -> Optional[Dict[str, Any]]:
         """Extract vehicle data from XML element"""
         try:
+            # Get the vehicle key for duplicate checking
+            vehicle_key = self._get_text(vehicle_elem, 'Key')
+            
             # Extract raw data using OggDude field names
             raw_data = {
                 'Name': self._get_text(vehicle_elem, 'Name'),
@@ -720,7 +740,8 @@ class XMLParser:
                     **mapped_data
                 },
                 'unidentifiedName': 'Unknown Vehicle',
-                'locked': True
+                'locked': True,
+                'key': vehicle_key  # Store the key for duplicate checking
             }
             return vehicle
             
@@ -749,6 +770,9 @@ class XMLParser:
     def _extract_armor_data(self, armor_elem: ET.Element) -> Optional[Dict[str, Any]]:
         """Extract armor data from XML element"""
         try:
+            # Get the armor key for duplicate checking
+            armor_key = self._get_text(armor_elem, 'Key')
+            
             # Extract raw data using OggDude field names
             raw_data = {
                 'Name': self._get_text(armor_elem, 'Name'),
@@ -794,7 +818,8 @@ class XMLParser:
                 # 'fields': self._get_armor_fields(),  # Commented out for now
                 'fields': {},  # Set to empty dictionary for now
                 'unidentifiedName': 'Unidentified Items',
-                'locked': True
+                'locked': True,
+                'key': armor_key  # Store the key for duplicate checking
             }
             return armor
             
@@ -824,6 +849,9 @@ class XMLParser:
     def _extract_gear_data(self, gear_elem: ET.Element) -> Optional[Dict[str, Any]]:
         """Extract gear data from XML element"""
         try:
+            # Get the gear key for duplicate checking
+            gear_key = self._get_text(gear_elem, 'Key')
+            
             # Extract raw data using OggDude field names
             raw_data = {
                 'Name': self._get_text(gear_elem, 'Name'),
@@ -865,7 +893,8 @@ class XMLParser:
                 # 'fields': self._get_gear_fields(),  # Commented out for now
                 'fields': {},  # Set to empty dictionary for now
                 'unidentifiedName': 'Unidentified Items',
-                'locked': True
+                'locked': True,
+                'key': gear_key  # Store the key for duplicate checking
             }
             return gear
             
@@ -885,6 +914,9 @@ class XMLParser:
     def _extract_skill_data(self, skill_elem: ET.Element) -> Optional[Dict[str, Any]]:
         """Extract skill data from XML element"""
         try:
+            # Get the skill key for duplicate checking
+            skill_key = self._get_text(skill_elem, 'Key')
+            
             # Extract raw data using OggDude field names
             raw_data = {
                 'Name': self._get_text(skill_elem, 'Name'),
@@ -921,7 +953,8 @@ class XMLParser:
                 'sources': sources,  # Add sources field for filtering
                 'data': mapped_data,
                 'unidentifiedName': 'Unknown Skill',
-                'locked': True
+                'locked': True,
+                'key': skill_key  # Store the key for duplicate checking
             }
             return skill
             
@@ -947,6 +980,9 @@ class XMLParser:
     def _extract_generic_data(self, elem: ET.Element, record_type: str) -> Optional[Dict[str, Any]]:
         """Extract generic data from XML element"""
         try:
+            # Get the key for duplicate checking
+            key = self._get_text(elem, 'Key')
+            
             # Extract all fields from the element
             raw_data = {}
             for child in elem:
@@ -974,7 +1010,8 @@ class XMLParser:
                 'category': category,
                 'data': mapped_data,
                 'unidentifiedName': f'Unknown {record_type}',
-                'locked': True
+                'locked': True,
+                'key': key  # Store the key for duplicate checking
             }
             
             return record
@@ -1200,6 +1237,9 @@ class XMLParser:
     def _extract_item_attachment_data(self, attachment_elem: ET.Element) -> Optional[Dict[str, Any]]:
         """Extract item attachment data from XML element"""
         try:
+            # Get the attachment key for duplicate checking
+            attachment_key = self._get_text(attachment_elem, 'Key')
+            
             # Extract raw data using OggDude field names
             raw_data = {
                 'Name': self._get_text(attachment_elem, 'Name'),
@@ -1260,7 +1300,8 @@ class XMLParser:
                 'data': mapped_data,
                 'fields': {},
                 'unidentifiedName': 'Unknown Item Attachment',
-                'locked': True
+                'locked': True,
+                'key': attachment_key  # Store the key for duplicate checking
             }
             return attachment
             
@@ -1404,8 +1445,18 @@ class XMLParser:
             'talents': []
         }
         
-        # Track seen keys to prevent duplicates
-        seen_career_keys = set()
+        # Track seen keys to prevent duplicates for all record types
+        seen_keys = {
+            'npcs': set(),
+            'careers': set(),
+            'force_powers': set(),
+            'items': set(),
+            'signature_abilities': set(),
+            'skills': set(),
+            'specializations': set(),
+            'species': set(),
+            'talents': set()
+        }
         
         directory = Path(directory_path)
         if not directory.exists():
@@ -1424,22 +1475,26 @@ class XMLParser:
             if selected_sources:
                 records = self.filter_by_sources(records, selected_sources)
             
-            # Categorize records by type
+            # Categorize records by type and check for duplicates
             for record in records:
                 record_type = record.get('recordType', 'unknown')
+                record_key = record.get('key', '')
+                
                 if record_type == 'items':
                     # All items (weapons, armor, gear, item_attachments) go into the items category
-                    all_records['items'].append(record)
-                elif record_type == 'careers':
-                    # Check for duplicate careers based on key
-                    career_key = record.get('key')
-                    if career_key and career_key in seen_career_keys:
-                        print(f"Skipping duplicate career with key: {career_key}")
+                    if record_key and record_key in seen_keys['items']:
+                        print(f"Skipping duplicate item with key: {record_key}")
                         continue
-                    if career_key:
-                        seen_career_keys.add(career_key)
-                    all_records[record_type].append(record)
+                    if record_key:
+                        seen_keys['items'].add(record_key)
+                    all_records['items'].append(record)
                 elif record_type in all_records:
+                    # Check for duplicates based on key
+                    if record_key and record_key in seen_keys[record_type]:
+                        print(f"Skipping duplicate {record_type} with key: {record_key}")
+                        continue
+                    if record_key:
+                        seen_keys[record_type].add(record_key)
                     all_records[record_type].append(record)
                 else:
                     print(f"Unknown record type: {record_type}")

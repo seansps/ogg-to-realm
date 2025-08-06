@@ -70,6 +70,10 @@ class DataMapper:
         Returns:
             Realm VTT formatted record
         """
+        # Remove the key field as it's not valid in Realm VTT
+        oggdude_record = oggdude_record.copy()
+        oggdude_record.pop('key', None)
+        
         record_type = oggdude_record.get('recordType', 'unknown')
         
         if record_type == 'items':
