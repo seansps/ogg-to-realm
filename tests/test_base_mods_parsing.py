@@ -146,8 +146,8 @@ class TestBaseModsParsing(unittest.TestCase):
             attachment = records[0]
             base_mods = attachment.get('data', {}).get('baseModifiers', '')
             
-            # Should convert [SE][SE] to "2 Setback"
-            self.assertIn("2 Setback", base_mods)
+            # Should convert [SE][SE] to rich text spans
+            self.assertIn('<span class="setback" data-dice-type="setback" contenteditable="false" style="display: inline-block;"></span>', base_mods)
             
         finally:
             os.unlink(temp_file)
@@ -393,6 +393,42 @@ ranges beyond Short range by one.</MiscDesc>
             
             # Should use the MiscDesc with count prefix
             self.assertIn("2 Add [SE] to difficulty checks", mod_options)
+            
+        finally:
+            os.unlink(temp_file)
+
+    def test_base_mods_with_misc_desc_dice_keys(self):
+        """Test that BaseMods MiscDesc with dice keys are properly converted"""
+        xml_content = '''<?xml version="1.0" encoding="UTF-8"?>
+<ItemAttachments>
+    <ItemAttachment>
+        <Key>TESTATTACH</Key>
+        <Name>Test Attachment</Name>
+        <Description>Test description</Description>
+        <BaseMods>
+            <Mod>
+                <Count>1</Count>
+                <MiscDesc>Removes up to [SETBACK][SETBACK] added to all Perception, Vigilance, and combat skill checks due to darkness, smoke, or other environmental effects that obscure vision.</MiscDesc>
+            </Mod>
+        </BaseMods>
+    </ItemAttachment>
+</ItemAttachments>'''
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False) as f:
+            f.write(xml_content)
+            temp_file = f.name
+        
+        try:
+            records = self.parser.parse_xml_file(temp_file)
+            self.assertEqual(len(records), 1)
+            
+            attachment = records[0]
+            base_mods = attachment.get('data', {}).get('baseModifiers', '')
+            
+            # Should convert [SETBACK][SETBACK] to two individual spans
+            self.assertIn('<span class="setback" data-dice-type="setback" contenteditable="false" style="display: inline-block;"></span>', base_mods)
+            # Should not contain the raw [SETBACK] tags
+            self.assertNotIn("[SETBACK]", base_mods)
             
         finally:
             os.unlink(temp_file)

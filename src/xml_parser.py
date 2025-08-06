@@ -1363,12 +1363,12 @@ class XMLParser:
                             # Get the description from ItemDescriptors
                             description = self._get_item_descriptor_description(key, use_name=True)
                             if description:
-                                # Convert OggDude format to plain text (including dice keys)
-                                plain_text = self._convert_oggdude_format_to_plain_text(description)
+                                # Convert OggDude format to rich text (including dice keys)
+                                rich_text = self._convert_oggdude_format_to_rich_text(description)
                                 # Replace {0} with the count (even if count is 1)
-                                if '{0}' in plain_text:
-                                    plain_text = plain_text.replace('{0}', str(count))
-                                mods.append(plain_text)
+                                if '{0}' in rich_text:
+                                    rich_text = rich_text.replace('{0}', str(count))
+                                mods.append(rich_text)
                             else:
                                 # Fallback if no description found
                                 if count > 1:
@@ -1378,9 +1378,9 @@ class XMLParser:
                 
                 # Add MiscDesc if present
                 if misc_desc:
-                    # Convert OggDude format to plain text (including dice keys)
-                    plain_misc = self._convert_oggdude_format_to_plain_text(misc_desc)
-                    mods.append(plain_misc)
+                    # Convert OggDude format to rich text (including dice keys)
+                    rich_misc = self._convert_oggdude_format_to_rich_text(misc_desc)
+                    mods.append(rich_misc)
             
             # Join with semicolon and clean up any extra whitespace/newlines
             result = "; ".join(mods) if mods else ""
@@ -1624,103 +1624,220 @@ class XMLParser:
         import re
         
         # Handle multiple instances first (before single replacements)
-        # Count and replace multiple instances for each tag type
+        # Count and replace multiple instances for each tag type, including alternate spellings
+        
+        # Difficulty: [DI] and [DIFFICULTY]
         di_count = text.count('[DI]')
-        if di_count > 1:
-            text = text.replace('[DI]' * di_count, f'{di_count} difficulty')
+        difficulty_count = text.count('[DIFFICULTY]')
+        total_di = di_count + difficulty_count
+        if total_di > 1:
+            text = text.replace('[DI]' * di_count, f'{total_di} difficulty')
+            text = text.replace('[DIFFICULTY]' * difficulty_count, '')
+        elif total_di == 1:
+            if di_count == 1:
+                text = text.replace('[DI]', 'difficulty')
+            else:
+                text = text.replace('[DIFFICULTY]', 'difficulty')
         
+        # Boost: [BO] and [BOOST]
         bo_count = text.count('[BO]')
-        if bo_count > 1:
-            text = text.replace('[BO]' * bo_count, f'{bo_count} Boost')
+        boost_count = text.count('[BOOST]')
+        total_bo = bo_count + boost_count
+        if total_bo > 1:
+            text = text.replace('[BO]' * bo_count, f'{total_bo} Boost')
+            text = text.replace('[BOOST]' * boost_count, '')
+        elif total_bo == 1:
+            if bo_count == 1:
+                text = text.replace('[BO]', 'Boost')
+            else:
+                text = text.replace('[BOOST]', 'Boost')
         
+        # Success: [SU] and [SUCCESS]
         su_count = text.count('[SU]')
-        if su_count > 1:
-            text = text.replace('[SU]' * su_count, f'{su_count} success')
+        success_count = text.count('[SUCCESS]')
+        total_su = su_count + success_count
+        if total_su > 1:
+            text = text.replace('[SU]' * su_count, f'{total_su} success')
+            text = text.replace('[SUCCESS]' * success_count, '')
+        elif total_su == 1:
+            if su_count == 1:
+                text = text.replace('[SU]', 'success')
+            else:
+                text = text.replace('[SUCCESS]', 'success')
         
+        # Advantage: [AD] and [ADVANTAGE]
         ad_count = text.count('[AD]')
-        if ad_count > 1:
-            text = text.replace('[AD]' * ad_count, f'{ad_count} advantage')
+        advantage_count = text.count('[ADVANTAGE]')
+        total_ad = ad_count + advantage_count
+        if total_ad > 1:
+            text = text.replace('[AD]' * ad_count, f'{total_ad} advantage')
+            text = text.replace('[ADVANTAGE]' * advantage_count, '')
+        elif total_ad == 1:
+            if ad_count == 1:
+                text = text.replace('[AD]', 'advantage')
+            else:
+                text = text.replace('[ADVANTAGE]', 'advantage')
         
+        # Threat: [TH] and [THREAT]
         th_count = text.count('[TH]')
-        if th_count > 1:
-            text = text.replace('[TH]' * th_count, f'{th_count} threat')
+        threat_count = text.count('[THREAT]')
+        total_th = th_count + threat_count
+        if total_th > 1:
+            text = text.replace('[TH]' * th_count, f'{total_th} threat')
+            text = text.replace('[THREAT]' * threat_count, '')
+        elif total_th == 1:
+            if th_count == 1:
+                text = text.replace('[TH]', 'threat')
+            else:
+                text = text.replace('[THREAT]', 'threat')
         
+        # Ability: [AB] and [ABILITY]
         ab_count = text.count('[AB]')
-        if ab_count > 1:
-            text = text.replace('[AB]' * ab_count, f'{ab_count} ability')
+        ability_count = text.count('[ABILITY]')
+        total_ab = ab_count + ability_count
+        if total_ab > 1:
+            text = text.replace('[AB]' * ab_count, f'{total_ab} ability')
+            text = text.replace('[ABILITY]' * ability_count, '')
+        elif total_ab == 1:
+            if ab_count == 1:
+                text = text.replace('[AB]', 'ability')
+            else:
+                text = text.replace('[ABILITY]', 'ability')
         
+        # Proficiency: [PR] and [PROFICIENCY]
         pr_count = text.count('[PR]')
-        if pr_count > 1:
-            text = text.replace('[PR]' * pr_count, f'{pr_count} proficiency')
+        proficiency_count = text.count('[PROFICIENCY]')
+        total_pr = pr_count + proficiency_count
+        if total_pr > 1:
+            text = text.replace('[PR]' * pr_count, f'{total_pr} proficiency')
+            text = text.replace('[PROFICIENCY]' * proficiency_count, '')
+        elif total_pr == 1:
+            if pr_count == 1:
+                text = text.replace('[PR]', 'proficiency')
+            else:
+                text = text.replace('[PROFICIENCY]', 'proficiency')
         
+        # Challenge: [CH] and [CHALLENGE]
         ch_count = text.count('[CH]')
-        if ch_count > 1:
-            text = text.replace('[CH]' * ch_count, f'{ch_count} challenge')
+        challenge_count = text.count('[CHALLENGE]')
+        total_ch = ch_count + challenge_count
+        if total_ch > 1:
+            text = text.replace('[CH]' * ch_count, f'{total_ch} challenge')
+            text = text.replace('[CHALLENGE]' * challenge_count, '')
+        elif total_ch == 1:
+            if ch_count == 1:
+                text = text.replace('[CH]', 'challenge')
+            else:
+                text = text.replace('[CHALLENGE]', 'challenge')
         
+        # Setback: [SE] and [SETBACK] (already handled above, but keeping for consistency)
         se_count = text.count('[SE]')
-        if se_count > 1:
-            text = text.replace('[SE]' * se_count, f'{se_count} Setback')
+        setback_count = text.count('[SETBACK]')
+        total_se = se_count + setback_count
+        if total_se > 1:
+            text = text.replace('[SE]' * se_count, f'{total_se} Setback')
+            text = text.replace('[SETBACK]' * setback_count, '')
+        elif total_se == 1:
+            if se_count == 1:
+                text = text.replace('[SE]', 'Setback')
+            else:
+                text = text.replace('[SETBACK]', 'Setback')
         
+        # Failure: [FA] and [FAILURE]
         fa_count = text.count('[FA]')
-        if fa_count > 1:
-            text = text.replace('[FA]' * fa_count, f'{fa_count} failure')
+        failure_count = text.count('[FAILURE]')
+        total_fa = fa_count + failure_count
+        if total_fa > 1:
+            text = text.replace('[FA]' * fa_count, f'{total_fa} failure')
+            text = text.replace('[FAILURE]' * failure_count, '')
+        elif total_fa == 1:
+            if fa_count == 1:
+                text = text.replace('[FA]', 'failure')
+            else:
+                text = text.replace('[FAILURE]', 'failure')
         
+        # Triumph: [TR] and [TRIUMPH]
         tr_count = text.count('[TR]')
-        if tr_count > 1:
-            text = text.replace('[TR]' * tr_count, f'{tr_count} triumph')
+        triumph_count = text.count('[TRIUMPH]')
+        total_tr = tr_count + triumph_count
+        if total_tr > 1:
+            text = text.replace('[TR]' * tr_count, f'{total_tr} triumph')
+            text = text.replace('[TRIUMPH]' * triumph_count, '')
+        elif total_tr == 1:
+            if tr_count == 1:
+                text = text.replace('[TR]', 'triumph')
+            else:
+                text = text.replace('[TRIUMPH]', 'triumph')
         
+        # Despair: [DE] and [DESPAIR]
         de_count = text.count('[DE]')
-        if de_count > 1:
-            text = text.replace('[DE]' * de_count, f'{de_count} despair')
-        
-        # Now handle single instances
-        # Convert [BO] to 'Boost'
-        text = text.replace('[BO]', 'Boost')
-        text = text.replace('[BOOST]', 'Boost')
+        despair_count = text.count('[DESPAIR]')
+        total_de = de_count + despair_count
+        if total_de > 1:
+            text = text.replace('[DE]' * de_count, f'{total_de} despair')
+            text = text.replace('[DESPAIR]' * despair_count, '')
+        elif total_de == 1:
+            if de_count == 1:
+                text = text.replace('[DE]', 'despair')
+            else:
+                text = text.replace('[DESPAIR]', 'despair')
+        return text.strip()
 
-        # Convert [SE] to 'Setback'
-        text = text.replace('[SE]', 'Setback')
-        text = text.replace('[SETBACK]', 'Setback')
+    def _convert_oggdude_format_to_rich_text(self, text: str) -> str:
+        """Convert OggDude format to rich text with HTML spans"""
+        if not text:
+            return ""
         
-        # Convert [DI] to 'difficulty'
-        text = text.replace('[DI]', 'difficulty')
-        text = text.replace('[DIFFICULTY]', 'difficulty')
-
-        # Convert [AB] to 'ability'
-        text = text.replace('[AB]', 'ability')
-        text = text.replace('[ABILITY]', 'ability')
-
-        # Convert [PR] to 'proficiency'
-        text = text.replace('[PR]', 'proficiency')
-        text = text.replace('[PROFICIENCY]', 'proficiency')
-
-        # Convert [CH] to 'challenge'
-        text = text.replace('[CH]', 'challenge')
-        text = text.replace('[CHALLENGE]', 'challenge')
+        import re
         
-        # Convert [SU] to 'success'
-        text = text.replace('[SU]', 'success')
-        text = text.replace('[SUCCESS]', 'success')
-
-        # Convert [FA] to 'failure'
-        text = text.replace('[FA]', 'failure')
-        text = text.replace('[FAILURE]', 'failure')
+        # Convert each dice tag to individual spans (no counting, just direct replacement)
+        # Difficulty: [DI] and [DIFFICULTY]
+        text = text.replace('[DI]', '<span class="difficulty" data-dice-type="difficulty" contenteditable="false" style="display: inline-block;"></span>')
+        text = text.replace('[DIFFICULTY]', '<span class="difficulty" data-dice-type="difficulty" contenteditable="false" style="display: inline-block;"></span>')
         
-        # Convert [AD] to 'advantage'
-        text = text.replace('[AD]', 'advantage')
-        text = text.replace('[ADVANTAGE]', 'advantage')
+        # Boost: [BO] and [BOOST]
+        text = text.replace('[BO]', '<span class="boost" data-dice-type="boost" contenteditable="false" style="display: inline-block;"></span>')
+        text = text.replace('[BOOST]', '<span class="boost" data-dice-type="boost" contenteditable="false" style="display: inline-block;"></span>')
         
-        # Convert [TH] to 'threat'
-        text = text.replace('[TH]', 'threat')
-        text = text.replace('[THREAT]', 'threat')
+        # Success: [SU] and [SUCCESS]
+        text = text.replace('[SU]', '<span class="success" data-dice-type="success" contenteditable="false" style="display: inline-block;"></span>')
+        text = text.replace('[SUCCESS]', '<span class="success" data-dice-type="success" contenteditable="false" style="display: inline-block;"></span>')
         
-        # Convert [TR] to 'triumph'
-        text = text.replace('[TR]', 'triumph')
-        text = text.replace('[TRIUMPH]', 'triumph')
+        # Advantage: [AD] and [ADVANTAGE]
+        text = text.replace('[AD]', '<span class="advantage" data-dice-type="advantage" contenteditable="false" style="display: inline-block;"></span>')
+        text = text.replace('[ADVANTAGE]', '<span class="advantage" data-dice-type="advantage" contenteditable="false" style="display: inline-block;"></span>')
         
-        # Convert [DE] to 'despair'
-        text = text.replace('[DE]', 'despair')
-        text = text.replace('[DESPAIR]', 'despair')
+        # Threat: [TH] and [THREAT]
+        text = text.replace('[TH]', '<span class="threat" data-dice-type="threat" contenteditable="false" style="display: inline-block;"></span>')
+        text = text.replace('[THREAT]', '<span class="threat" data-dice-type="threat" contenteditable="false" style="display: inline-block;"></span>')
+        
+        # Ability: [AB] and [ABILITY]
+        text = text.replace('[AB]', '<span class="ability" data-dice-type="ability" contenteditable="false" style="display: inline-block;"></span>')
+        text = text.replace('[ABILITY]', '<span class="ability" data-dice-type="ability" contenteditable="false" style="display: inline-block;"></span>')
+        
+        # Proficiency: [PR] and [PROFICIENCY]
+        text = text.replace('[PR]', '<span class="proficiency" data-dice-type="proficiency" contenteditable="false" style="display: inline-block;"></span>')
+        text = text.replace('[PROFICIENCY]', '<span class="proficiency" data-dice-type="proficiency" contenteditable="false" style="display: inline-block;"></span>')
+        
+        # Challenge: [CH] and [CHALLENGE]
+        text = text.replace('[CH]', '<span class="challenge" data-dice-type="challenge" contenteditable="false" style="display: inline-block;"></span>')
+        text = text.replace('[CHALLENGE]', '<span class="challenge" data-dice-type="challenge" contenteditable="false" style="display: inline-block;"></span>')
+        
+        # Setback: [SE] and [SETBACK]
+        text = text.replace('[SE]', '<span class="setback" data-dice-type="setback" contenteditable="false" style="display: inline-block;"></span>')
+        text = text.replace('[SETBACK]', '<span class="setback" data-dice-type="setback" contenteditable="false" style="display: inline-block;"></span>')
+        
+        # Failure: [FA] and [FAILURE]
+        text = text.replace('[FA]', '<span class="failure" data-dice-type="failure" contenteditable="false" style="display: inline-block;"></span>')
+        text = text.replace('[FAILURE]', '<span class="failure" data-dice-type="failure" contenteditable="false" style="display: inline-block;"></span>')
+        
+        # Triumph: [TR] and [TRIUMPH]
+        text = text.replace('[TR]', '<span class="triumph" data-dice-type="triumph" contenteditable="false" style="display: inline-block;"></span>')
+        text = text.replace('[TRIUMPH]', '<span class="triumph" data-dice-type="triumph" contenteditable="false" style="display: inline-block;"></span>')
+        
+        # Despair: [DE] and [DESPAIR]
+        text = text.replace('[DE]', '<span class="despair" data-dice-type="despair" contenteditable="false" style="display: inline-block;"></span>')
+        text = text.replace('[DESPAIR]', '<span class="despair" data-dice-type="despair" contenteditable="false" style="display: inline-block;"></span>')
         
         return text.strip() 
 
