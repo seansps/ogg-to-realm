@@ -2695,6 +2695,8 @@ class XMLParser:
 
     def _convert_skill_name(self, skill_name: str) -> str:
         """Convert skill name to handle hyphens (e.g., 'Piloting - Planetary' -> 'Piloting (Planetary)')"""
+        if skill_name is None:
+            return None
         if ' - ' in skill_name:
             # Split on ' - ' and convert to parentheses format
             parts = skill_name.split(' - ', 1)
