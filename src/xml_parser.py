@@ -17,12 +17,14 @@ class XMLParser:
         self._talents = {}  # Will store talent keys to names mapping
         self._skills = {}   # Will store skill keys to names mapping
         self._talent_specializations = {}  # Will store talent-to-specialization mapping
+        self._specializations = {}  # Will store specialization keys to names mapping
         
         # Load reference data
         self._load_talents()
         self._load_skills()
         self._load_item_descriptors()
         self._load_specialization_trees()
+        self._load_specializations()
     
     def set_data_directory(self, data_dir: str):
         """Set the data directory and reload reference data"""
@@ -32,11 +34,13 @@ class XMLParser:
         self._skills = {}
         self._talent_specializations = {}
         self._item_descriptors = {}
+        self._specializations = {}
         
         self._load_talents()
         self._load_skills()
         self._load_item_descriptors()
         self._load_specialization_trees()
+        self._load_specializations()
     
     def _load_field_mapping(self) -> Dict[str, Any]:
         """Load field mapping configuration"""
@@ -440,16 +444,55 @@ class XMLParser:
     def _extract_career_data(self, career_elem: ET.Element) -> Optional[Dict[str, Any]]:
         """Extract career data from XML element"""
         try:
+            # Get the career key for duplicate checking
+            career_key = self._get_text(career_elem, 'Key')
+            
             # Extract raw data using OggDude field names
             raw_data = {
                 'Name': self._get_text(career_elem, 'Name'),
                 'Description': self._get_text(career_elem, 'Description'),
                 'CareerSkills': self._extract_career_skills(career_elem),
-                'Specializations': self._extract_specializations(career_elem)
+                'Specializations': self._extract_specializations(career_elem),
+                'ForceRating': self._extract_force_rating(career_elem)
             }
             
             # Apply field mapping
             mapped_data = self._apply_field_mapping('careers', raw_data)
+            
+            # Convert career skills from keys to names
+            career_skills = raw_data.get('CareerSkills', [])
+            if career_skills:
+                skill_names = []
+                for skill_key in career_skills:
+                    skill_name = self._get_skill_name(skill_key)
+                    if skill_name:
+                        skill_names.append(skill_name)
+                    else:
+                        # If we can't find the skill name, use the key
+                        skill_names.append(skill_key)
+                mapped_data['skills'] = ', '.join(skill_names)
+            else:
+                mapped_data['skills'] = ''
+            
+            # Convert specializations from keys to names
+            specializations = raw_data.get('Specializations', [])
+            if specializations:
+                spec_names = []
+                for spec_key in specializations:
+                    spec_name = self._get_specialization_name(spec_key)
+                    if spec_name:
+                        spec_names.append(spec_name)
+                    else:
+                        # If we can't find the specialization name, use the key
+                        spec_names.append(spec_key)
+                mapped_data['specializations'] = ', '.join(spec_names)
+            else:
+                mapped_data['specializations'] = ''
+            
+            # Set force rating
+            force_rating = raw_data.get('ForceRating', 0)
+            if force_rating > 0:
+                mapped_data['forceRating'] = force_rating
             
             # Get sources and convert to category
             sources = self._get_sources(career_elem)
@@ -462,7 +505,8 @@ class XMLParser:
                 'category': category,
                 'data': mapped_data,
                 'unidentifiedName': 'Unknown Career',
-                'locked': True
+                'locked': True,
+                'key': career_key  # Store the key for duplicate checking
             }
             return career
             
@@ -1360,6 +1404,9 @@ class XMLParser:
             'talents': []
         }
         
+        # Track seen keys to prevent duplicates
+        seen_career_keys = set()
+        
         directory = Path(directory_path)
         if not directory.exists():
             print(f"Directory {directory_path} does not exist")
@@ -1383,6 +1430,15 @@ class XMLParser:
                 if record_type == 'items':
                     # All items (weapons, armor, gear, item_attachments) go into the items category
                     all_records['items'].append(record)
+                elif record_type == 'careers':
+                    # Check for duplicate careers based on key
+                    career_key = record.get('key')
+                    if career_key and career_key in seen_career_keys:
+                        print(f"Skipping duplicate career with key: {career_key}")
+                        continue
+                    if career_key:
+                        seen_career_keys.add(career_key)
+                    all_records[record_type].append(record)
                 elif record_type in all_records:
                     all_records[record_type].append(record)
                 else:
@@ -1395,7 +1451,7 @@ class XMLParser:
                 print(f"  {record_type}: {len(records)}")
         
         return all_records
-
+    
     def _extract_base_mods(self, elem: ET.Element) -> str:
         """Extract BaseMods and convert to string using ItemDescriptors and Talents"""
         try:
@@ -2063,3 +2119,72 @@ class XMLParser:
                 return os.path.abspath(path)
         
         return None
+    
+    def _extract_force_rating(self, elem: ET.Element) -> int:
+        """Extract force rating from career element"""
+        try:
+            # First try to find the Attributes element
+            attrs_elem = self._find_with_namespace(elem, 'Attributes')
+            if attrs_elem:
+                # Try to find ForceRating directly in the Attributes element
+                for child in attrs_elem:
+                    if child.tag.endswith('ForceRating') or child.tag == 'ForceRating':
+                        if child.text:
+                            return int(child.text.strip())
+            
+            # If not found in Attributes, try direct search
+            for child in elem:
+                if child.tag.endswith('ForceRating') or child.tag == 'ForceRating':
+                    if child.text:
+                        return int(child.text.strip())
+                
+        except (ValueError, AttributeError) as e:
+            print(f"Error extracting force rating: {e}")
+        return 0
+    
+    def _get_specialization_name(self, spec_key: str) -> Optional[str]:
+        """Get specialization name from key, returns None if not found"""
+        # Load specializations if not already loaded
+        if not hasattr(self, '_specializations'):
+            self._load_specializations()
+        return self._specializations.get(spec_key)
+    
+    def _load_specializations(self):
+        """Load specializations into memory for key to name mapping"""
+        try:
+            oggdata_dir = self._find_oggdata_directory()
+            if oggdata_dir is None:
+                print("Warning: OggData directory not found, specialization key resolution will not work")
+                return
+            
+            # Find all specialization XML files recursively
+            spec_files = self._find_xml_files_recursively(oggdata_dir)
+            
+            if not spec_files:
+                print("Warning: No specialization files found in OggData directory")
+                return
+            
+            self._specializations = {}
+            
+            for spec_path in spec_files:
+                try:
+                    tree = ET.parse(spec_path)
+                    root = tree.getroot()
+                    
+                    # Check if this is a specialization file by looking for the Specialization root tag
+                    root_tag = root.tag.split('}')[-1] if '}' in root.tag else root.tag
+                    if root_tag == 'Specialization':
+                        spec_key = self._get_text(root, 'Key')
+                        spec_name = self._get_text(root, 'Name')
+                        if spec_key and spec_name:
+                            self._specializations[spec_key] = spec_name
+                    
+                except Exception as e:
+                    # Skip files that can't be parsed
+                    continue
+            
+            print(f"Loaded {len(self._specializations)} specializations")
+            
+        except Exception as e:
+            print(f"Error loading specializations: {e}")
+            self._specializations = {}
