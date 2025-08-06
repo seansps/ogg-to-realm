@@ -514,7 +514,9 @@ class XMLParser:
                 for skill_key in career_skills:
                     skill_name = self._get_skill_name(skill_key)
                     if skill_name:
-                        skill_names.append(skill_name)
+                        # Convert skill name to handle hyphens
+                        converted_skill_name = self._convert_skill_name(skill_name)
+                        skill_names.append(converted_skill_name)
                     else:
                         # If we can't find the skill name, use the key
                         skill_names.append(skill_key)
@@ -598,7 +600,9 @@ class XMLParser:
                 for skill_key in career_skills:
                     skill_name = self._get_skill_name(skill_key)
                     if skill_name:
-                        skill_names.append(skill_name)
+                        # Convert skill name to handle hyphens
+                        converted_skill_name = self._convert_skill_name(skill_name)
+                        skill_names.append(converted_skill_name)
                     else:
                         # If we can't find the skill name, use the key
                         skill_names.append(skill_key)
@@ -2130,6 +2134,8 @@ class XMLParser:
             return "Passive"
         elif activation_value == "taAction":
             return "Active"
+        elif activation_value == "Incidental" or activation_value == "taIncidental":
+            return "Active"
         elif activation_value.startswith("ta"):
             # Remove "ta" prefix for any other values
             return activation_value[2:]
@@ -2686,3 +2692,12 @@ class XMLParser:
                         
         except Exception as e:
             print(f"Error processing directions: {e}")
+
+    def _convert_skill_name(self, skill_name: str) -> str:
+        """Convert skill name to handle hyphens (e.g., 'Piloting - Planetary' -> 'Piloting (Planetary)')"""
+        if ' - ' in skill_name:
+            # Split on ' - ' and convert to parentheses format
+            parts = skill_name.split(' - ', 1)
+            if len(parts) == 2:
+                return f"{parts[0]} ({parts[1]})"
+        return skill_name

@@ -20,7 +20,7 @@ def test_activation_value_conversion():
     test_cases = [
         ("taPassive", "Passive"),
         ("taAction", "Active"),
-        ("taIncidental", "Incidental"),
+        ("taIncidental", "Active"),
         ("taManeuver", "Maneuver"),
         ("taOutOfTurn", "OutOfTurn"),
         ("", ""),
