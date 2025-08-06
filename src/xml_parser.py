@@ -2675,13 +2675,14 @@ class XMLParser:
                 for col_index in range(2, 5):  # Columns 2-4 (no h_connector for col 1)
                     h_connector_field = f"h_connector{row_index}_{col_index}"
                     
-                    # Check if there's a direction pointing right from the previous column
+                    # Check if there's a direction pointing right from the previous column (col_index - 1)
                     if row_index - 1 < len(talent_rows):
                         current_row = talent_rows[row_index - 1]
                         current_directions = current_row.get('directions', [])
-                        if col_index - 1 < len(current_directions):
-                            current_direction = current_directions[col_index - 1]
-                            if current_direction.get('right', False):
+                        # Check the direction from the previous column (col_index - 2, since we're 0-indexed)
+                        if col_index - 2 < len(current_directions):
+                            prev_col_direction = current_directions[col_index - 2]
+                            if prev_col_direction.get('right', False):
                                 mapped_data[h_connector_field] = "Yes"
                             else:
                                 mapped_data[h_connector_field] = "No"
