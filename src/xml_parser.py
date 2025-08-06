@@ -18,6 +18,7 @@ class XMLParser:
         self._skills = {}   # Will store skill keys to names mapping
         self._talent_specializations = {}  # Will store talent-to-specialization mapping
         self._specializations = {}  # Will store specialization keys to names mapping
+        self._careers = {}  # Will store career keys to names mapping
         
         # Load reference data
         self._load_talents()
@@ -25,6 +26,7 @@ class XMLParser:
         self._load_item_descriptors()
         self._load_specialization_trees()
         self._load_specializations()
+        self._load_careers()
     
     def set_data_directory(self, data_dir: str):
         """Set the data directory and reload reference data"""
@@ -35,12 +37,14 @@ class XMLParser:
         self._talent_specializations = {}
         self._item_descriptors = {}
         self._specializations = {}
+        self._careers = {}
         
         self._load_talents()
         self._load_skills()
         self._load_item_descriptors()
         self._load_specialization_trees()
         self._load_specializations()
+        self._load_careers()
     
     def _load_field_mapping(self) -> Dict[str, Any]:
         """Load field mapping configuration"""
@@ -575,12 +579,52 @@ class XMLParser:
                 'Name': self._get_text(spec_elem, 'Name'),
                 'Description': self._get_text(spec_elem, 'Description'),
                 'CareerKey': self._get_text(spec_elem, 'CareerKey'),
-                'Skills': self._extract_spec_skills(spec_elem),
-                'Talents': self._extract_spec_talents(spec_elem)
+                'CareerSkills': self._extract_career_skills_from_spec(spec_elem),
+                'TalentRows': self._extract_talent_rows(spec_elem),
+                'Directions': self._extract_directions(spec_elem)
             }
             
             # Apply field mapping
             mapped_data = self._apply_field_mapping('specializations', raw_data)
+            
+            # Convert description to rich text format
+            if 'description' in mapped_data and mapped_data['description']:
+                mapped_data['description'] = self._convert_oggdude_format_to_rich_text(mapped_data['description'])
+            
+            # Convert career skills from keys to names
+            career_skills = raw_data.get('CareerSkills', [])
+            if career_skills:
+                skill_names = []
+                for skill_key in career_skills:
+                    skill_name = self._get_skill_name(skill_key)
+                    if skill_name:
+                        skill_names.append(skill_name)
+                    else:
+                        # If we can't find the skill name, use the key
+                        skill_names.append(skill_key)
+                mapped_data['skills'] = ', '.join(skill_names)
+            else:
+                mapped_data['skills'] = ''
+            
+            # Find the career for this specialization
+            career_name = self._find_career_for_specialization(spec_key)
+            if career_name:
+                mapped_data['career'] = career_name
+            else:
+                mapped_data['career'] = ''
+            
+            # Process talent rows and convert to Realm VTT format
+            talent_rows = raw_data.get('TalentRows', [])
+            if talent_rows:
+                self._process_talent_rows(mapped_data, talent_rows)
+            
+            # Remove the 'talents' field that was added by field mapping since we handle talents differently
+            mapped_data.pop('talents', None)
+            
+            # Process directions and convert to Realm VTT format
+            directions = raw_data.get('Directions', [])
+            if directions:
+                self._process_directions(mapped_data, talent_rows)
             
             # Get sources and convert to category
             sources = self._get_sources(spec_elem)
@@ -1719,12 +1763,13 @@ class XMLParser:
                 tree = ET.parse(talents_path)
                 root = tree.getroot()
                 
-                # Parse all talents and store key -> name mapping
+                # Parse all talents and store key -> data mapping
                 for talent_elem in self._findall_with_namespace(root, 'Talent'):
-                    key = self._get_text(talent_elem, 'Key')
-                    name = self._get_text(talent_elem, 'Name')
-                    if key and name:
-                        self._talents[key] = name
+                    talent_data = self._extract_talent_data(talent_elem)
+                    if talent_data:
+                        key = talent_data.get('key')
+                        if key:
+                            self._talents[key] = talent_data
             
             print(f"Loaded {len(self._talents)} talents")
             
@@ -1735,7 +1780,15 @@ class XMLParser:
         """Get talent name from key, returns None if not found"""
         if not self._talents:
             self._load_talents()
-        return self._talents.get(key)
+        
+        talent_data = self._talents.get(key)
+        if talent_data:
+            if isinstance(talent_data, dict):
+                return talent_data.get('name')
+            else:
+                # Backward compatibility for old string format
+                return talent_data
+        return None
     
     def _load_skills(self):
         """Load Skills.xml into memory for skill key to name mapping"""
@@ -2338,3 +2391,298 @@ class XMLParser:
                     descriptions.append(f"They still may not train {skill_name} above rank {rank_limit} during character creation.")
         
         return " ".join(descriptions)
+    
+    def _extract_career_skills_from_spec(self, elem: ET.Element) -> List[str]:
+        """Extract career skills from specialization XML"""
+        skills = []
+        skills_elem = self._find_with_namespace(elem, 'CareerSkills')
+        if skills_elem:
+            for skill in self._findall_with_namespace(skills_elem, 'Key'):
+                if skill.text:
+                    skills.append(skill.text)
+        return skills
+    
+    def _extract_talent_rows(self, elem: ET.Element) -> List[Dict[str, Any]]:
+        """Extract talent rows from specialization XML"""
+        talent_rows = []
+        talent_rows_elem = self._find_with_namespace(elem, 'TalentRows')
+        if talent_rows_elem:
+            for row_elem in self._findall_with_namespace(talent_rows_elem, 'TalentRow'):
+                row_data = {
+                    'index': self._get_int(row_elem, 'Index', 0),
+                    'cost': self._get_int(row_elem, 'Cost', 0),
+                    'talents': [],
+                    'directions': []
+                }
+                
+                # Extract talents
+                talents_elem = self._find_with_namespace(row_elem, 'Talents')
+                if talents_elem:
+                    for talent in self._findall_with_namespace(talents_elem, 'Key'):
+                        if talent.text:
+                            row_data['talents'].append(talent.text)
+                
+                # Extract directions
+                directions_elem = self._find_with_namespace(row_elem, 'Directions')
+                if directions_elem:
+                    for direction in self._findall_with_namespace(directions_elem, 'Direction'):
+                        direction_data = {
+                            'up': self._get_bool(direction, 'Up', False),
+                            'down': self._get_bool(direction, 'Down', False),
+                            'left': self._get_bool(direction, 'Left', False),
+                            'right': self._get_bool(direction, 'Right', False)
+                        }
+                        row_data['directions'].append(direction_data)
+                
+                talent_rows.append(row_data)
+        
+        # Sort talent rows by index (0 comes first, then 1, 2, etc.)
+        talent_rows.sort(key=lambda x: x['index'])
+        return talent_rows
+    
+    def _extract_directions(self, elem: ET.Element) -> List[Dict[str, Any]]:
+        """Extract directions from specialization XML"""
+        directions = []
+        talent_rows_elem = self._find_with_namespace(elem, 'TalentRows')
+        if talent_rows_elem:
+            for row_elem in self._findall_with_namespace(talent_rows_elem, 'TalentRow'):
+                directions_elem = self._find_with_namespace(row_elem, 'Directions')
+                if directions_elem:
+                    for direction in self._findall_with_namespace(directions_elem, 'Direction'):
+                        direction_data = {
+                            'up': self._get_bool(direction, 'Up', False),
+                            'down': self._get_bool(direction, 'Down', False),
+                            'left': self._get_bool(direction, 'Left', False),
+                            'right': self._get_bool(direction, 'Right', False)
+                        }
+                        directions.append(direction_data)
+        return directions
+    
+    def _load_careers(self):
+        """Load careers into memory for key to name mapping"""
+        try:
+            oggdata_dir = self._find_oggdata_directory()
+            if oggdata_dir is None:
+                print("Warning: OggData directory not found, career key resolution will not work")
+                return
+            
+            # Find all career XML files recursively
+            career_files = self._find_xml_files_recursively(oggdata_dir)
+            
+            if not career_files:
+                print("Warning: No career files found in OggData directory")
+                return
+            
+            self._careers = {}
+            
+            for career_path in career_files:
+                try:
+                    tree = ET.parse(career_path)
+                    root = tree.getroot()
+                    
+                    # Check if this is a career file by looking for the Career root tag
+                    root_tag = root.tag.split('}')[-1] if '}' in root.tag else root.tag
+                    if root_tag == 'Career':
+                        career_key = self._get_text(root, 'Key')
+                        career_name = self._get_text(root, 'Name')
+                        if career_key and career_name:
+                            self._careers[career_key] = career_name
+                    
+                except Exception as e:
+                    # Skip files that can't be parsed
+                    continue
+            
+            print(f"Loaded {len(self._careers)} careers")
+            
+        except Exception as e:
+            print(f"Error loading careers: {e}")
+            self._careers = {}
+    
+    def _find_career_for_specialization(self, spec_key: str) -> Optional[str]:
+        """Find the career for a specialization by looking through all careers"""
+        try:
+            # Load careers if not already loaded
+            if not hasattr(self, '_careers') or not self._careers:
+                self._load_careers()
+            
+            # Look through all career XML files to find which one contains this specialization
+            oggdata_dir = self._find_oggdata_directory()
+            if oggdata_dir is None:
+                return None
+            
+            # Find all career XML files recursively
+            career_files = self._find_xml_files_recursively(oggdata_dir)
+            
+            for career_path in career_files:
+                try:
+                    tree = ET.parse(career_path)
+                    root = tree.getroot()
+                    
+                    # Check if this is a career file by looking for the Career root tag
+                    root_tag = root.tag.split('}')[-1] if '}' in root.tag else root.tag
+                    if root_tag == 'Career':
+                        # Check if this career contains the specialization
+                        specializations_elem = self._find_with_namespace(root, 'Specializations')
+                        if specializations_elem:
+                            for spec in self._findall_with_namespace(specializations_elem, 'Key'):
+                                if spec.text == spec_key:
+                                    # Found the career! Get its name
+                                    career_name = self._get_text(root, 'Name')
+                                    if career_name:
+                                        return career_name
+                    
+                except Exception as e:
+                    # Skip files that can't be parsed
+                    continue
+            
+            return None
+            
+        except Exception as e:
+            print(f"Error finding career for specialization {spec_key}: {e}")
+            return None
+    
+    def _process_talent_rows(self, mapped_data: Dict[str, Any], talent_rows: List[Dict[str, Any]]):
+        """Process talent rows and convert to Realm VTT format"""
+        try:
+            for row_data in talent_rows:
+                # Use the index from the XML
+                # If no index specified, it's row 1
+                # If index is specified, it's row (index + 1)
+                xml_index = row_data.get('index', 0)
+                if xml_index == 0:
+                    # No index specified, this is row 1
+                    row_index = 1
+                else:
+                    # Index specified, this is row (index + 1)
+                    row_index = xml_index + 1
+                
+                row_cost = row_data.get('cost', 0)
+                talents = row_data.get('talents', [])
+                
+                for col_index, talent_key in enumerate(talents, 1):
+                    # Get the talent data
+                    talent_data = self._get_talent_data_by_key(talent_key)
+                    if talent_data:
+                        # Create a copy of the talent data to avoid sharing references
+                        talent_data_copy = talent_data.copy()
+                        if 'data' in talent_data_copy and isinstance(talent_data_copy['data'], dict):
+                            talent_data_copy['data'] = talent_data_copy['data'].copy()
+                            talent_data_copy['data']['cost'] = row_cost
+                        
+                        # Set the talent in the correct position
+                        talent_field = f"talent{row_index}_{col_index}"
+                        mapped_data[talent_field] = [talent_data_copy]
+                    else:
+                        # If talent not found, create a placeholder
+                        placeholder_talent = {
+                            "_id": f"placeholder-{talent_key}",
+                            "name": talent_key,
+                            "recordType": "talents",
+                            "identified": True,
+                            "data": {
+                                "name": talent_key,
+                                "description": f"Talent {talent_key} not found",
+                                "cost": row_cost
+                            },
+                            "unidentifiedName": "Unknown Talent",
+                            "icon": "IconStar"
+                        }
+                        talent_field = f"talent{row_index}_{col_index}"
+                        mapped_data[talent_field] = [placeholder_talent]
+                        
+        except Exception as e:
+            print(f"Error processing talent rows: {e}")
+    
+    def _get_talent_data_by_key(self, talent_key: str) -> Optional[Dict[str, Any]]:
+        """Get talent data by key"""
+        try:
+            # Load talents if not already loaded
+            if not hasattr(self, '_talents') or not self._talents:
+                self._load_talents()
+            
+            # Check if we have the talent data stored
+            talent_data = self._talents.get(talent_key)
+            if talent_data and isinstance(talent_data, dict):
+                # Return the stored talent data in Realm VTT format
+                return {
+                    "_id": f"talent-{talent_key}",
+                    "name": talent_data.get('name', talent_key),
+                    "recordType": "talents",
+                    "identified": True,
+                    "data": talent_data.get('data', {}),
+                    "unidentifiedName": "Unknown Talent",
+                    "icon": "IconStar"
+                }
+            
+            # Fallback: create a basic talent structure
+            talent_name = self._get_talent_name(talent_key) or talent_key
+            
+            # Create a basic talent structure
+            talent_data = {
+                "_id": f"talent-{talent_key}",
+                "name": talent_name,
+                "recordType": "talents",
+                "identified": True,
+                "data": {
+                    "name": talent_name,
+                    "description": f"Description for {talent_name}",
+                    "activation": "Passive",
+                    "ranked": "no",
+                    "forceTalent": "no",
+                    "specializationTrees": []
+                },
+                "unidentifiedName": "Unknown Talent",
+                "icon": "IconStar"
+            }
+            
+            return talent_data
+            
+        except Exception as e:
+            print(f"Error getting talent data for key {talent_key}: {e}")
+            return None
+    
+    def _process_directions(self, mapped_data: Dict[str, Any], talent_rows: List[Dict[str, Any]]):
+        """Process directions and convert to Realm VTT format"""
+        try:
+            # Process vertical connectors (connector{row}_{col})
+            for row_index in range(2, 6):  # Rows 2-5
+                for col_index in range(1, 5):  # Columns 1-4
+                    connector_field = f"connector{row_index}_{col_index}"
+                    
+                    # Check if there's a direction pointing down from the previous row
+                    if row_index > 1 and row_index - 2 < len(talent_rows):
+                        prev_row = talent_rows[row_index - 2]
+                        prev_directions = prev_row.get('directions', [])
+                        if col_index <= len(prev_directions):
+                            prev_direction = prev_directions[col_index - 1]
+                            if prev_direction.get('down', False):
+                                mapped_data[connector_field] = "Yes"
+                            else:
+                                mapped_data[connector_field] = "No"
+                        else:
+                            mapped_data[connector_field] = "No"
+                    else:
+                        mapped_data[connector_field] = "No"
+            
+            # Process horizontal connectors (h_connector{row}_{col})
+            for row_index in range(1, 6):  # Rows 1-5
+                for col_index in range(2, 5):  # Columns 2-4 (no h_connector for col 1)
+                    h_connector_field = f"h_connector{row_index}_{col_index}"
+                    
+                    # Check if there's a direction pointing right from the previous column
+                    if row_index - 1 < len(talent_rows):
+                        current_row = talent_rows[row_index - 1]
+                        current_directions = current_row.get('directions', [])
+                        if col_index - 1 < len(current_directions):
+                            current_direction = current_directions[col_index - 1]
+                            if current_direction.get('right', False):
+                                mapped_data[h_connector_field] = "Yes"
+                            else:
+                                mapped_data[h_connector_field] = "No"
+                        else:
+                            mapped_data[h_connector_field] = "No"
+                    else:
+                        mapped_data[h_connector_field] = "No"
+                        
+        except Exception as e:
+            print(f"Error processing directions: {e}")
