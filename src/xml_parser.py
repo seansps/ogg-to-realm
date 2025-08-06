@@ -552,6 +552,25 @@ class XMLParser:
             if 'forceTalent' in mapped_data:
                 mapped_data['forceTalent'] = self._convert_boolean_to_yes_no(mapped_data['forceTalent'])
             
+            # Special handling for "Adversary" talent
+            talent_name = mapped_data.get('name', '')
+            if talent_name == 'Adversary':
+                mapped_data['modifiers'] = [
+                    {
+                        "_id": "80ec474f-faea-4179-b19b-a66a4ba4de8b",
+                        "name": "Modifier",
+                        "unidentifiedName": "Modifier",
+                        "recordType": "records",
+                        "identified": True,
+                        "data": {
+                            "type": "upgradeDifficultyOfAttacksTargetingYou",
+                            "valueType": "number",
+                            "value": "1",
+                            "active": True
+                        }
+                    }
+                ]
+            
             # Get sources and convert to category
             sources = self._get_sources(talent_elem)
             category = self._get_category_from_sources(sources)
