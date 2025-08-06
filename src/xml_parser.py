@@ -2600,7 +2600,7 @@ class XMLParser:
             print(f"Error processing talent rows: {e}")
     
     def _get_talent_data_by_key(self, talent_key: str) -> Optional[Dict[str, Any]]:
-        """Get talent data by key"""
+        """Get talent data by key with full conversion applied"""
         try:
             # Load talents if not already loaded
             if not hasattr(self, '_talents') or not self._talents:
@@ -2609,19 +2609,49 @@ class XMLParser:
             # Check if we have the talent data stored
             talent_data = self._talents.get(talent_key)
             if talent_data and isinstance(talent_data, dict):
-                # Return the stored talent data in Realm VTT format
-                return {
+                # Get the full talent data including data subdictionary
+                talent_name = talent_data.get('name', talent_key)
+                talent_description = talent_data.get('description', '')
+                talent_data_dict = talent_data.get('data', {})
+                
+                # Convert description to rich text if it exists
+                if talent_description:
+                    talent_description = self._convert_oggdude_format_to_rich_text(talent_description)
+                
+                # Get specialization trees for this talent
+                specialization_trees = self._get_talent_specializations(talent_key) if talent_key else []
+                
+                # Create the full talent structure with all conversions applied
+                full_talent_data = {
                     "_id": f"talent-{talent_key}",
-                    "name": talent_data.get('name', talent_key),
+                    "name": talent_name,
                     "recordType": "talents",
                     "identified": True,
-                    "data": talent_data.get('data', {}),
+                    "data": {
+                        "name": talent_name,
+                        "description": talent_description,
+                        "activation": talent_data_dict.get('activation', 'Passive'),
+                        "ranked": talent_data_dict.get('ranked', 'no'),
+                        "forceTalent": talent_data_dict.get('forceTalent', 'no'),
+                        "specializationTrees": specialization_trees
+                    },
                     "unidentifiedName": "Unknown Talent",
                     "icon": "IconStar"
                 }
+                
+                # Apply any additional data from the stored talent
+                if talent_data_dict:
+                    for key, value in talent_data_dict.items():
+                        if key not in full_talent_data['data']:
+                            full_talent_data['data'][key] = value
+                
+                return full_talent_data
             
             # Fallback: create a basic talent structure
             talent_name = self._get_talent_name(talent_key) or talent_key
+            
+            # Get specialization trees for this talent
+            specialization_trees = self._get_talent_specializations(talent_key) if talent_key else []
             
             # Create a basic talent structure
             talent_data = {
@@ -2635,7 +2665,7 @@ class XMLParser:
                     "activation": "Passive",
                     "ranked": "no",
                     "forceTalent": "no",
-                    "specializationTrees": []
+                    "specializationTrees": specialization_trees
                 },
                 "unidentifiedName": "Unknown Talent",
                 "icon": "IconStar"
