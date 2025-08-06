@@ -414,7 +414,7 @@ class OggDudeImporterGUI:
         self.record_type_vars = {}
         record_types = [
             'items', 'species', 'careers', 'specializations', 
-            'talents', 'force_powers', 'skills', 'npcs'
+            'talents', 'force_powers', 'skills', 'signature_abilities', 'npcs'
         ]
         
         for i, record_type in enumerate(record_types):
@@ -423,6 +423,8 @@ class OggDudeImporterGUI:
                 display_name = 'NPCs / Vehicles'
             elif record_type == 'force_powers':
                 display_name = 'Force Powers'
+            elif record_type == 'signature_abilities':
+                display_name = 'Signature Abilities'
             else:
                 display_name = record_type.title()
             
@@ -480,6 +482,8 @@ class OggDudeImporterGUI:
                 display_name = 'NPCs / Vehicles'
             elif record_type == 'force_powers':
                 display_name = 'Force Powers'
+            elif record_type == 'signature_abilities':
+                display_name = 'Signature Abilities'
             else:
                 display_name = record_type.title()
             
@@ -749,6 +753,8 @@ class OggDudeImporterGUI:
                         display_name = 'NPCs / Vehicles'
                     elif record_type == 'force_powers':
                         display_name = 'Force Powers'
+                    elif record_type == 'signature_abilities':
+                        display_name = 'Signature Abilities'
                     else:
                         display_name = record_type.title()
                     

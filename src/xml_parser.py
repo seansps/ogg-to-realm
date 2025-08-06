@@ -2764,11 +2764,13 @@ class XMLParser:
             if 'description' in mapped_data and mapped_data['description']:
                 mapped_data['description'] = self._convert_oggdude_format_to_rich_text(mapped_data['description'])
             
-            # Get the base ability description from the first ability row
+            # Get the base ability description and cost from the first ability row
             ability_rows = raw_data.get('AbilityRows', [])
             if ability_rows:
                 first_row = ability_rows[0]
                 abilities = first_row.get('abilities', [])
+                costs = first_row.get('costs', [])
+                
                 if abilities:
                     base_ability_key = abilities[0]  # Get the first ability key
                     base_description = self._get_sig_ability_node_description(base_ability_key)
@@ -2778,6 +2780,13 @@ class XMLParser:
                             mapped_data['description'] += f"<br><br><strong>Base Ability:</strong> {base_description}"
                         else:
                             mapped_data['description'] = f"<strong>Base Ability:</strong> {base_description}"
+                    
+                    # Calculate base cost as the highest cost in the first row
+                    if costs:
+                        base_cost = max(costs)
+                        mapped_data['baseCost'] = base_cost
+                    else:
+                        mapped_data['baseCost'] = 0
             
             # Find the career for this signature ability
             careers = raw_data.get('Careers', [])
@@ -2804,7 +2813,7 @@ class XMLParser:
             category = self._get_category_from_sources(sources)
             
             sig_ability = {
-                'recordType': 'sig_abilities',
+                'recordType': 'signature_abilities',
                 'name': mapped_data.get('name', 'Unknown Signature Ability'),
                 'description': mapped_data.get('description', ''),
                 'sources': sources,  # Store sources for filtering
@@ -2988,7 +2997,47 @@ class XMLParser:
     def _process_ability_rows(self, mapped_data: Dict[str, Any], ability_rows: List[Dict[str, Any]]):
         """Process ability rows and convert to Realm VTT format"""
         try:
-            # Skip the first row (base abilities) and process only the last two rows
+            # Get the base cost from the mapped_data (calculated in _extract_sig_ability_data)
+            base_cost = mapped_data.get('baseCost', 0)
+            
+            # Process the first row (base abilities) with the base cost
+            if ability_rows:
+                first_row = ability_rows[0]
+                first_abilities = first_row.get('abilities', [])
+                
+                for col_index, ability_key in enumerate(first_abilities, 1):
+                    # Get the ability data
+                    ability_data = self._get_sig_ability_data_by_key(ability_key)
+                    if ability_data:
+                        # Create a copy of the ability data to avoid sharing references
+                        ability_data_copy = ability_data.copy()
+                        if 'data' in ability_data_copy and isinstance(ability_data_copy['data'], dict):
+                            ability_data_copy['data'] = ability_data_copy['data'].copy()
+                            # Set the base cost for the base ability
+                            ability_data_copy['data']['cost'] = base_cost
+                        
+                        # Set the ability in the correct position
+                        ability_field = f"talent0_{col_index}"
+                        mapped_data[ability_field] = [ability_data_copy]
+                    else:
+                        # If ability not found, create a placeholder
+                        placeholder_ability = {
+                            "_id": f"placeholder-{ability_key}",
+                            "name": ability_key,
+                            "recordType": "talents",
+                            "identified": True,
+                            "data": {
+                                "name": ability_key,
+                                "description": f"Ability {ability_key} not found",
+                                "cost": base_cost
+                            },
+                            "unidentifiedName": "Unknown Ability",
+                            "icon": "IconStar"
+                        }
+                        ability_field = f"talent0_{col_index}"
+                        mapped_data[ability_field] = [placeholder_ability]
+            
+            # Skip the first row (base abilities) and process only the last two rows (upgrades)
             talent_rows = ability_rows[1:] if len(ability_rows) > 1 else []
             
             for row_index, row_data in enumerate(talent_rows, 1):
@@ -3003,7 +3052,7 @@ class XMLParser:
                         ability_data_copy = ability_data.copy()
                         if 'data' in ability_data_copy and isinstance(ability_data_copy['data'], dict):
                             ability_data_copy['data'] = ability_data_copy['data'].copy()
-                            # Set the cost from the row
+                            # Set the cost from the row for upgrades
                             if col_index <= len(costs):
                                 ability_data_copy['data']['cost'] = costs[col_index - 1]
                             else:
@@ -3050,6 +3099,11 @@ class XMLParser:
                 if node_description:
                     node_description = self._convert_oggdude_format_to_rich_text(node_description)
                 
+                # Check if there's a ranked field in the node data (for exceptions)
+                ranked = "yes"  # Default to "yes" for all signature ability upgrades
+                if 'ranked' in node_data:
+                    ranked = self._convert_boolean_to_yes_no(node_data['ranked'])
+                
                 # Create the full ability structure
                 ability_data = {
                     "_id": f"sig-ability-{ability_key}",
@@ -3060,7 +3114,7 @@ class XMLParser:
                         "name": node_name,
                         "description": node_description,
                         "activation": "Passive",
-                        "ranked": "no",
+                        "ranked": ranked,
                         "forceTalent": "no",
                         "specializationTrees": []
                     },
@@ -3070,7 +3124,7 @@ class XMLParser:
                 
                 return ability_data
             
-            # Fallback: create a basic ability structure
+            # Fallback: create a basic ability structure (also default to "yes" for ranked)
             ability_data = {
                 "_id": f"sig-ability-{ability_key}",
                 "name": ability_key,
@@ -3080,7 +3134,7 @@ class XMLParser:
                     "name": ability_key,
                     "description": f"Description for {ability_key}",
                     "activation": "Passive",
-                    "ranked": "no",
+                    "ranked": "yes",  # Default to "yes" for all signature ability upgrades
                     "forceTalent": "no",
                     "specializationTrees": []
                 },
