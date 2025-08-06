@@ -43,8 +43,9 @@
     "Type": "type",
     "Price": "price",
     "Rarity": "rarity",
-    "HP": "slotsUsed",
-    "AddedMods": "modificationOptions"
+    "HP": "slots",
+    "AddedMods": "modificationOptions",
+    "BaseMods": "baseModifiers"
   },
   "species": {
     "Name": "name",

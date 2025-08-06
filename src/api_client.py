@@ -1,5 +1,6 @@
 import requests
 import json
+import urllib.parse
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 
@@ -246,8 +247,11 @@ class RealmVTTClient:
             
             response = requests.get(endpoint, params=params, headers=self.headers)
             response.raise_for_status()
-            return response.json()
+            result = response.json()
+            return result
+            
         except requests.exceptions.HTTPError as e:
+            print(f"DEBUG: HTTP error in find_records: {e}")
             raise Exception(f"Failed to find {record_type}: {e}")
     
     def find_record_by_name(self, record_type: str, name: str) -> Optional[Dict[str, Any]]:
@@ -255,7 +259,7 @@ class RealmVTTClient:
         Find a record by name
         
         Args:
-            record_type: Type of record ('records', 'npcs', etc.)
+            record_type: Type of record ('items', 'npcs', 'careers', etc.)
             name: Name of the record to find
             
         Returns:
@@ -265,22 +269,33 @@ class RealmVTTClient:
             raise Exception("Authentication token required. Call login() first.")
         
         try:
-            # Use the existing find_records method to get all records
-            # For 'items', 'careers', etc., use the record_type directly
-            # For 'npcs', use 'npcs' directly
-            result = self.find_records(record_type)
+            # Query directly by name and record type
+            params = {'name': name}
             
-            # Filter by name on the client side
+            # Add campaignId parameter which is required by the API
+            if self.campaign_id:
+                params['campaignId'] = self.campaign_id
+            
+            # Use the correct endpoint based on record type
+            if record_type == 'npcs':
+                endpoint = f"{self.base_url}/npcs"
+            else:
+                endpoint = f"{self.base_url}/records"
+                # Add recordType parameter for non-npc records
+                params['recordType'] = record_type
+            
+            response = requests.get(endpoint, params=params, headers=self.headers)
+            response.raise_for_status()
+            result = response.json()
+            
+            # Return the first matching record if any
             if result.get('data') and len(result['data']) > 0:
-                for record in result['data']:
-                    record_name = record.get('name', '')
-                    if record_name.lower() == name.lower():
-                        # For records endpoint, also check recordType if it exists
-                        if record_type == 'npcs' or record.get('recordType') == record_type:
-                            return record
-            return None
+                return result['data'][0]
+            else:
+                return None
             
         except Exception as e:
+            print(f"DEBUG: Exception in find_record_by_name: {e}")
             raise Exception(f"Error finding {record_type} with name '{name}': {e}")
     
     def patch_record(self, record_type: str, record_id: str, data: Dict[str, Any]) -> Dict[str, Any]:

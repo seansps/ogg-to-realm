@@ -109,7 +109,7 @@ class DataMapper:
             data['description'] = self._convert_description(item['description'])
         
         # Handle weapon-specific conversions (check for both 'weapon' and 'ranged weapon'/'melee weapon')
-        if item_type == 'weapon' or 'weapon' in item_type:
+        if item_type == 'weapon' or (item_type in ['ranged weapon', 'melee weapon']):
             data = self._convert_weapon_data(data, item)
         elif item_type == 'gear':
             data = self._convert_gear_data(data, item)
@@ -171,6 +171,10 @@ class DataMapper:
         else:
             data['special'] = []
         
+        # Convert restricted field from true/false to yes/no
+        if 'restricted' in data:
+            data['restricted'] = self._convert_restricted_value(data['restricted'])
+        
         # Set default values for missing fields
         defaults = {
             'modifiers': [],
@@ -189,11 +193,18 @@ class DataMapper:
     def _convert_gear_data(self, data: Dict[str, Any], item: Dict[str, Any]) -> Dict[str, Any]:
         """Convert gear-specific data"""
         # Get the original type from the item data
-        original_type = item.get('data', {}).get('type', 'general')
+        original_type = item.get('data', {}).get('type', 'Gear')
         
         # Set type to 'general' for gear items
         data['type'] = 'general'
+        
+        # Set subtype to the original OggDude Type value
+        data['subtype'] = original_type
     
+        # Convert restricted field from true/false to yes/no
+        if 'restricted' in data:
+            data['restricted'] = self._convert_restricted_value(data['restricted'])
+        
         # Set default values for missing fields
         defaults = {
             'modifiers': [],
@@ -220,8 +231,9 @@ class DataMapper:
             data['type'] = 'ranged weapon'
             data['subtype'] = 'Vehicle Weapon'
         else:
-            # Check original SkillKey for melee weapons
-            if original_skill_key in ['MELEE', 'BRAWL', 'LIGHTSABER', 'LTSABER']:
+            # Check original SkillKey and current weaponSkill for melee weapons
+            if (original_skill_key in ['MELEE', 'BRAWL', 'LIGHTSABER', 'LTSABER'] or 
+                skill_key in ['Melee', 'Brawl', 'Lightsaber']):
                 data['type'] = 'melee weapon'
             else:
                 data['type'] = 'ranged weapon'
@@ -255,6 +267,10 @@ class DataMapper:
             data.pop('qualities', None)
         else:
             data['special'] = []
+        
+        # Convert restricted field from true/false to yes/no
+        if 'restricted' in data:
+            data['restricted'] = self._convert_restricted_value(data['restricted'])
         
         # Set default values for missing fields
         defaults = {
@@ -555,6 +571,10 @@ class DataMapper:
         if 'description' in vehicle:
             data['description'] = self._convert_description(vehicle['description'])
         
+        # Convert restricted field from true/false to yes/no
+        if 'restricted' in data:
+            data['restricted'] = self._convert_restricted_value(data['restricted'])
+        
         realm_vehicle = {
             "name": vehicle.get('name', 'Unknown Vehicle'),
             "recordType": "vehicles",
@@ -708,12 +728,26 @@ class DataMapper:
         
         return realm_npc
     
+    def _convert_restricted_value(self, restricted_value: Any) -> str:
+        """Convert OggDude restricted value (true/false) to Realm VTT format (yes/no)"""
+        if isinstance(restricted_value, str):
+            restricted_value = restricted_value.lower()
+        
+        if restricted_value in [True, 'true', 'yes', 1]:
+            return 'yes'
+        else:
+            return 'no'
+    
     def _convert_attachment_data(self, data: Dict[str, Any], item: Dict[str, Any]) -> Dict[str, Any]:
         """Convert attachment-specific data"""
         # The type should already be set correctly (weapon attachment, armor attachment, vehicle attachment)
         # Just ensure it's set
         if 'type' not in data:
             data['type'] = item.get('type', 'weapon attachment')
+        
+        # Convert restricted field from true/false to yes/no
+        if 'restricted' in data:
+            data['restricted'] = self._convert_restricted_value(data['restricted'])
         
         # Set default values for missing fields
         defaults = {
@@ -722,7 +756,7 @@ class DataMapper:
             'consumable': False,
             'hasUseBtn': False,
             'attachments': [],
-            'slotsUsed': 0
+            'slots': 0
         }
         
         for key, default_value in defaults.items():

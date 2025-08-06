@@ -286,6 +286,7 @@ class ImportManager:
                                 self._log_status(f"Updated existing {record_type}: {record_name}")
                             else:
                                 # Create new record
+                                self._log_status(f"No existing {record_type} found, creating new one: {record_name}")
                                 if record_type == 'npcs':
                                     created_record = self.api_client.create_npc(realm_record)
                                 elif record_type == 'items':

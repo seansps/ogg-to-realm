@@ -1102,11 +1102,22 @@ class XMLParser:
                 'Price': self._get_text(attachment_elem, 'Price', '0'),
                 'Rarity': self._get_int(attachment_elem, 'Rarity', 0),
                 'HP': self._get_int(attachment_elem, 'HP', 0),
-                'AddedMods': self._extract_added_mods(attachment_elem)
+                'AddedMods': self._extract_added_mods(attachment_elem),
+                'BaseMods': self._extract_base_mods(attachment_elem)
             }
             
             # Apply field mapping
             mapped_data = self._apply_field_mapping('attachments', raw_data)
+            
+            # Append base modifiers to description if present
+            base_mods = raw_data.get('BaseMods', '')
+            if base_mods:
+                description = mapped_data.get('description', '')
+                if description:
+                    description += f"\n\n<strong>Base Modifiers:</strong> {base_mods}"
+                else:
+                    description = f"<strong>Base Modifiers:</strong> {base_mods}"
+                mapped_data['description'] = description
             
             # Convert type to Realm VTT format - this should be the main type, not subtype
             attachment_type = raw_data.get('Type', '').lower()
@@ -1334,22 +1345,29 @@ class XMLParser:
             for mod_elem in self._findall_with_namespace(base_mods_elem, 'Mod'):
                 key = self._get_text(mod_elem, 'Key')
                 count = self._get_int(mod_elem, 'Count', 1)
+                misc_desc = self._get_text(mod_elem, 'MiscDesc')
                 
-                # Get the description from ItemDescriptors
-                description = self._get_item_descriptor_description(key)
-                if description:
-                    # Convert OggDude format to plain text
-                    plain_text = self._convert_oggdude_format_to_plain_text(description)
-                    # Replace {0} with the count (even if count is 1)
-                    if '{0}' in plain_text:
-                        plain_text = plain_text.replace('{0}', str(count))
-                    mods.append(plain_text)
-                else:
-                    # Fallback if no description found
-                    if count > 1:
-                        mods.append(f"{key} {count}")
+                if key:
+                    # Get the description from ItemDescriptors
+                    description = self._get_item_descriptor_description(key, use_name=True)
+                    if description:
+                        # Convert OggDude format to plain text
+                        plain_text = self._convert_oggdude_format_to_plain_text(description)
+                        # Replace {0} with the count (even if count is 1)
+                        if '{0}' in plain_text:
+                            plain_text = plain_text.replace('{0}', str(count))
+                        mods.append(plain_text)
                     else:
-                        mods.append(key)
+                        # Fallback if no description found
+                        if count > 1:
+                            mods.append(f"{key} {count}")
+                        else:
+                            mods.append(key)
+                
+                # Add MiscDesc if present
+                if misc_desc:
+                    plain_misc = self._convert_oggdude_format_to_plain_text(misc_desc)
+                    mods.append(plain_misc)
             
             return "; ".join(mods) if mods else ""
             
@@ -1377,11 +1395,15 @@ class XMLParser:
                     # Replace {0} with the count (even if count is 1)
                     if '{0}' in plain_text:
                         plain_text = plain_text.replace('{0}', str(count))
-                    mods.append(plain_text)
+                    # Format as "count ModName" instead of "ModName +count"
+                    if count > 1:
+                        mods.append(f"{count} {plain_text}")
+                    else:
+                        mods.append(plain_text)
                 else:
                     # Fallback if no description found
                     if count > 1:
-                        mods.append(f"{key} {count}")
+                        mods.append(f"{count} {key}")
                     else:
                         mods.append(key)
             
@@ -1391,7 +1413,7 @@ class XMLParser:
             print(f"Error extracting added mods: {e}")
             return ""
     
-    def _get_item_descriptor_description(self, key: str) -> Optional[str]:
+    def _get_item_descriptor_description(self, key: str, use_name: bool = False) -> Optional[str]:
         """Get description from ItemDescriptors.xml for a given key"""
         try:
             # Check if we have already loaded ItemDescriptors
@@ -1399,9 +1421,18 @@ class XMLParser:
                 self._load_item_descriptors()
             
             if hasattr(self, '_item_descriptors') and key in self._item_descriptors:
-                # Use QualDesc for attachments (supports {0} placeholder), fallback to ModDesc, then Description
                 descriptor = self._item_descriptors[key]
-                return descriptor.get('qualDesc', descriptor.get('modDesc', descriptor.get('description', '')))
+                if use_name:
+                    # For BaseMods, use Name field and append ModDesc if available
+                    name = descriptor.get('name', '')
+                    mod_desc = descriptor.get('modDesc', '')
+                    if mod_desc:
+                        return f"{name} ({mod_desc})"
+                    else:
+                        return name
+                else:
+                    # Use QualDesc for attachments (supports {0} placeholder), fallback to ModDesc, then Description
+                    return descriptor.get('qualDesc', descriptor.get('modDesc', descriptor.get('description', '')))
             
             return None
             

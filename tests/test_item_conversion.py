@@ -516,10 +516,10 @@ def test_item_attachment_conversion():
             return False
         
         # Test hardpoints mapping
-        if converted.get('slotsUsed') == 2:
-            print(f"  ✓ Hardpoints correctly mapped from HP: {converted['slotsUsed']}")
+        if converted.get('slots') == 2:
+            print(f"  ✓ Hardpoints correctly mapped from HP: {converted['slots']}")
         else:
-            print(f"  ✗ Hardpoints should be 2, got {converted.get('slotsUsed', 'None')}")
+            print(f"  ✗ Hardpoints should be 2, got {converted.get('slots', 'None')}")
             return False
         
         # Test modificationOptions (BaseMods conversion)
