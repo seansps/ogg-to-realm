@@ -11,7 +11,7 @@ class OggDudeImporterGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("OggDude to Realm VTT Importer")
-        self.root.geometry("800x600")
+        self.root.geometry("800x800")
         
         # Center the window on screen
         self.center_window()
