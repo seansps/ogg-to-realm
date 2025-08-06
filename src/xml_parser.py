@@ -2751,6 +2751,114 @@ class XMLParser:
                 return f"{parts[0]} ({parts[1]})"
         return skill_name
     
+    def _parse_skill_check_from_description(self, description: str) -> tuple[str, str]:
+        """Parse skill check from signature ability description
+        
+        Returns:
+            tuple: (skill, difficulty) - both as Realm VTT values or ("None", "None") if not found
+        """
+        if not description:
+            return ("None", "None")
+        
+        import re
+        
+        # First, clean BBCode tags from the description
+        clean_description = re.sub(r'\[/?[BbIiUu]\]', '', description)
+        clean_description = re.sub(r'\[DI\]', '', clean_description)
+        
+        # Pattern to match skill checks - more flexible approach
+        # Look for patterns like "make/makes a [difficulty] (...) [skill] check"
+        patterns = [
+            # Pattern 1: "makes a Hard (...) Streetwise check"
+            r'makes?\s+an?\s+(\w+)\s+\([^)]*\)\s+([^c]+?)\s+check',
+            # Pattern 2: "make a Hard (...) Knowledge (Education) check"  
+            r'makes?\s+an?\s+(\w+)\s+\([^)]*\)\s+(Knowledge\s*\([^)]+\))\s+check',
+            # Pattern 3: "make a Hard Knowledge (Education) check" (without difficulty parentheses)
+            r'makes?\s+an?\s+(\w+)\s+(Knowledge\s*\([^)]+\))\s+check',
+            # Pattern 4: "make a Hard Streetwise check" (simple format without difficulty parentheses)
+            r'makes?\s+an?\s+(\w+)\s+([A-Za-z]+)\s+check',
+            # Pattern 5: "Make an Easy (-) Perception check" (with difficulty parentheses)
+            r'makes?\s+an?\s+(\w+)\s+\([^)]*\)\s+([A-Za-z]+)\s+check',
+            # Pattern 6: "Requires an Average (--) Coordination check"
+            r'requires?\s+an?\s+(\w+)\s+\([^)]*\)\s+([A-Za-z]+)\s+check',
+            # Pattern 7: "Must make a Formidable (-----) Discipline check"
+            r'must\s+makes?\s+an?\s+(\w+)\s+\([^)]*\)\s+([A-Za-z]+)\s+check'
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, clean_description, re.IGNORECASE)
+            if match:
+                difficulty_text = match.group(1).strip()
+                skill_text = match.group(2).strip()
+                break
+        else:
+            return ("None", "None")
+        
+        # Map difficulty to Realm VTT format
+        difficulty_mapping = {
+            "easy": "Easy",
+            "average": "Average", 
+            "hard": "Hard",
+            "daunting": "Daunting",
+            "formidable": "Formidable"
+        }
+        difficulty = difficulty_mapping.get(difficulty_text.lower(), "None")
+        
+        # Map skill to Realm VTT format
+        # Handle skills like "Knowledge (Education)" -> "Education"
+        knowledge_match = re.search(r'Knowledge\s*\(([^)]+)\)', skill_text, re.IGNORECASE)
+        if knowledge_match:
+            knowledge_type = knowledge_match.group(1).strip()
+            # Map knowledge types to Realm skills
+            knowledge_mapping = {
+                "core worlds": "Core Worlds",
+                "education": "Education", 
+                "lore": "Lore",
+                "outer rim": "Outer Rim",
+                "underworld": "Underworld",
+                "xenology": "Xenology"
+            }
+            skill = knowledge_mapping.get(knowledge_type.lower(), "None")
+        else:
+            # Handle regular skills
+            skill_mapping = {
+                "astrogation": "Astrogation",
+                "athletics": "Athletics", 
+                "brawl": "Brawl",
+                "charm": "Charm",
+                "coercion": "Coercion",
+                "computers": "Computers",
+                "cool": "Cool",
+                "coordination": "Coordination",
+                "deception": "Deception",
+                "discipline": "Discipline",
+                "gunnery": "Gunnery",
+                "leadership": "Leadership",
+                "lightsaber": "Lightsaber",
+                "mechanics": "Mechanics",
+                "medicine": "Medicine",
+                "melee": "Melee",
+                "negotiation": "Negotiation",
+                "perception": "Perception",
+                "piloting - planetary": "Piloting (Planetary)",
+                "piloting - space": "Piloting (Space)",
+                "piloting (planetary)": "Piloting (Planetary)",
+                "piloting (space)": "Piloting (Space)",
+                "ranged - heavy": "Ranged (Heavy)",
+                "ranged - light": "Ranged (Light)",
+                "ranged (heavy)": "Ranged (Heavy)",
+                "ranged (light)": "Ranged (Light)",
+                "resilience": "Resilience",
+                "skulduggery": "Skulduggery",
+                "stealth": "Stealth",
+                "streetwise": "Streetwise",
+                "survival": "Survival",
+                "vigilance": "Vigilance"
+            }
+            skill = skill_mapping.get(skill_text.lower(), "None")
+        
+        return (skill, difficulty)
+    
     def _parse_sig_ability(self, root: ET.Element) -> List[Dict[str, Any]]:
         """Parse signature ability from XML"""
         sig_ability = self._extract_sig_ability_data(root)
@@ -2788,7 +2896,22 @@ class XMLParser:
                 if abilities:
                     base_ability_key = abilities[0]  # Get the first ability key
                     base_description = self._get_sig_ability_node_description(base_ability_key)
+                    
+                    # Try to parse skill check from base description first
+                    skill, difficulty = ("None", "None")
                     if base_description:
+                        skill, difficulty = self._parse_skill_check_from_description(base_description)
+                    
+                    # If no skill found in base description, try main description
+                    if skill == "None" and mapped_data.get('description'):
+                        skill, difficulty = self._parse_skill_check_from_description(mapped_data.get('description'))
+                    
+                    # Set the skill and difficulty if found
+                    if skill != "None":
+                        mapped_data['skill'] = skill
+                    if difficulty != "None":
+                        mapped_data['difficulty'] = difficulty
+                        
                         # Add the base description to the main description
                         if mapped_data.get('description'):
                             mapped_data['description'] += f"<br><br><strong>Base Ability:</strong> {base_description}"
@@ -3044,6 +3167,8 @@ class XMLParser:
                                 ability_data_copy['data']['cost'] = costs[col_index - 1]
                             else:
                                 ability_data_copy['data']['cost'] = 0
+                            # Mark as signature ability upgrade
+                            ability_data_copy['data']['signatureAbilityUpgrade'] = "yes"
                         
                         # Set the ability in the correct position
                         ability_field = f"talent{row_index}_{col_index}"
@@ -3058,7 +3183,8 @@ class XMLParser:
                             "data": {
                                 "name": ability_key,
                                 "description": f"Ability {ability_key} not found",
-                                "cost": costs[col_index - 1] if col_index <= len(costs) else 0
+                                "cost": costs[col_index - 1] if col_index <= len(costs) else 0,
+                                "signatureAbilityUpgrade": "yes"
                             },
                             "unidentifiedName": "Unknown Ability",
                             "icon": "IconStar"
