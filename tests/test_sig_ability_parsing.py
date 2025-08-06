@@ -217,35 +217,76 @@ def test_sig_ability_parsing():
             print(f"  ✗ Career finding failed: expected 'Smuggler', got '{career}'")
             return False
         
-        # Check talent fields (should have talent1_1 to talent2_4)
+        # Check talent fields (should have talent1_1 to talent2_4, but NOT talent0_*)
         talent_fields = [k for k in data.keys() if k.startswith('talent')]
         expected_talent_fields = ['talent1_1', 'talent1_2', 'talent1_3', 'talent1_4', 'talent2_1', 'talent2_2', 'talent2_3', 'talent2_4']
+        
+        # Check that we have the expected talent fields
         if set(talent_fields) == set(expected_talent_fields):
             print(f"  ✓ Talent fields correctly generated: {talent_fields}")
         else:
             print(f"  ✗ Talent fields generation failed: expected {expected_talent_fields}, got {talent_fields}")
             return False
         
+        # Check that we DON'T have talent0_* fields
+        talent0_fields = [k for k in data.keys() if k.startswith('talent0')]
+        if len(talent0_fields) == 0:
+            print("  ✓ No talent0_* fields generated (as expected)")
+        else:
+            print(f"  ✗ talent0_* fields should not be generated, but found: {talent0_fields}")
+            return False
+        
         # Check connector fields (should have connector0_1 to connector2_4 and h_connector1_2 to h_connector2_4)
+        expected_connector_fields = [
+            "connector0_1", "connector0_2", "connector0_3", "connector0_4",
+            "connector1_1", "connector1_2", "connector1_3", "connector1_4",
+            "connector2_1", "connector2_2", "connector2_3", "connector2_4",
+            "h_connector1_2", "h_connector1_3", "h_connector1_4",
+            "h_connector2_2", "h_connector2_3", "h_connector2_4"
+        ]
+        
         connector_fields = [k for k in data.keys() if k.startswith('connector') or k.startswith('h_connector')]
-        if len(connector_fields) > 0:
-            print(f"  ✓ Connector fields generated: {len(connector_fields)} fields")
+        if set(connector_fields) == set(expected_connector_fields):
+            print(f"  ✓ Connector fields correctly generated: {len(connector_fields)} fields")
         else:
-            print("  ✗ Connector fields generation failed")
+            missing_fields = set(expected_connector_fields) - set(connector_fields)
+            extra_fields = set(connector_fields) - set(expected_connector_fields)
+            print(f"  ✗ Connector fields generation failed:")
+            if missing_fields:
+                print(f"    Missing fields: {missing_fields}")
+            if extra_fields:
+                print(f"    Extra fields: {extra_fields}")
             return False
         
-        # Check specific connectors
-        if data.get('connector0_2') == 'Yes':
-            print("  ✓ Vertical connector 0_2 correctly set: Yes")
-        else:
-            print(f"  ✗ Vertical connector 0_2 failed: {data.get('connector0_2')}")
-            return False
+        # Check specific connector values
+        expected_connector_values = {
+            "connector0_1": "No",
+            "connector0_2": "Yes", 
+            "connector0_3": "Yes",
+            "connector0_4": "No",
+            "connector1_1": "No",
+            "connector1_2": "Yes",
+            "connector1_3": "Yes", 
+            "connector1_4": "No",
+            "connector2_1": "Yes",
+            "connector2_2": "No",
+            "connector2_3": "Yes",
+            "connector2_4": "No",
+            "h_connector1_2": "Yes",
+            "h_connector1_3": "No",
+            "h_connector1_4": "Yes",
+            "h_connector2_2": "Yes",
+            "h_connector2_3": "Yes",
+            "h_connector2_4": "Yes"
+        }
         
-        if data.get('connector0_3') == 'Yes':
-            print("  ✓ Vertical connector 0_3 correctly set: Yes")
-        else:
-            print(f"  ✗ Vertical connector 0_3 failed: {data.get('connector0_3')}")
-            return False
+        for field, expected_value in expected_connector_values.items():
+            actual_value = data.get(field)
+            if actual_value == expected_value:
+                print(f"  ✓ {field} correctly set: {expected_value}")
+            else:
+                print(f"  ✗ {field} failed: expected '{expected_value}', got '{actual_value}'")
+                return False
         
         print("  ✓ All signature ability parsing tests passed!")
         return True
@@ -263,4 +304,4 @@ if __name__ == "__main__":
         sys.exit(0)
     else:
         print("\n❌ Some signature ability parsing tests failed!")
-        sys.exit(1) 
+        sys.exit(1)

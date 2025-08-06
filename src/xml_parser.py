@@ -612,10 +612,10 @@ class XMLParser:
             else:
                 mapped_data['skills'] = ''
             
-            # Find the career for this specialization
-            career_name = self._find_career_for_specialization(spec_key)
-            if career_name:
-                mapped_data['career'] = career_name
+            # Find all careers for this specialization (some specializations work in multiple careers)
+            career_names = self._find_careers_for_specialization(spec_key)
+            if career_names:
+                mapped_data['career'] = ', '.join(career_names)
             else:
                 mapped_data['career'] = ''
             
@@ -631,6 +631,11 @@ class XMLParser:
             directions = raw_data.get('Directions', [])
             if directions:
                 self._process_directions(mapped_data, talent_rows)
+            
+            # Clean up fields that shouldn't be sent to Realm
+            mapped_data.pop('CareerSkills', None)
+            mapped_data.pop('TalentRows', None)
+            mapped_data.pop('Directions', None)
             
             # Get sources and convert to category
             sources = self._get_sources(spec_elem)
@@ -2506,17 +2511,19 @@ class XMLParser:
             print(f"Error loading careers: {e}")
             self._careers = {}
     
-    def _find_career_for_specialization(self, spec_key: str) -> Optional[str]:
-        """Find the career for a specialization by looking through all careers"""
+    def _find_careers_for_specialization(self, spec_key: str) -> List[str]:
+        """Find all careers that contain this specialization"""
         try:
             # Load careers if not already loaded
             if not hasattr(self, '_careers') or not self._careers:
                 self._load_careers()
             
-            # Look through all career XML files to find which one contains this specialization
+            career_names = []
+            
+            # Look through all career XML files to find which ones contain this specialization
             oggdata_dir = self._find_oggdata_directory()
             if oggdata_dir is None:
-                return None
+                return career_names
             
             # Find all career XML files recursively
             career_files = self._find_xml_files_recursively(oggdata_dir)
@@ -2536,18 +2543,19 @@ class XMLParser:
                                 if spec.text == spec_key:
                                     # Found the career! Get its name
                                     career_name = self._get_text(root, 'Name')
-                                    if career_name:
-                                        return career_name
+                                    if career_name and career_name not in career_names:
+                                        career_names.append(career_name)
+                                    break  # Move to next career file
                     
                 except Exception as e:
                     # Skip files that can't be parsed
                     continue
             
-            return None
+            return career_names
             
         except Exception as e:
-            print(f"Error finding career for specialization {spec_key}: {e}")
-            return None
+            print(f"Error finding careers for specialization {spec_key}: {e}")
+            return []
     
     def _process_talent_rows(self, mapped_data: Dict[str, Any], talent_rows: List[Dict[str, Any]]):
         """Process talent rows and convert to Realm VTT format"""
@@ -2701,27 +2709,38 @@ class XMLParser:
                             mapped_data[connector_field] = "No"
                     else:
                         mapped_data[connector_field] = "No"
-            
-            # Process horizontal connectors (h_connector{row}_{col})
-            for row_index in range(1, 6):  # Rows 1-5
-                for col_index in range(2, 5):  # Columns 2-4 (no h_connector for col 1)
+                           
+            # Process horizontal connectors (h_connector{row}_2 to h_connector{row}_4)
+            # Generate connectors for all talent rows starting from row 1
+            max_row = len(talent_rows)
+            for row_index in range(1, max_row + 1):  # Rows 1 to max_row
+                for col_index in range(2, 5):  # Columns 2-4
                     h_connector_field = f"h_connector{row_index}_{col_index}"
                     
-                    # Check if there's a direction pointing right from the previous column (col_index - 1)
-                    if row_index - 1 < len(talent_rows):
-                        current_row = talent_rows[row_index - 1]
+                    # Check if there's a direction pointing right from the previous column or left from the current column
+                    # For h_connector{row}_*, use row {row} (index {row-1})
+                    actual_row_index = row_index - 1
+                    if actual_row_index < len(talent_rows):
+                        current_row = talent_rows[actual_row_index]
                         current_directions = current_row.get('directions', [])
-                        # Check the direction from the previous column (col_index - 2, since we're 0-indexed)
-                        if col_index - 2 < len(current_directions):
-                            prev_col_direction = current_directions[col_index - 2]
-                            if prev_col_direction.get('right', False):
-                                mapped_data[h_connector_field] = "Yes"
-                            else:
-                                mapped_data[h_connector_field] = "No"
-                        else:
-                            mapped_data[h_connector_field] = "No"
-                    else:
-                        mapped_data[h_connector_field] = "No"
+                        
+                        print(f"DEBUG: {h_connector_field} - actual_row_index={actual_row_index}, directions_count={len(current_directions)}")
+                        
+                        # Check if previous column (col_index - 1) has right direction
+                        prev_col_index = col_index - 2  # Convert to 0-based index for previous column
+                        current_col_index = col_index - 1  # Convert to 0-based index for current column
+                        
+                        has_connection = False
+                        # A horizontal connection exists only if the previous column has right=True
+                        if prev_col_index >= 0 and prev_col_index < len(current_directions):
+                            prev_directions = current_directions[prev_col_index]
+                            print(f"DEBUG: {h_connector_field} - prev_col {prev_col_index} direction: {prev_directions}")
+                            if prev_directions.get('right', False):
+                                has_connection = True
+                                print(f"DEBUG: {h_connector_field} - prev_col {prev_col_index} has right=True")
+                        
+                        mapped_data[h_connector_field] = "Yes" if has_connection else "No"
+                        print(f"DEBUG: {h_connector_field} = {mapped_data[h_connector_field]}")
                         
         except Exception as e:
             print(f"Error processing directions: {e}")
@@ -2806,7 +2825,16 @@ class XMLParser:
             
             # Process directions and convert to Realm VTT format
             if ability_rows:
-                self._process_sig_ability_directions(mapped_data, ability_rows)
+                matching_nodes = raw_data.get('MatchingNodes', [])
+                self._process_sig_ability_directions(mapped_data, ability_rows, matching_nodes)
+            
+            # Clean up fields that shouldn't be sent to Realm
+            mapped_data.pop('matchingNodes', None)
+            mapped_data.pop('abilityRows', None)
+            mapped_data.pop('AbilityRows', None)
+            mapped_data.pop('CareerSkills', None)
+            mapped_data.pop('TalentRows', None)
+            mapped_data.pop('Directions', None)
             
             # Get sources and convert to category
             sources = self._get_sources(sig_ability_elem)
@@ -3000,44 +3028,8 @@ class XMLParser:
             # Get the base cost from the mapped_data (calculated in _extract_sig_ability_data)
             base_cost = mapped_data.get('baseCost', 0)
             
-            # Process the first row (base abilities) with the base cost
-            if ability_rows:
-                first_row = ability_rows[0]
-                first_abilities = first_row.get('abilities', [])
-                
-                for col_index, ability_key in enumerate(first_abilities, 1):
-                    # Get the ability data
-                    ability_data = self._get_sig_ability_data_by_key(ability_key)
-                    if ability_data:
-                        # Create a copy of the ability data to avoid sharing references
-                        ability_data_copy = ability_data.copy()
-                        if 'data' in ability_data_copy and isinstance(ability_data_copy['data'], dict):
-                            ability_data_copy['data'] = ability_data_copy['data'].copy()
-                            # Set the base cost for the base ability
-                            ability_data_copy['data']['cost'] = base_cost
-                        
-                        # Set the ability in the correct position
-                        ability_field = f"talent0_{col_index}"
-                        mapped_data[ability_field] = [ability_data_copy]
-                    else:
-                        # If ability not found, create a placeholder
-                        placeholder_ability = {
-                            "_id": f"placeholder-{ability_key}",
-                            "name": ability_key,
-                            "recordType": "talents",
-                            "identified": True,
-                            "data": {
-                                "name": ability_key,
-                                "description": f"Ability {ability_key} not found",
-                                "cost": base_cost
-                            },
-                            "unidentifiedName": "Unknown Ability",
-                            "icon": "IconStar"
-                        }
-                        ability_field = f"talent0_{col_index}"
-                        mapped_data[ability_field] = [placeholder_ability]
-            
-            # Skip the first row (base abilities) and process only the last two rows (upgrades)
+            # Skip the first row (base abilities) - we don't create talent0_* fields for the first row
+            # Only process the upgrade rows (rows 2 and 3)
             talent_rows = ability_rows[1:] if len(ability_rows) > 1 else []
             
             for row_index, row_data in enumerate(talent_rows, 1):
@@ -3148,28 +3140,34 @@ class XMLParser:
             print(f"Error getting signature ability data for key {ability_key}: {e}")
             return None
     
-    def _process_sig_ability_directions(self, mapped_data: Dict[str, Any], ability_rows: List[Dict[str, Any]]):
+    def _process_sig_ability_directions(self, mapped_data: Dict[str, Any], ability_rows: List[Dict[str, Any]], matching_nodes: List[bool]):
         """Process directions for signature abilities and convert to Realm VTT format"""
         try:
-            # Process vertical connectors above the first row (connector0_1 to connector0_4)
-            if ability_rows:
-                first_row = ability_rows[0]
-                first_directions = first_row.get('directions', [])
+            # Debug: Print row information
+            print(f"DEBUG: Found {len(ability_rows)} ability rows")
+            for i, row in enumerate(ability_rows):
+                print(f"DEBUG: Row {i}: index={row.get('index', 'N/A')}, directions_count={len(row.get('directions', []))}")
+            
+            # Process base connectors (connector0_1 to connector0_4) using the first row (base ability row)
+            if len(ability_rows) > 0:
+                base_row = ability_rows[0]  # First row is the base ability row
+                base_directions = base_row.get('directions', [])
                 
                 for col_index in range(1, 5):  # Columns 1-4
                     connector_field = f"connector0_{col_index}"
-                    
-                    if col_index <= len(first_directions):
-                        first_direction = first_directions[col_index - 1]
-                        if first_direction.get('down', False):
-                            mapped_data[connector_field] = "Yes"
-                        else:
-                            mapped_data[connector_field] = "No"
+                    if col_index - 1 < len(base_directions):
+                        base_direction = base_directions[col_index - 1]
+                        # Base ability row only has downward connectors
+                        mapped_data[connector_field] = "Yes" if base_direction.get('down', False) else "No"
                     else:
                         mapped_data[connector_field] = "No"
+            else:
+                # If no ability rows, set all connector0_* to "No"
+                for col_index in range(1, 5):
+                    mapped_data[f"connector0_{col_index}"] = "No"
             
             # Process vertical connectors between rows (connector1_1 to connector2_4)
-            for row_index in range(1, 3):  # Rows 1-2
+            for row_index in range(1, 3):  # Rows 1-2 (upgrade rows)
                 for col_index in range(1, 5):  # Columns 1-4
                     connector_field = f"connector{row_index}_{col_index}"
                     
@@ -3177,7 +3175,7 @@ class XMLParser:
                     if row_index > 0 and row_index - 1 < len(ability_rows):
                         prev_row = ability_rows[row_index - 1]
                         prev_directions = prev_row.get('directions', [])
-                        if col_index <= len(prev_directions):
+                        if col_index - 1 < len(prev_directions):
                             prev_direction = prev_directions[col_index - 1]
                             if prev_direction.get('down', False):
                                 mapped_data[connector_field] = "Yes"
@@ -3189,25 +3187,42 @@ class XMLParser:
                         mapped_data[connector_field] = "No"
             
             # Process horizontal connectors (h_connector1_2 to h_connector2_4)
-            for row_index in range(1, 3):  # Rows 1-2
+            for row_index in range(1, 3):  # Rows 1-2 (upgrade rows)
                 for col_index in range(2, 5):  # Columns 2-4
                     h_connector_field = f"h_connector{row_index}_{col_index}"
                     
-                    # Check if there's a direction pointing right from the previous column
-                    if row_index - 1 < len(ability_rows):
-                        current_row = ability_rows[row_index - 1]
+                    # Check if there's a direction pointing right from the previous column or left from the current column
+                    # For h_connector1_*, use row 1 (index 1) - first upgrade row
+                    # For h_connector2_*, use row 2 (index 2) - second upgrade row
+                    actual_row_index = row_index
+                    if actual_row_index < len(ability_rows):
+                        current_row = ability_rows[actual_row_index]
                         current_directions = current_row.get('directions', [])
-                        # Check the direction from the previous column (col_index - 2, since we're 0-indexed)
-                        if col_index - 2 < len(current_directions):
-                            prev_col_direction = current_directions[col_index - 2]
-                            if prev_col_direction.get('right', False):
-                                mapped_data[h_connector_field] = "Yes"
-                            else:
-                                mapped_data[h_connector_field] = "No"
-                        else:
-                            mapped_data[h_connector_field] = "No"
-                    else:
-                        mapped_data[h_connector_field] = "No"
+                        
+                        print(f"DEBUG: {h_connector_field} - using row {actual_row_index}, directions_count={len(current_directions)}")
+                        
+                        # Check if previous column (col_index - 1) has right direction
+                        # or current column (col_index) has left direction
+                        prev_col_index = col_index - 2  # Convert to 0-based index for previous column
+                        current_col_index = col_index - 1  # Convert to 0-based index for current column
+                        
+                        has_connection = False
+                        if prev_col_index >= 0 and prev_col_index < len(current_directions):
+                            prev_directions = current_directions[prev_col_index]
+                            print(f"DEBUG: {h_connector_field} - prev_col {prev_col_index} direction: {prev_directions}")
+                            if prev_directions.get('right', False):
+                                has_connection = True
+                                print(f"DEBUG: {h_connector_field} - prev_col {prev_col_index} has right=True")
+                        
+                        if not has_connection and current_col_index < len(current_directions):
+                            current_directions_obj = current_directions[current_col_index]
+                            print(f"DEBUG: {h_connector_field} - current_col {current_col_index} direction: {current_directions_obj}")
+                            if current_directions_obj.get('left', False):
+                                has_connection = True
+                                print(f"DEBUG: {h_connector_field} - current_col {current_col_index} has left=True")
+                        
+                        mapped_data[h_connector_field] = "Yes" if has_connection else "No"
+                        print(f"DEBUG: {h_connector_field} = {mapped_data[h_connector_field]}")
                         
         except Exception as e:
             print(f"Error processing signature ability directions: {e}")
