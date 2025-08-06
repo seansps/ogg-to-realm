@@ -9,6 +9,7 @@ class XMLParser:
         self.field_mapping = self._load_field_mapping()
         self.sources_config = self._load_sources_config()
         self._talents = {}  # Will store talent keys to names mapping
+        self._skills = {}   # Will store skill keys to names mapping
     
     def _load_field_mapping(self) -> Dict[str, Any]:
         """Load field mapping configuration"""
@@ -1354,21 +1355,26 @@ class XMLParser:
                     if talent_name:
                         mods.append(f"Innate Talent ({talent_name})")
                     else:
-                        # Get the description from ItemDescriptors
-                        description = self._get_item_descriptor_description(key, use_name=True)
-                        if description:
-                            # Convert OggDude format to plain text (including dice keys)
-                            plain_text = self._convert_oggdude_format_to_plain_text(description)
-                            # Replace {0} with the count (even if count is 1)
-                            if '{0}' in plain_text:
-                                plain_text = plain_text.replace('{0}', str(count))
-                            mods.append(plain_text)
+                        # Then check if it's a skill
+                        skill_name = self._get_skill_name(key)
+                        if skill_name:
+                            mods.append(f"{count} Skill ({skill_name}) Mod")
                         else:
-                            # Fallback if no description found
-                            if count > 1:
-                                mods.append(f"{key} {count}")
+                            # Get the description from ItemDescriptors
+                            description = self._get_item_descriptor_description(key, use_name=True)
+                            if description:
+                                # Convert OggDude format to plain text (including dice keys)
+                                plain_text = self._convert_oggdude_format_to_plain_text(description)
+                                # Replace {0} with the count (even if count is 1)
+                                if '{0}' in plain_text:
+                                    plain_text = plain_text.replace('{0}', str(count))
+                                mods.append(plain_text)
                             else:
-                                mods.append(key)
+                                # Fallback if no description found
+                                if count > 1:
+                                    mods.append(f"{key} {count}")
+                                else:
+                                    mods.append(key)
                 
                 # Add MiscDesc if present
                 if misc_desc:
@@ -1406,25 +1412,41 @@ class XMLParser:
                     else:
                         mods.append(misc_desc)
                 elif key:
-                    # Get the description from ItemDescriptors
-                    description = self._get_item_descriptor_description(key)
-                    if description:
-                        # For AddedMods, we want to keep the special string replacements
-                        # but NOT convert dice keys like [SE][SE] to rich text
-                        # Just do basic {0} replacement
-                        if '{0}' in description:
-                            description = description.replace('{0}', str(count))
-                        # Format as "count ModName" instead of "ModName +count"
+                    # First check if it's a talent
+                    talent_name = self._get_talent_name(key)
+                    if talent_name:
                         if count > 1:
-                            mods.append(f"{count} {description}")
+                            mods.append(f"{count} Innate Talent ({talent_name})")
                         else:
-                            mods.append(description)
+                            mods.append(f"Innate Talent ({talent_name})")
                     else:
-                        # Fallback if no description found
-                        if count > 1:
-                            mods.append(f"{count} {key}")
+                        # Then check if it's a skill
+                        skill_name = self._get_skill_name(key)
+                        if skill_name:
+                            if count > 1:
+                                mods.append(f"{count} Skill ({skill_name}) Mod")
+                            else:
+                                mods.append(f"1 Skill ({skill_name}) Mod")
                         else:
-                            mods.append(key)
+                            # Get the description from ItemDescriptors
+                            description = self._get_item_descriptor_description(key)
+                            if description:
+                                # For AddedMods, we want to keep the special string replacements
+                                # but NOT convert dice keys like [SE][SE] to rich text
+                                # Just do basic {0} replacement
+                                if '{0}' in description:
+                                    description = description.replace('{0}', str(count))
+                                # Format as "count ModName" instead of "ModName +count"
+                                if count > 1:
+                                    mods.append(f"{count} {description}")
+                                else:
+                                    mods.append(description)
+                            else:
+                                # Fallback if no description found
+                                if count > 1:
+                                    mods.append(f"{count} {key}")
+                                else:
+                                    mods.append(key)
                 else:
                     # No key or misc_desc, skip this mod
                     continue
@@ -1505,6 +1527,50 @@ class XMLParser:
         if not self._talents:
             self._load_talents()
         return self._talents.get(key)
+    
+    def _load_skills(self):
+        """Load Skills.xml into memory for skill key to name mapping"""
+        try:
+            # Look for Skills.xml in the same directory as other XML files
+            skills_path = None
+            
+            # Check common locations
+            possible_paths = [
+                'OggData/Skills.xml',
+                '../OggData/Skills.xml',
+                './Skills.xml'
+            ]
+            
+            for path in possible_paths:
+                if os.path.exists(path):
+                    skills_path = path
+                    break
+            
+            if skills_path is None:
+                print("Warning: Skills.xml not found, skill key resolution will not work")
+                return
+            
+            print(f"Loading skills from {skills_path}")
+            tree = ET.parse(skills_path)
+            root = tree.getroot()
+            
+            # Parse all skills and store key -> name mapping
+            for skill_elem in self._findall_with_namespace(root, 'Skill'):
+                key = self._get_text(skill_elem, 'Key')
+                name = self._get_text(skill_elem, 'Name')
+                if key and name:
+                    self._skills[key] = name
+            
+            print(f"Loaded {len(self._skills)} skills")
+            
+        except Exception as e:
+            print(f"Error loading skills: {e}")
+    
+    def _get_skill_name(self, key: str) -> Optional[str]:
+        """Get skill name from key, returns None if not found"""
+        if not self._skills:
+            self._load_skills()
+        return self._skills.get(key)
     
     def _load_item_descriptors(self):
         """Load ItemDescriptors.xml into memory"""

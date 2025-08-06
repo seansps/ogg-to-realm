@@ -47,6 +47,74 @@ class TestBaseModsParsing(unittest.TestCase):
         finally:
             os.unlink(temp_file)
     
+    def test_base_mods_with_skill_key(self):
+        """Test that skill keys in BaseMods are converted to '1 Skill (Name) Mod'"""
+        xml_content = '''<?xml version="1.0" encoding="UTF-8"?>
+<ItemAttachments>
+    <ItemAttachment>
+        <Key>TESTATTACH</Key>
+        <Name>Test Attachment</Name>
+        <Description>Test description</Description>
+        <BaseMods>
+            <Mod>
+                <Key>VIGIL</Key>
+                <Count>1</Count>
+            </Mod>
+        </BaseMods>
+    </ItemAttachment>
+</ItemAttachments>'''
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False) as f:
+            f.write(xml_content)
+            temp_file = f.name
+        
+        try:
+            records = self.parser.parse_xml_file(temp_file)
+            self.assertEqual(len(records), 1)
+            
+            attachment = records[0]
+            base_mods = attachment.get('data', {}).get('baseModifiers', '')
+            
+            # Should convert VIGIL to "1 Skill (Vigilance) Mod"
+            self.assertIn("1 Skill (Vigilance) Mod", base_mods)
+            
+        finally:
+            os.unlink(temp_file)
+    
+    def test_base_mods_with_skill_key_multiple_count(self):
+        """Test that skill keys with count > 1 are handled correctly"""
+        xml_content = '''<?xml version="1.0" encoding="UTF-8"?>
+<ItemAttachments>
+    <ItemAttachment>
+        <Key>TESTATTACH</Key>
+        <Name>Test Attachment</Name>
+        <Description>Test description</Description>
+        <BaseMods>
+            <Mod>
+                <Key>VIGIL</Key>
+                <Count>2</Count>
+            </Mod>
+        </BaseMods>
+    </ItemAttachment>
+</ItemAttachments>'''
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False) as f:
+            f.write(xml_content)
+            temp_file = f.name
+        
+        try:
+            records = self.parser.parse_xml_file(temp_file)
+            self.assertEqual(len(records), 1)
+            
+            attachment = records[0]
+            base_mods = attachment.get('data', {}).get('baseModifiers', '')
+            
+            # Should convert VIGIL with count 2 to "2 Skill (Vigilance) Mod"
+            self.assertIn("2 Skill (Vigilance) Mod", base_mods)
+            
+        finally:
+            os.unlink(temp_file)
+    
     def test_base_mods_with_dice_keys(self):
         """Test that dice keys in BaseMods are converted to rich text"""
         xml_content = '''<?xml version="1.0" encoding="UTF-8"?>
@@ -155,6 +223,108 @@ ranges beyond Short range by one.</MiscDesc>
             # The exact format depends on what's in ItemDescriptors, but it should NOT be converted
             # to rich text like "Setback"
             self.assertNotIn("Setback", mod_options)
+            
+        finally:
+            os.unlink(temp_file)
+    
+    def test_added_mods_with_talent_key(self):
+        """Test that talent keys in AddedMods are converted to 'Innate Talent (Name)'"""
+        xml_content = '''<?xml version="1.0" encoding="UTF-8"?>
+<ItemAttachments>
+    <ItemAttachment>
+        <Key>TESTATTACH</Key>
+        <Name>Test Attachment</Name>
+        <Description>Test description</Description>
+        <AddedMods>
+            <Mod>
+                <Key>QUICKDR</Key>
+                <Count>1</Count>
+            </Mod>
+        </AddedMods>
+    </ItemAttachment>
+</ItemAttachments>'''
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False) as f:
+            f.write(xml_content)
+            temp_file = f.name
+        
+        try:
+            records = self.parser.parse_xml_file(temp_file)
+            self.assertEqual(len(records), 1)
+            
+            attachment = records[0]
+            mod_options = attachment.get('data', {}).get('modificationOptions', '')
+            
+            # Should convert QUICKDR to "Innate Talent (Quick Draw)"
+            self.assertIn("Innate Talent (Quick Draw)", mod_options)
+            
+        finally:
+            os.unlink(temp_file)
+    
+    def test_added_mods_with_skill_key(self):
+        """Test that skill keys in AddedMods are converted to '1 Skill (Name) Mod'"""
+        xml_content = '''<?xml version="1.0" encoding="UTF-8"?>
+<ItemAttachments>
+    <ItemAttachment>
+        <Key>TESTATTACH</Key>
+        <Name>Test Attachment</Name>
+        <Description>Test description</Description>
+        <AddedMods>
+            <Mod>
+                <Key>VIGIL</Key>
+                <Count>1</Count>
+            </Mod>
+        </AddedMods>
+    </ItemAttachment>
+</ItemAttachments>'''
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False) as f:
+            f.write(xml_content)
+            temp_file = f.name
+        
+        try:
+            records = self.parser.parse_xml_file(temp_file)
+            self.assertEqual(len(records), 1)
+            
+            attachment = records[0]
+            mod_options = attachment.get('data', {}).get('modificationOptions', '')
+            
+            # Should convert VIGIL to "1 Skill (Vigilance) Mod"
+            self.assertIn("1 Skill (Vigilance) Mod", mod_options)
+            
+        finally:
+            os.unlink(temp_file)
+    
+    def test_added_mods_with_skill_key_multiple_count(self):
+        """Test that skill keys with count > 1 in AddedMods are handled correctly"""
+        xml_content = '''<?xml version="1.0" encoding="UTF-8"?>
+<ItemAttachments>
+    <ItemAttachment>
+        <Key>TESTATTACH</Key>
+        <Name>Test Attachment</Name>
+        <Description>Test description</Description>
+        <AddedMods>
+            <Mod>
+                <Key>VIGIL</Key>
+                <Count>2</Count>
+            </Mod>
+        </AddedMods>
+    </ItemAttachment>
+</ItemAttachments>'''
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False) as f:
+            f.write(xml_content)
+            temp_file = f.name
+        
+        try:
+            records = self.parser.parse_xml_file(temp_file)
+            self.assertEqual(len(records), 1)
+            
+            attachment = records[0]
+            mod_options = attachment.get('data', {}).get('modificationOptions', '')
+            
+            # Should convert VIGIL with count 2 to "2 Skill (Vigilance) Mod"
+            self.assertIn("2 Skill (Vigilance) Mod", mod_options)
             
         finally:
             os.unlink(temp_file)
