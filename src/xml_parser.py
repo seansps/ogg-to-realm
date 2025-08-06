@@ -2141,7 +2141,7 @@ class XMLParser:
             return "Passive"
         elif activation_value == "taAction":
             return "Active"
-        elif activation_value == "Incidental" or activation_value == "taIncidental":
+        elif activation_value.startswith("taIncidental") or activation_value.startswith("Incidental"):
             return "Active"
         elif activation_value.startswith("ta"):
             # Remove "ta" prefix for any other values
