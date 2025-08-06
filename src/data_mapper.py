@@ -84,6 +84,8 @@ class DataMapper:
             return self._convert_career(oggdude_record, campaign_id, category)
         elif record_type == 'specializations':
             return self._convert_specialization(oggdude_record, campaign_id, category)
+        elif record_type == 'signature_abilities':
+            return self._convert_sig_ability(oggdude_record, campaign_id, category)
         elif record_type == 'talents':
             return self._convert_talent(oggdude_record, campaign_id, category)
         elif record_type == 'force_powers':
@@ -497,6 +499,31 @@ class DataMapper:
         }
         
         return realm_spec
+    
+    def _convert_sig_ability(self, sig_ability: Dict[str, Any], campaign_id: str, category: str) -> Dict[str, Any]:
+        """Convert signature ability to Realm VTT format"""
+        # Get the data and ensure it's a dict
+        data = sig_ability.get('data', {})
+        if not isinstance(data, dict):
+            data = {}
+        
+        # Convert description and add to data
+        if 'description' in sig_ability:
+            data['description'] = self._convert_description(sig_ability['description'])
+        
+        realm_sig_ability = {
+            "name": sig_ability.get('name', 'Unknown Signature Ability'),
+            "recordType": "signature_abilities",
+            "campaignId": campaign_id,
+            "category": category,
+            "unidentifiedName": "Unknown Signature Ability",
+            "identified": True,
+            "shared": False,
+            "locked": True,
+            "data": data
+        }
+        
+        return realm_sig_ability
     
     def _convert_talent(self, talent: Dict[str, Any], campaign_id: str, category: str) -> Dict[str, Any]:
         """Convert talent to Realm VTT format"""

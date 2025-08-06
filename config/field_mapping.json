@@ -76,6 +76,13 @@
     "ForceTalent": "forceTalent",
     "Trees": "specializationTrees"
   },
+  "signature_abilities": {
+    "Name": "name",
+    "Description": "description",
+    "AbilityRows": "abilityRows",
+    "Careers": "careers",
+    "MatchingNodes": "matchingNodes"
+  },
   "force_powers": {
     "Name": "name",
     "Description": "description",

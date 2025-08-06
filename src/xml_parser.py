@@ -230,6 +230,8 @@ class XMLParser:
                 records = self._parse_skills(root)
             elif root_tag == 'ItemAttachments' or root_tag == 'ItemAttachment':
                 records = self._parse_item_attachments(root)
+            elif root_tag == 'SigAbility':
+                records = self._parse_sig_ability(root)
             else:
                 # Generic parsing for other types
                 records = self._parse_generic(root)
@@ -2734,3 +2736,424 @@ class XMLParser:
             if len(parts) == 2:
                 return f"{parts[0]} ({parts[1]})"
         return skill_name
+    
+    def _parse_sig_ability(self, root: ET.Element) -> List[Dict[str, Any]]:
+        """Parse signature ability from XML"""
+        sig_ability = self._extract_sig_ability_data(root)
+        return [sig_ability] if sig_ability else []
+    
+    def _extract_sig_ability_data(self, sig_ability_elem: ET.Element) -> Optional[Dict[str, Any]]:
+        """Extract signature ability data from XML element"""
+        try:
+            # Get the signature ability key for duplicate checking
+            sig_ability_key = self._get_text(sig_ability_elem, 'Key')
+            
+            # Extract raw data using OggDude field names
+            raw_data = {
+                'Name': self._get_text(sig_ability_elem, 'Name'),
+                'Description': self._get_text(sig_ability_elem, 'Description'),
+                'AbilityRows': self._extract_ability_rows(sig_ability_elem),
+                'Careers': self._extract_careers_from_sig_ability(sig_ability_elem),
+                'MatchingNodes': self._extract_matching_nodes(sig_ability_elem)
+            }
+            
+            # Apply field mapping
+            mapped_data = self._apply_field_mapping('signature_abilities', raw_data)
+            
+            # Convert description to rich text format
+            if 'description' in mapped_data and mapped_data['description']:
+                mapped_data['description'] = self._convert_oggdude_format_to_rich_text(mapped_data['description'])
+            
+            # Get the base ability description from the first ability row
+            ability_rows = raw_data.get('AbilityRows', [])
+            if ability_rows:
+                first_row = ability_rows[0]
+                abilities = first_row.get('abilities', [])
+                if abilities:
+                    base_ability_key = abilities[0]  # Get the first ability key
+                    base_description = self._get_sig_ability_node_description(base_ability_key)
+                    if base_description:
+                        # Add the base description to the main description
+                        if mapped_data.get('description'):
+                            mapped_data['description'] += f"<br><br><strong>Base Ability:</strong> {base_description}"
+                        else:
+                            mapped_data['description'] = f"<strong>Base Ability:</strong> {base_description}"
+            
+            # Find the career for this signature ability
+            careers = raw_data.get('Careers', [])
+            if careers:
+                career_key = careers[0]  # Get the first career key
+                career_name = self._get_career_name(career_key)
+                if career_name:
+                    mapped_data['career'] = career_name
+                else:
+                    mapped_data['career'] = career_key
+            else:
+                mapped_data['career'] = ''
+            
+            # Process ability rows and convert to Realm VTT format
+            if ability_rows:
+                self._process_ability_rows(mapped_data, ability_rows)
+            
+            # Process directions and convert to Realm VTT format
+            if ability_rows:
+                self._process_sig_ability_directions(mapped_data, ability_rows)
+            
+            # Get sources and convert to category
+            sources = self._get_sources(sig_ability_elem)
+            category = self._get_category_from_sources(sources)
+            
+            sig_ability = {
+                'recordType': 'sig_abilities',
+                'name': mapped_data.get('name', 'Unknown Signature Ability'),
+                'description': mapped_data.get('description', ''),
+                'sources': sources,  # Store sources for filtering
+                'category': category,
+                'data': mapped_data,
+                'unidentifiedName': 'Unknown Signature Ability',
+                'locked': True,
+                'key': sig_ability_key  # Store the key for duplicate checking
+            }
+            return sig_ability
+            
+        except Exception as e:
+            print(f"Error extracting signature ability data: {e}")
+            return None
+    
+    def _extract_ability_rows(self, elem: ET.Element) -> List[Dict[str, Any]]:
+        """Extract ability rows from signature ability XML"""
+        ability_rows = []
+        ability_rows_elem = self._find_with_namespace(elem, 'AbilityRows')
+        if ability_rows_elem:
+            for row_elem in self._findall_with_namespace(ability_rows_elem, 'AbilityRow'):
+                row_data = {
+                    'index': self._get_int(row_elem, 'Index', 0),
+                    'abilities': [],
+                    'directions': [],
+                    'spans': [],
+                    'costs': []
+                }
+                
+                # Extract abilities
+                abilities_elem = self._find_with_namespace(row_elem, 'Abilities')
+                if abilities_elem:
+                    for ability in self._findall_with_namespace(abilities_elem, 'Key'):
+                        if ability.text:
+                            row_data['abilities'].append(ability.text)
+                
+                # Extract directions
+                directions_elem = self._find_with_namespace(row_elem, 'Directions')
+                if directions_elem:
+                    for direction in self._findall_with_namespace(directions_elem, 'Direction'):
+                        direction_data = {
+                            'up': self._get_bool(direction, 'Up', False),
+                            'down': self._get_bool(direction, 'Down', False),
+                            'left': self._get_bool(direction, 'Left', False),
+                            'right': self._get_bool(direction, 'Right', False)
+                        }
+                        row_data['directions'].append(direction_data)
+                
+                # Extract spans
+                spans_elem = self._find_with_namespace(row_elem, 'AbilitySpan')
+                if spans_elem:
+                    for span in self._findall_with_namespace(spans_elem, 'Span'):
+                        if span.text:
+                            row_data['spans'].append(int(span.text))
+                
+                # Extract costs
+                costs_elem = self._find_with_namespace(row_elem, 'Costs')
+                if costs_elem:
+                    for cost in self._findall_with_namespace(costs_elem, 'Cost'):
+                        if cost.text:
+                            row_data['costs'].append(int(cost.text))
+                
+                ability_rows.append(row_data)
+        
+        # Sort ability rows by index
+        ability_rows.sort(key=lambda x: x['index'])
+        return ability_rows
+    
+    def _extract_careers_from_sig_ability(self, elem: ET.Element) -> List[str]:
+        """Extract careers from signature ability XML"""
+        careers = []
+        careers_elem = self._find_with_namespace(elem, 'Careers')
+        if careers_elem:
+            for career in self._findall_with_namespace(careers_elem, 'Key'):
+                if career.text:
+                    careers.append(career.text)
+        return careers
+    
+    def _extract_matching_nodes(self, elem: ET.Element) -> List[bool]:
+        """Extract matching nodes from signature ability XML"""
+        matching_nodes = []
+        matching_nodes_elem = self._find_with_namespace(elem, 'MatchingNodes')
+        if matching_nodes_elem:
+            for node in self._findall_with_namespace(matching_nodes_elem, 'Node'):
+                if node.text:
+                    matching_nodes.append(node.text.lower() == 'true')
+        return matching_nodes
+    
+    def _get_sig_ability_node_description(self, ability_key: str) -> Optional[str]:
+        """Get signature ability node description by key"""
+        try:
+            # Load signature ability nodes if not already loaded
+            if not hasattr(self, '_sig_ability_nodes') or not self._sig_ability_nodes:
+                self._load_sig_ability_nodes()
+            
+            # Check if we have the node data stored
+            node_data = self._sig_ability_nodes.get(ability_key)
+            if node_data and isinstance(node_data, dict):
+                description = node_data.get('description', '')
+                if description:
+                    # Convert to rich text
+                    return self._convert_oggdude_format_to_rich_text(description)
+            
+            return None
+            
+        except Exception as e:
+            print(f"Error getting signature ability node description for key {ability_key}: {e}")
+            return None
+    
+    def _load_sig_ability_nodes(self):
+        """Load SigAbilityNodes.xml into memory"""
+        try:
+            oggdata_dir = self._find_oggdata_directory()
+            if oggdata_dir is None:
+                print("Warning: OggData directory not found, signature ability node resolution will not work")
+                return
+            
+            # Find all SigAbilityNodes.xml files recursively
+            sig_ability_nodes_files = self._find_xml_files_recursively(oggdata_dir, 'SigAbilityNodes.xml')
+            
+            if not sig_ability_nodes_files:
+                print("Warning: SigAbilityNodes.xml not found in OggData directory, signature ability node resolution will not work")
+                return
+            
+            print(f"Loading signature ability nodes from {len(sig_ability_nodes_files)} SigAbilityNodes.xml file(s)")
+            
+            self._sig_ability_nodes = {}
+            
+            for sig_ability_nodes_path in sig_ability_nodes_files:
+                print(f"  Loading from: {sig_ability_nodes_path}")
+                tree = ET.parse(sig_ability_nodes_path)
+                root = tree.getroot()
+                
+                # Parse all signature ability nodes and store key -> data mapping
+                for node_elem in self._findall_with_namespace(root, 'SigAbilityNode'):
+                    node_data = self._extract_sig_ability_node_data(node_elem)
+                    if node_data:
+                        key = node_data.get('key')
+                        if key:
+                            self._sig_ability_nodes[key] = node_data
+            
+            print(f"Loaded {len(self._sig_ability_nodes)} signature ability nodes")
+            
+        except Exception as e:
+            print(f"Error loading signature ability nodes: {e}")
+            self._sig_ability_nodes = {}
+    
+    def _extract_sig_ability_node_data(self, node_elem: ET.Element) -> Optional[Dict[str, Any]]:
+        """Extract signature ability node data from XML element"""
+        try:
+            node_key = self._get_text(node_elem, 'Key')
+            node_name = self._get_text(node_elem, 'Name')
+            node_description = self._get_text(node_elem, 'Description')
+            
+            if node_key:
+                return {
+                    'key': node_key,
+                    'name': node_name,
+                    'description': node_description
+                }
+            
+            return None
+            
+        except Exception as e:
+            print(f"Error extracting signature ability node data: {e}")
+            return None
+    
+    def _get_career_name(self, career_key: str) -> Optional[str]:
+        """Get career name from key"""
+        try:
+            # Load careers if not already loaded
+            if not hasattr(self, '_careers') or not self._careers:
+                self._load_careers()
+            
+            return self._careers.get(career_key)
+            
+        except Exception as e:
+            print(f"Error getting career name for key {career_key}: {e}")
+            return None
+    
+    def _process_ability_rows(self, mapped_data: Dict[str, Any], ability_rows: List[Dict[str, Any]]):
+        """Process ability rows and convert to Realm VTT format"""
+        try:
+            # Skip the first row (base abilities) and process only the last two rows
+            talent_rows = ability_rows[1:] if len(ability_rows) > 1 else []
+            
+            for row_index, row_data in enumerate(talent_rows, 1):
+                abilities = row_data.get('abilities', [])
+                costs = row_data.get('costs', [])
+                
+                for col_index, ability_key in enumerate(abilities, 1):
+                    # Get the ability data
+                    ability_data = self._get_sig_ability_data_by_key(ability_key)
+                    if ability_data:
+                        # Create a copy of the ability data to avoid sharing references
+                        ability_data_copy = ability_data.copy()
+                        if 'data' in ability_data_copy and isinstance(ability_data_copy['data'], dict):
+                            ability_data_copy['data'] = ability_data_copy['data'].copy()
+                            # Set the cost from the row
+                            if col_index <= len(costs):
+                                ability_data_copy['data']['cost'] = costs[col_index - 1]
+                            else:
+                                ability_data_copy['data']['cost'] = 0
+                        
+                        # Set the ability in the correct position
+                        ability_field = f"talent{row_index}_{col_index}"
+                        mapped_data[ability_field] = [ability_data_copy]
+                    else:
+                        # If ability not found, create a placeholder
+                        placeholder_ability = {
+                            "_id": f"placeholder-{ability_key}",
+                            "name": ability_key,
+                            "recordType": "talents",
+                            "identified": True,
+                            "data": {
+                                "name": ability_key,
+                                "description": f"Ability {ability_key} not found",
+                                "cost": costs[col_index - 1] if col_index <= len(costs) else 0
+                            },
+                            "unidentifiedName": "Unknown Ability",
+                            "icon": "IconStar"
+                        }
+                        ability_field = f"talent{row_index}_{col_index}"
+                        mapped_data[ability_field] = [placeholder_ability]
+                        
+        except Exception as e:
+            print(f"Error processing ability rows: {e}")
+    
+    def _get_sig_ability_data_by_key(self, ability_key: str) -> Optional[Dict[str, Any]]:
+        """Get signature ability data by key"""
+        try:
+            # Load signature ability nodes if not already loaded
+            if not hasattr(self, '_sig_ability_nodes') or not self._sig_ability_nodes:
+                self._load_sig_ability_nodes()
+            
+            # Check if we have the node data stored
+            node_data = self._sig_ability_nodes.get(ability_key)
+            if node_data and isinstance(node_data, dict):
+                node_name = node_data.get('name', ability_key)
+                node_description = node_data.get('description', '')
+                
+                # Convert description to rich text if it exists
+                if node_description:
+                    node_description = self._convert_oggdude_format_to_rich_text(node_description)
+                
+                # Create the full ability structure
+                ability_data = {
+                    "_id": f"sig-ability-{ability_key}",
+                    "name": node_name,
+                    "recordType": "talents",
+                    "identified": True,
+                    "data": {
+                        "name": node_name,
+                        "description": node_description,
+                        "activation": "Passive",
+                        "ranked": "no",
+                        "forceTalent": "no",
+                        "specializationTrees": []
+                    },
+                    "unidentifiedName": "Unknown Ability",
+                    "icon": "IconStar"
+                }
+                
+                return ability_data
+            
+            # Fallback: create a basic ability structure
+            ability_data = {
+                "_id": f"sig-ability-{ability_key}",
+                "name": ability_key,
+                "recordType": "talents",
+                "identified": True,
+                "data": {
+                    "name": ability_key,
+                    "description": f"Description for {ability_key}",
+                    "activation": "Passive",
+                    "ranked": "no",
+                    "forceTalent": "no",
+                    "specializationTrees": []
+                },
+                "unidentifiedName": "Unknown Ability",
+                "icon": "IconStar"
+            }
+            
+            return ability_data
+            
+        except Exception as e:
+            print(f"Error getting signature ability data for key {ability_key}: {e}")
+            return None
+    
+    def _process_sig_ability_directions(self, mapped_data: Dict[str, Any], ability_rows: List[Dict[str, Any]]):
+        """Process directions for signature abilities and convert to Realm VTT format"""
+        try:
+            # Process vertical connectors above the first row (connector0_1 to connector0_4)
+            if ability_rows:
+                first_row = ability_rows[0]
+                first_directions = first_row.get('directions', [])
+                
+                for col_index in range(1, 5):  # Columns 1-4
+                    connector_field = f"connector0_{col_index}"
+                    
+                    if col_index <= len(first_directions):
+                        first_direction = first_directions[col_index - 1]
+                        if first_direction.get('down', False):
+                            mapped_data[connector_field] = "Yes"
+                        else:
+                            mapped_data[connector_field] = "No"
+                    else:
+                        mapped_data[connector_field] = "No"
+            
+            # Process vertical connectors between rows (connector1_1 to connector2_4)
+            for row_index in range(1, 3):  # Rows 1-2
+                for col_index in range(1, 5):  # Columns 1-4
+                    connector_field = f"connector{row_index}_{col_index}"
+                    
+                    # Check if there's a direction pointing down from the previous row
+                    if row_index > 0 and row_index - 1 < len(ability_rows):
+                        prev_row = ability_rows[row_index - 1]
+                        prev_directions = prev_row.get('directions', [])
+                        if col_index <= len(prev_directions):
+                            prev_direction = prev_directions[col_index - 1]
+                            if prev_direction.get('down', False):
+                                mapped_data[connector_field] = "Yes"
+                            else:
+                                mapped_data[connector_field] = "No"
+                        else:
+                            mapped_data[connector_field] = "No"
+                    else:
+                        mapped_data[connector_field] = "No"
+            
+            # Process horizontal connectors (h_connector1_2 to h_connector2_4)
+            for row_index in range(1, 3):  # Rows 1-2
+                for col_index in range(2, 5):  # Columns 2-4
+                    h_connector_field = f"h_connector{row_index}_{col_index}"
+                    
+                    # Check if there's a direction pointing right from the previous column
+                    if row_index - 1 < len(ability_rows):
+                        current_row = ability_rows[row_index - 1]
+                        current_directions = current_row.get('directions', [])
+                        # Check the direction from the previous column (col_index - 2, since we're 0-indexed)
+                        if col_index - 2 < len(current_directions):
+                            prev_col_direction = current_directions[col_index - 2]
+                            if prev_col_direction.get('right', False):
+                                mapped_data[h_connector_field] = "Yes"
+                            else:
+                                mapped_data[h_connector_field] = "No"
+                        else:
+                            mapped_data[h_connector_field] = "No"
+                    else:
+                        mapped_data[h_connector_field] = "No"
+                        
+        except Exception as e:
+            print(f"Error processing signature ability directions: {e}")
