@@ -227,7 +227,7 @@ class XMLParser:
                 'Encumbrance': self._get_int(weapon_elem, 'Encumbrance', 0),
                 'Price': self._get_text(weapon_elem, 'Price', '0'),
                 'Rarity': self._get_int(weapon_elem, 'Rarity', 0),
-                'Restricted': self._get_text(weapon_elem, 'Restricted', 'no'),
+                'Restricted': self._get_bool(weapon_elem, 'Restricted', False),
                 'SkillKey': self._get_text(weapon_elem, 'SkillKey'),
                 'Damage': self._get_int(weapon_elem, 'Damage', 0),
                 'Crit': self._get_int(weapon_elem, 'Crit', 0),
@@ -584,7 +584,7 @@ class XMLParser:
                 'Encumbrance': self._get_int(vehicle_elem, 'Encumbrance', 0),
                 'Price': self._get_text(vehicle_elem, 'Price', '0'),
                 'Rarity': self._get_int(vehicle_elem, 'Rarity', 0),
-                'Restricted': self._get_text(vehicle_elem, 'Restricted', 'no'),
+                'Restricted': self._get_bool(vehicle_elem, 'Restricted', False),
                 'Silhouette': self._get_int(vehicle_elem, 'Silhouette', 0),
                 'Speed': self._get_int(vehicle_elem, 'Speed', 0),
                 'Handling': self._get_int(vehicle_elem, 'Handling', 0),
@@ -652,7 +652,7 @@ class XMLParser:
                 'Encumbrance': self._get_int(armor_elem, 'Encumbrance', 0),
                 'Price': self._get_text(armor_elem, 'Price', '0'),
                 'Rarity': self._get_int(armor_elem, 'Rarity', 0),
-                'Restricted': self._get_text(armor_elem, 'Restricted', 'no'),
+                'Restricted': self._get_bool(armor_elem, 'Restricted', False),
                 'Soak': self._get_int(armor_elem, 'Soak', 0),
                 'Defense': self._get_int(armor_elem, 'Defense', 0),
                 'HP': self._get_int(armor_elem, 'HP', 0),
@@ -727,7 +727,7 @@ class XMLParser:
                 'Encumbrance': self._get_int(gear_elem, 'Encumbrance', 0),
                 'Price': self._get_text(gear_elem, 'Price', '0'),
                 'Rarity': self._get_int(gear_elem, 'Rarity', 0),
-                'Restricted': self._get_text(gear_elem, 'Restricted', 'no'),
+                'Restricted': self._get_bool(gear_elem, 'Restricted', False),
                 'Consumable': self._get_bool(gear_elem, 'Consumable', False)
             }
             

@@ -111,7 +111,7 @@ class DataMapper:
         # Handle weapon-specific conversions (check for both 'weapon' and 'ranged weapon'/'melee weapon')
         if item_type == 'weapon' or (item_type in ['ranged weapon', 'melee weapon']):
             data = self._convert_weapon_data(data, item)
-        elif item_type == 'gear':
+        elif item_type == 'gear' or item_type == 'general':
             data = self._convert_gear_data(data, item)
         elif item_type == 'armor':
             data = self._convert_armor_data(data, item)
