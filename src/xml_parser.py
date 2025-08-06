@@ -1595,8 +1595,8 @@ class XMLParser:
                 else:
                     print(f"Unknown record type: {record_type}")
         
-        # Debug: Print what we found
-        print(f"DEBUG: XML parser scan_directory found:")
+        # Print summary of what was found
+        print("XML parser scan results:")
         for record_type, records in all_records.items():
             if len(records) > 0:
                 print(f"  {record_type}: {len(records)}")
@@ -2724,8 +2724,6 @@ class XMLParser:
                         current_row = talent_rows[actual_row_index]
                         current_directions = current_row.get('directions', [])
                         
-                        print(f"DEBUG: {h_connector_field} - actual_row_index={actual_row_index}, directions_count={len(current_directions)}")
-                        
                         # Check if previous column (col_index - 1) has right direction
                         prev_col_index = col_index - 2  # Convert to 0-based index for previous column
                         current_col_index = col_index - 1  # Convert to 0-based index for current column
@@ -2734,13 +2732,10 @@ class XMLParser:
                         # A horizontal connection exists only if the previous column has right=True
                         if prev_col_index >= 0 and prev_col_index < len(current_directions):
                             prev_directions = current_directions[prev_col_index]
-                            print(f"DEBUG: {h_connector_field} - prev_col {prev_col_index} direction: {prev_directions}")
                             if prev_directions.get('right', False):
                                 has_connection = True
-                                print(f"DEBUG: {h_connector_field} - prev_col {prev_col_index} has right=True")
                         
                         mapped_data[h_connector_field] = "Yes" if has_connection else "No"
-                        print(f"DEBUG: {h_connector_field} = {mapped_data[h_connector_field]}")
                         
         except Exception as e:
             print(f"Error processing directions: {e}")
@@ -3143,11 +3138,6 @@ class XMLParser:
     def _process_sig_ability_directions(self, mapped_data: Dict[str, Any], ability_rows: List[Dict[str, Any]], matching_nodes: List[bool]):
         """Process directions for signature abilities and convert to Realm VTT format"""
         try:
-            # Debug: Print row information
-            print(f"DEBUG: Found {len(ability_rows)} ability rows")
-            for i, row in enumerate(ability_rows):
-                print(f"DEBUG: Row {i}: index={row.get('index', 'N/A')}, directions_count={len(row.get('directions', []))}")
-            
             # Process base connectors (connector0_1 to connector0_4) using the first row (base ability row)
             if len(ability_rows) > 0:
                 base_row = ability_rows[0]  # First row is the base ability row
@@ -3199,8 +3189,6 @@ class XMLParser:
                         current_row = ability_rows[actual_row_index]
                         current_directions = current_row.get('directions', [])
                         
-                        print(f"DEBUG: {h_connector_field} - using row {actual_row_index}, directions_count={len(current_directions)}")
-                        
                         # Check if previous column (col_index - 1) has right direction
                         # or current column (col_index) has left direction
                         prev_col_index = col_index - 2  # Convert to 0-based index for previous column
@@ -3209,20 +3197,15 @@ class XMLParser:
                         has_connection = False
                         if prev_col_index >= 0 and prev_col_index < len(current_directions):
                             prev_directions = current_directions[prev_col_index]
-                            print(f"DEBUG: {h_connector_field} - prev_col {prev_col_index} direction: {prev_directions}")
                             if prev_directions.get('right', False):
                                 has_connection = True
-                                print(f"DEBUG: {h_connector_field} - prev_col {prev_col_index} has right=True")
                         
                         if not has_connection and current_col_index < len(current_directions):
                             current_directions_obj = current_directions[current_col_index]
-                            print(f"DEBUG: {h_connector_field} - current_col {current_col_index} direction: {current_directions_obj}")
                             if current_directions_obj.get('left', False):
                                 has_connection = True
-                                print(f"DEBUG: {h_connector_field} - current_col {current_col_index} has left=True")
                         
                         mapped_data[h_connector_field] = "Yes" if has_connection else "No"
-                        print(f"DEBUG: {h_connector_field} = {mapped_data[h_connector_field]}")
                         
         except Exception as e:
             print(f"Error processing signature ability directions: {e}")
