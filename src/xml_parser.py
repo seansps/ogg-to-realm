@@ -1431,9 +1431,10 @@ class XMLParser:
                             # Get the description from ItemDescriptors
                             description = self._get_item_descriptor_description(key)
                             if description:
-                                # For AddedMods, we want to keep the special string replacements
-                                # but NOT convert dice keys like [SE][SE] to rich text
-                                # Just do basic {0} replacement
+                                # For AddedMods, we want to convert dice keys to text version
+                                # but NOT to rich text HTML spans
+                                description = self._convert_oggdude_format_to_plain_text(description)
+                                # Do basic {0} replacement
                                 if '{0}' in description:
                                     description = description.replace('{0}', str(count))
                                 # Format as "count ModName" instead of "ModName +count"
@@ -1475,8 +1476,8 @@ class XMLParser:
                     else:
                         return name
                 else:
-                    # Use QualDesc for attachments (supports {0} placeholder), fallback to ModDesc, then Description
-                    return descriptor.get('qualDesc', descriptor.get('modDesc', descriptor.get('description', '')))
+                    # Use ModDesc for attachments, fallback to qualDesc, then Description
+                    return descriptor.get('modDesc', descriptor.get('qualDesc', descriptor.get('description', '')))
             
             return None
             
@@ -1631,13 +1632,13 @@ class XMLParser:
         difficulty_count = text.count('[DIFFICULTY]')
         total_di = di_count + difficulty_count
         if total_di > 1:
-            text = text.replace('[DI]' * di_count, f'{total_di} difficulty')
+            text = text.replace('[DI]' * di_count, f'{total_di} Difficulty')
             text = text.replace('[DIFFICULTY]' * difficulty_count, '')
         elif total_di == 1:
             if di_count == 1:
-                text = text.replace('[DI]', 'difficulty')
+                text = text.replace('[DI]', 'Difficulty')
             else:
-                text = text.replace('[DIFFICULTY]', 'difficulty')
+                text = text.replace('[DIFFICULTY]', 'Difficulty')
         
         # Boost: [BO] and [BOOST]
         bo_count = text.count('[BO]')
@@ -1657,78 +1658,78 @@ class XMLParser:
         success_count = text.count('[SUCCESS]')
         total_su = su_count + success_count
         if total_su > 1:
-            text = text.replace('[SU]' * su_count, f'{total_su} success')
+            text = text.replace('[SU]' * su_count, f'{total_su} Success')
             text = text.replace('[SUCCESS]' * success_count, '')
         elif total_su == 1:
             if su_count == 1:
-                text = text.replace('[SU]', 'success')
+                text = text.replace('[SU]', 'Success')
             else:
-                text = text.replace('[SUCCESS]', 'success')
+                text = text.replace('[SUCCESS]', 'Success')
         
         # Advantage: [AD] and [ADVANTAGE]
         ad_count = text.count('[AD]')
         advantage_count = text.count('[ADVANTAGE]')
         total_ad = ad_count + advantage_count
         if total_ad > 1:
-            text = text.replace('[AD]' * ad_count, f'{total_ad} advantage')
+            text = text.replace('[AD]' * ad_count, f'{total_ad} Advantage')
             text = text.replace('[ADVANTAGE]' * advantage_count, '')
         elif total_ad == 1:
             if ad_count == 1:
-                text = text.replace('[AD]', 'advantage')
+                text = text.replace('[AD]', 'Advantage')
             else:
-                text = text.replace('[ADVANTAGE]', 'advantage')
+                text = text.replace('[ADVANTAGE]', 'Advantage')
         
         # Threat: [TH] and [THREAT]
         th_count = text.count('[TH]')
         threat_count = text.count('[THREAT]')
         total_th = th_count + threat_count
         if total_th > 1:
-            text = text.replace('[TH]' * th_count, f'{total_th} threat')
+            text = text.replace('[TH]' * th_count, f'{total_th} Threat')
             text = text.replace('[THREAT]' * threat_count, '')
         elif total_th == 1:
             if th_count == 1:
-                text = text.replace('[TH]', 'threat')
+                text = text.replace('[TH]', 'Threat')
             else:
-                text = text.replace('[THREAT]', 'threat')
+                text = text.replace('[THREAT]', 'Threat')
         
         # Ability: [AB] and [ABILITY]
         ab_count = text.count('[AB]')
         ability_count = text.count('[ABILITY]')
         total_ab = ab_count + ability_count
         if total_ab > 1:
-            text = text.replace('[AB]' * ab_count, f'{total_ab} ability')
+            text = text.replace('[AB]' * ab_count, f'{total_ab} Ability')
             text = text.replace('[ABILITY]' * ability_count, '')
         elif total_ab == 1:
             if ab_count == 1:
-                text = text.replace('[AB]', 'ability')
+                text = text.replace('[AB]', 'Ability')
             else:
-                text = text.replace('[ABILITY]', 'ability')
+                text = text.replace('[ABILITY]', 'Ability')
         
         # Proficiency: [PR] and [PROFICIENCY]
         pr_count = text.count('[PR]')
         proficiency_count = text.count('[PROFICIENCY]')
         total_pr = pr_count + proficiency_count
         if total_pr > 1:
-            text = text.replace('[PR]' * pr_count, f'{total_pr} proficiency')
+            text = text.replace('[PR]' * pr_count, f'{total_pr} Proficiency')
             text = text.replace('[PROFICIENCY]' * proficiency_count, '')
         elif total_pr == 1:
             if pr_count == 1:
-                text = text.replace('[PR]', 'proficiency')
+                text = text.replace('[PR]', 'Proficiency')
             else:
-                text = text.replace('[PROFICIENCY]', 'proficiency')
+                text = text.replace('[PROFICIENCY]', 'Proficiency')
         
         # Challenge: [CH] and [CHALLENGE]
         ch_count = text.count('[CH]')
         challenge_count = text.count('[CHALLENGE]')
         total_ch = ch_count + challenge_count
         if total_ch > 1:
-            text = text.replace('[CH]' * ch_count, f'{total_ch} challenge')
+            text = text.replace('[CH]' * ch_count, f'{total_ch} Challenge')
             text = text.replace('[CHALLENGE]' * challenge_count, '')
         elif total_ch == 1:
             if ch_count == 1:
-                text = text.replace('[CH]', 'challenge')
+                text = text.replace('[CH]', 'Challenge')
             else:
-                text = text.replace('[CHALLENGE]', 'challenge')
+                text = text.replace('[CHALLENGE]', 'Challenge')
         
         # Setback: [SE] and [SETBACK] (already handled above, but keeping for consistency)
         se_count = text.count('[SE]')
@@ -1748,39 +1749,39 @@ class XMLParser:
         failure_count = text.count('[FAILURE]')
         total_fa = fa_count + failure_count
         if total_fa > 1:
-            text = text.replace('[FA]' * fa_count, f'{total_fa} failure')
+            text = text.replace('[FA]' * fa_count, f'{total_fa} Failure')
             text = text.replace('[FAILURE]' * failure_count, '')
         elif total_fa == 1:
             if fa_count == 1:
-                text = text.replace('[FA]', 'failure')
+                text = text.replace('[FA]', 'Failure')
             else:
-                text = text.replace('[FAILURE]', 'failure')
+                text = text.replace('[FAILURE]', 'Failure')
         
         # Triumph: [TR] and [TRIUMPH]
         tr_count = text.count('[TR]')
         triumph_count = text.count('[TRIUMPH]')
         total_tr = tr_count + triumph_count
         if total_tr > 1:
-            text = text.replace('[TR]' * tr_count, f'{total_tr} triumph')
+            text = text.replace('[TR]' * tr_count, f'{total_tr} Triumph')
             text = text.replace('[TRIUMPH]' * triumph_count, '')
         elif total_tr == 1:
             if tr_count == 1:
-                text = text.replace('[TR]', 'triumph')
+                text = text.replace('[TR]', 'Triumph')
             else:
-                text = text.replace('[TRIUMPH]', 'triumph')
+                text = text.replace('[TRIUMPH]', 'Triumph')
         
         # Despair: [DE] and [DESPAIR]
         de_count = text.count('[DE]')
         despair_count = text.count('[DESPAIR]')
         total_de = de_count + despair_count
         if total_de > 1:
-            text = text.replace('[DE]' * de_count, f'{total_de} despair')
+            text = text.replace('[DE]' * de_count, f'{total_de} Despair')
             text = text.replace('[DESPAIR]' * despair_count, '')
         elif total_de == 1:
             if de_count == 1:
-                text = text.replace('[DE]', 'despair')
+                text = text.replace('[DE]', 'Despair')
             else:
-                text = text.replace('[DESPAIR]', 'despair')
+                text = text.replace('[DESPAIR]', 'Despair')
         return text.strip()
 
     def _convert_oggdude_format_to_rich_text(self, text: str) -> str:

@@ -89,7 +89,7 @@ def test_gear_subtypes():
     
     # Test gear with different OggDude Type values
     test_cases = [
-        ('general', 'general'),
+        ('general', 'General'),
         ('medical', 'medical'),
         ('security', 'security'),
         ('survival', 'survival'),
@@ -104,7 +104,7 @@ def test_gear_subtypes():
             'type': 'gear',
             'data': {
                 'name': f'Test {oggdude_type.title()} Gear',
-                'type': oggdude_type,
+                'subtype': oggdude_type,
                 'price': '100',
                 'rarity': 2
             }

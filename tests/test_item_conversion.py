@@ -637,7 +637,7 @@ def test_item_descriptors_conversion():
         # Test multiple dice conversion
         test_text2 = "Add [DI][DI] to difficulty"
         converted_text2 = parser._convert_oggdude_format_to_plain_text(test_text2)
-        if converted_text2 == "Add 2 difficulty to difficulty":
+        if converted_text2 == "Add 2 Difficulty to difficulty":
             print(f"  ✓ Multiple dice conversion works: '{test_text2}' -> '{converted_text2}'")
         else:
             print(f"  ✗ Multiple dice conversion failed: '{test_text2}' -> '{converted_text2}'")
@@ -645,8 +645,8 @@ def test_item_descriptors_conversion():
         
         # Test that modificationOptions contains the converted descriptions
         modification_options = attachment['data'].get('modificationOptions', '')
-        if 'Increase Speed by 2' in modification_options:
-            print(f"  ✓ SPEEDADD correctly converted to 'Increase Speed by 2'")
+        if '2 Increase Speed by 1' in modification_options:
+            print(f"  ✓ SPEEDADD correctly converted to '2 Increase Speed by 1'")
         else:
             print(f"  ✗ SPEEDADD not correctly converted, got: {modification_options}")
             return False
@@ -737,18 +737,18 @@ def test_oggdude_format_conversion():
         # Test cases for OggDude format conversion
         test_cases = [
             ("Add [BO] to attack", "Add Boost to attack"),
-            ("Add [DI] to difficulty", "Add difficulty to difficulty"),
-            ("Add [SU] to success", "Add success to success"),
-            ("Add [AD] to advantage", "Add advantage to advantage"),
-            ("Add [TH] to threat", "Add threat to threat"),
-            ("Add [TR] to triumph", "Add triumph to triumph"),
-            ("Add [DE] to despair", "Add despair to despair"),
+            ("Add [DI] to difficulty", "Add Difficulty to difficulty"),
+            ("Add [SU] to success", "Add Success to success"),
+            ("Add [AD] to advantage", "Add Advantage to advantage"),
+            ("Add [TH] to threat", "Add Threat to threat"),
+            ("Add [TR] to triumph", "Add Triumph to triumph"),
+            ("Add [DE] to despair", "Add Despair to despair"),
             ("Add [BO][BO] to attack", "Add 2 Boost to attack"),
-            ("Add [DI][DI][DI] to difficulty", "Add 3 difficulty to difficulty"),
-            ("Add [SU][SU] to success", "Add 2 success to success"),
-            ("Add [AD][AD] to advantage", "Add 2 advantage to advantage"),
-            ("Add [TH][TH] to threat", "Add 2 threat to threat"),
-            ("Complex: [BO] and [DI][DI] with [SU]", "Complex: Boost and 2 difficulty with success"),
+            ("Add [DI][DI][DI] to difficulty", "Add 3 Difficulty to difficulty"),
+            ("Add [SU][SU] to success", "Add 2 Success to success"),
+            ("Add [AD][AD] to advantage", "Add 2 Advantage to advantage"),
+            ("Add [TH][TH] to threat", "Add 2 Threat to threat"),
+            ("Complex: [BO] and [DI][DI] with [SU]", "Complex: Boost and 2 Difficulty with Success"),
         ]
         
         for input_text, expected_output in test_cases:

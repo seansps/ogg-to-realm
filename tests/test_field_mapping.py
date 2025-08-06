@@ -61,7 +61,7 @@ def test_field_mapping_application():
         # Check that fields were mapped correctly
         assert mapped_weapon['name'] == 'Test Blaster', f"Name not mapped: {mapped_weapon.get('name')}"
         assert mapped_weapon['description'] == 'A test weapon', f"Description not mapped: {mapped_weapon.get('description')}"
-        assert mapped_weapon['type'] == 'ranged weapon', f"Type not mapped: {mapped_weapon.get('type')}"
+        assert mapped_weapon['subtype'] == 'ranged weapon', f"Type not mapped to subtype: {mapped_weapon.get('subtype')}"
         assert mapped_weapon['encumbrance'] == 2, f"Encumbrance not mapped: {mapped_weapon.get('encumbrance')}"
         assert mapped_weapon['price'] == '500', f"Price not mapped: {mapped_weapon.get('price')}"
         assert mapped_weapon['rarity'] == 3, f"Rarity not mapped: {mapped_weapon.get('rarity')}"

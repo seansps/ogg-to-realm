@@ -2,7 +2,7 @@
   "weapons": {
     "Name": "name",
     "Description": "description",
-    "Type": "type",
+    "Type": "subtype",
     "Encumbrance": "encumbrance",
     "Price": "price",
     "Rarity": "rarity",
@@ -30,7 +30,7 @@
   "gear": {
     "Name": "name",
     "Description": "description",
-    "Type": "type",
+    "Type": "subtype",
     "Encumbrance": "encumbrance",
     "Price": "price",
     "Rarity": "rarity",

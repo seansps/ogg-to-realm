@@ -102,7 +102,7 @@ class DataMapper:
             data = {}
         
         # Get item type from either the top level or the data field
-        item_type = item.get('type', data.get('type', 'gear'))
+        item_type = item.get('type', data.get('type', 'general'))
         
         # Convert description and add to data
         if 'description' in item:
@@ -192,14 +192,29 @@ class DataMapper:
     
     def _convert_gear_data(self, data: Dict[str, Any], item: Dict[str, Any]) -> Dict[str, Any]:
         """Convert gear-specific data"""
-        # Get the original type from the item data
-        original_type = item.get('data', {}).get('type', 'Gear')
+        # Get the original type from the item data (already mapped to subtype by field mapping)
+        original_type = data.get('subtype', 'Gear')
+        item_name = item.get('name', '')
         
         # Set type to 'general' for gear items
         data['type'] = 'general'
         
-        # Set subtype to the original OggDude Type value
-        data['subtype'] = original_type
+        # Set subtype to the original OggDude Type value, or "General" if not defined
+        if original_type and original_type != 'Gear':
+            # If the original type is "general" (lowercase), convert to "General" (uppercase)
+            if original_type == 'general':
+                data['subtype'] = 'General'
+            else:
+                data['subtype'] = original_type
+        else:
+            data['subtype'] = 'General'
+        
+        # Custom handling for specific items
+        if item_name == 'Stimpack':
+            data['consumable'] = True
+            data['hasUseBtn'] = True
+            data['healing'] = '5'
+            data['countsAsHealing'] = True
     
         # Convert restricted field from true/false to yes/no
         if 'restricted' in data:
@@ -222,12 +237,12 @@ class DataMapper:
     def _convert_weapon_data(self, data: Dict[str, Any], item: Dict[str, Any]) -> Dict[str, Any]:
         """Convert weapon-specific data"""
         # Handle weapon type and subtype based on Type and SkillKey
-        weapon_type = data.get('type', '')
+        weapon_type = data.get('subtype', '')
         skill_key = data.get('weaponSkill', '')
         original_skill_key = data.get('originalSkillKey', skill_key)  # Use original if available
         original_type = data.get('originalType', weapon_type)  # Use original type if available
         
-        if original_type == 'Vehicle':
+        if weapon_type == 'Vehicle' or original_type == 'Vehicle':
             data['type'] = 'ranged weapon'
             data['subtype'] = 'Vehicle Weapon'
         else:
@@ -239,7 +254,7 @@ class DataMapper:
                 data['type'] = 'ranged weapon'
             
             # Set subtype to the original OggDude Type for non-vehicle weapons
-            data['subtype'] = original_type
+            data['subtype'] = weapon_type if weapon_type else original_type
         
         # Map weaponSkill to proper Realm VTT values (if not already mapped)
         if skill_key and not skill_key.startswith('Ranged') and not skill_key in ['Melee', 'Brawl', 'Lightsaber', 'Gunnery']:

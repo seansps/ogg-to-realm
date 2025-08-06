@@ -24,6 +24,8 @@ def main():
     print("Running all tests in tests/ folder:\n")
     passed = 0
     failed = 0
+    failed_tests = []
+    
     for test_file in test_files:
         print(f"=== {test_file} ===")
         result = subprocess.run([sys.executable, os.path.join(test_dir, test_file)], env=env)
@@ -33,10 +35,17 @@ def main():
         else:
             print(f"✗ {test_file} FAILED\n")
             failed += 1
+            failed_tests.append(test_file)
+    
     print(f"Summary: {passed} passed, {failed} failed, {passed+failed} total.")
+    
     if failed > 0:
+        print(f"\n❌ FAILED TESTS ({failed}):")
+        for failed_test in failed_tests:
+            print(f"  - {failed_test}")
         sys.exit(1)
     else:
+        print("\n✅ All tests passed!")
         sys.exit(0)
 
 if __name__ == "__main__":
