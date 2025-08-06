@@ -2798,9 +2798,9 @@ class XMLParser:
                     # Calculate base cost as the highest cost in the first row
                     if costs:
                         base_cost = max(costs)
-                        mapped_data['baseCost'] = base_cost
+                        mapped_data['cost'] = base_cost
                     else:
-                        mapped_data['baseCost'] = 0
+                        mapped_data['cost'] = 0
             
             # Find the career for this signature ability
             careers = raw_data.get('Careers', [])
@@ -3021,7 +3021,7 @@ class XMLParser:
         """Process ability rows and convert to Realm VTT format"""
         try:
             # Get the base cost from the mapped_data (calculated in _extract_sig_ability_data)
-            base_cost = mapped_data.get('baseCost', 0)
+            base_cost = mapped_data.get('cost', 0)
             
             # Skip the first row (base abilities) - we don't create talent0_* fields for the first row
             # Only process the upgrade rows (rows 2 and 3)
@@ -3138,23 +3138,14 @@ class XMLParser:
     def _process_sig_ability_directions(self, mapped_data: Dict[str, Any], ability_rows: List[Dict[str, Any]], matching_nodes: List[bool]):
         """Process directions for signature abilities and convert to Realm VTT format"""
         try:
-            # Process base connectors (connector0_1 to connector0_4) using the first row (base ability row)
-            if len(ability_rows) > 0:
-                base_row = ability_rows[0]  # First row is the base ability row
-                base_directions = base_row.get('directions', [])
-                
-                for col_index in range(1, 5):  # Columns 1-4
-                    connector_field = f"connector0_{col_index}"
-                    if col_index - 1 < len(base_directions):
-                        base_direction = base_directions[col_index - 1]
-                        # Base ability row only has downward connectors
-                        mapped_data[connector_field] = "Yes" if base_direction.get('down', False) else "No"
-                    else:
-                        mapped_data[connector_field] = "No"
-            else:
-                # If no ability rows, set all connector0_* to "No"
-                for col_index in range(1, 5):
-                    mapped_data[f"connector0_{col_index}"] = "No"
+            # Process base connectors (connector0_1 to connector0_4) using MatchingNodes
+            for col_index in range(1, 5):  # Columns 1-4
+                connector_field = f"connector0_{col_index}"
+                if col_index - 1 < len(matching_nodes):
+                    # Use MatchingNodes to determine base connectors
+                    mapped_data[connector_field] = "Yes" if matching_nodes[col_index - 1] else "No"
+                else:
+                    mapped_data[connector_field] = "No"
             
             # Process vertical connectors between rows (connector1_1 to connector2_4)
             for row_index in range(1, 3):  # Rows 1-2 (upgrade rows)
