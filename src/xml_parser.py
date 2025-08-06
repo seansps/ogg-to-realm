@@ -6,10 +6,18 @@ from pathlib import Path
 
 class XMLParser:
     def __init__(self):
+        self.data_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'OggData')
         self.field_mapping = self._load_field_mapping()
         self.sources_config = self._load_sources_config()
         self._talents = {}  # Will store talent keys to names mapping
         self._skills = {}   # Will store skill keys to names mapping
+        self._talent_specializations = {}  # Will store talent-to-specialization mapping
+        
+        # Load reference data
+        self._load_talents()
+        self._load_skills()
+        self._load_item_descriptors()
+        self._load_specialization_trees()
     
     def _load_field_mapping(self) -> Dict[str, Any]:
         """Load field mapping configuration"""
@@ -499,17 +507,31 @@ class XMLParser:
     def _extract_talent_data(self, talent_elem: ET.Element) -> Optional[Dict[str, Any]]:
         """Extract talent data from XML element"""
         try:
+            # Get the talent key for specialization tree lookup
+            talent_key = self._get_text(talent_elem, 'Key')
+            
             # Extract raw data using OggDude field names
             raw_data = {
                 'Name': self._get_text(talent_elem, 'Name'),
                 'Description': self._get_text(talent_elem, 'Description'),
-                'Activation': self._get_text(talent_elem, 'Activation'),
+                'ActivationValue': self._get_text(talent_elem, 'ActivationValue'),
                 'Ranked': self._get_bool(talent_elem, 'Ranked', False),
-                'Trees': []  # Will be populated later
+                'ForceTalent': self._get_bool(talent_elem, 'ForceTalent', False),
+                'Trees': self._get_talent_specializations(talent_key) if talent_key else []
             }
             
             # Apply field mapping
             mapped_data = self._apply_field_mapping('talents', raw_data)
+            
+            # Apply conversions for specific fields
+            if 'activation' in mapped_data:
+                mapped_data['activation'] = self._convert_activation_value(mapped_data['activation'])
+            
+            if 'ranked' in mapped_data:
+                mapped_data['ranked'] = self._convert_boolean_to_yes_no(mapped_data['ranked'])
+            
+            if 'forceTalent' in mapped_data:
+                mapped_data['forceTalent'] = self._convert_boolean_to_yes_no(mapped_data['forceTalent'])
             
             # Get sources and convert to category
             sources = self._get_sources(talent_elem)
@@ -1488,35 +1510,31 @@ class XMLParser:
     def _load_talents(self):
         """Load Talents.xml into memory for talent key to name mapping"""
         try:
-            # Look for Talents.xml in the same directory as other XML files
-            talents_path = None
-            
-            # Check common locations
-            possible_paths = [
-                'OggData/Talents.xml',
-                '../OggData/Talents.xml',
-                './Talents.xml'
-            ]
-            
-            for path in possible_paths:
-                if os.path.exists(path):
-                    talents_path = path
-                    break
-            
-            if talents_path is None:
-                print("Warning: Talents.xml not found, talent key resolution will not work")
+            oggdata_dir = self._find_oggdata_directory()
+            if oggdata_dir is None:
+                print("Warning: OggData directory not found, talent key resolution will not work")
                 return
             
-            print(f"Loading talents from {talents_path}")
-            tree = ET.parse(talents_path)
-            root = tree.getroot()
+            # Find all Talents.xml files recursively
+            talents_files = self._find_xml_files_recursively(oggdata_dir, 'Talents.xml')
             
-            # Parse all talents and store key -> name mapping
-            for talent_elem in self._findall_with_namespace(root, 'Talent'):
-                key = self._get_text(talent_elem, 'Key')
-                name = self._get_text(talent_elem, 'Name')
-                if key and name:
-                    self._talents[key] = name
+            if not talents_files:
+                print("Warning: Talents.xml not found in OggData directory, talent key resolution will not work")
+                return
+            
+            print(f"Loading talents from {len(talents_files)} Talents.xml file(s)")
+            
+            for talents_path in talents_files:
+                print(f"  Loading from: {talents_path}")
+                tree = ET.parse(talents_path)
+                root = tree.getroot()
+                
+                # Parse all talents and store key -> name mapping
+                for talent_elem in self._findall_with_namespace(root, 'Talent'):
+                    key = self._get_text(talent_elem, 'Key')
+                    name = self._get_text(talent_elem, 'Name')
+                    if key and name:
+                        self._talents[key] = name
             
             print(f"Loaded {len(self._talents)} talents")
             
@@ -1532,35 +1550,31 @@ class XMLParser:
     def _load_skills(self):
         """Load Skills.xml into memory for skill key to name mapping"""
         try:
-            # Look for Skills.xml in the same directory as other XML files
-            skills_path = None
-            
-            # Check common locations
-            possible_paths = [
-                'OggData/Skills.xml',
-                '../OggData/Skills.xml',
-                './Skills.xml'
-            ]
-            
-            for path in possible_paths:
-                if os.path.exists(path):
-                    skills_path = path
-                    break
-            
-            if skills_path is None:
-                print("Warning: Skills.xml not found, skill key resolution will not work")
+            oggdata_dir = self._find_oggdata_directory()
+            if oggdata_dir is None:
+                print("Warning: OggData directory not found, skill key resolution will not work")
                 return
             
-            print(f"Loading skills from {skills_path}")
-            tree = ET.parse(skills_path)
-            root = tree.getroot()
+            # Find all Skills.xml files recursively
+            skills_files = self._find_xml_files_recursively(oggdata_dir, 'Skills.xml')
             
-            # Parse all skills and store key -> name mapping
-            for skill_elem in self._findall_with_namespace(root, 'Skill'):
-                key = self._get_text(skill_elem, 'Key')
-                name = self._get_text(skill_elem, 'Name')
-                if key and name:
-                    self._skills[key] = name
+            if not skills_files:
+                print("Warning: Skills.xml not found in OggData directory, skill key resolution will not work")
+                return
+            
+            print(f"Loading skills from {len(skills_files)} Skills.xml file(s)")
+            
+            for skills_path in skills_files:
+                print(f"  Loading from: {skills_path}")
+                tree = ET.parse(skills_path)
+                root = tree.getroot()
+                
+                # Parse all skills and store key -> name mapping
+                for skill_elem in self._findall_with_namespace(root, 'Skill'):
+                    key = self._get_text(skill_elem, 'Key')
+                    name = self._get_text(skill_elem, 'Name')
+                    if key and name:
+                        self._skills[key] = name
             
             print(f"Loaded {len(self._skills)} skills")
             
@@ -1576,40 +1590,38 @@ class XMLParser:
     def _load_item_descriptors(self):
         """Load ItemDescriptors.xml into memory"""
         try:
-            # Look for ItemDescriptors.xml in the same directory as other XML files
-            item_descriptors_path = None
-            
-            # Check common locations
-            possible_paths = [
-                'ItemDescriptors.xml',
-                'OggData/ItemDescriptors.xml',
-                '../OggData/ItemDescriptors.xml'
-            ]
-            
-            for path in possible_paths:
-                if os.path.exists(path):
-                    item_descriptors_path = path
-                    break
-            
-            if not item_descriptors_path:
-                print("Warning: ItemDescriptors.xml not found")
+            oggdata_dir = self._find_oggdata_directory()
+            if oggdata_dir is None:
+                print("Warning: OggData directory not found, item descriptor resolution will not work")
                 self._item_descriptors = {}
                 return
             
-            tree = ET.parse(item_descriptors_path)
-            root = tree.getroot()
+            # Find all ItemDescriptors.xml files recursively
+            item_descriptors_files = self._find_xml_files_recursively(oggdata_dir, 'ItemDescriptors.xml')
+            
+            if not item_descriptors_files:
+                print("Warning: ItemDescriptors.xml not found in OggData directory")
+                self._item_descriptors = {}
+                return
+            
+            print(f"Loading item descriptors from {len(item_descriptors_files)} ItemDescriptors.xml file(s)")
             
             self._item_descriptors = {}
-            for descriptor_elem in self._findall_with_namespace(root, 'ItemDescriptor'):
-                key = self._get_text(descriptor_elem, 'Key')
-                if key:
-                    self._item_descriptors[key] = {
-                        'name': self._get_text(descriptor_elem, 'Name'),
-                        'description': self._get_text(descriptor_elem, 'Description'),
-                        'modDesc': self._get_text(descriptor_elem, 'ModDesc'),
-                        'qualDesc': self._get_text(descriptor_elem, 'QualDesc'),
-                        'isQuality': self._get_bool(descriptor_elem, 'IsQuality', False)
-                    }
+            for item_descriptors_path in item_descriptors_files:
+                print(f"  Loading from: {item_descriptors_path}")
+                tree = ET.parse(item_descriptors_path)
+                root = tree.getroot()
+                
+                for descriptor_elem in self._findall_with_namespace(root, 'ItemDescriptor'):
+                    key = self._get_text(descriptor_elem, 'Key')
+                    if key:
+                        self._item_descriptors[key] = {
+                            'name': self._get_text(descriptor_elem, 'Name'),
+                            'description': self._get_text(descriptor_elem, 'Description'),
+                            'modDesc': self._get_text(descriptor_elem, 'ModDesc'),
+                            'qualDesc': self._get_text(descriptor_elem, 'QualDesc'),
+                            'isQuality': self._get_bool(descriptor_elem, 'IsQuality', False)
+                        }
             
             print(f"Loaded {len(self._item_descriptors)} item descriptors")
             
@@ -1864,3 +1876,147 @@ class XMLParser:
             return type_value[2:]  # Remove first 2 characters ('st')
         
         return type_value 
+
+    def _convert_activation_value(self, activation_value: str) -> str:
+        """Convert OggDude activation value to Realm VTT format"""
+        if not activation_value:
+            return ""
+        
+        # Handle the activation value conversions
+        if activation_value == "taPassive":
+            return "Passive"
+        elif activation_value == "taAction":
+            return "Active"
+        elif activation_value.startswith("ta"):
+            # Remove "ta" prefix for any other values
+            return activation_value[2:]
+        else:
+            return activation_value
+    
+    def _convert_boolean_to_yes_no(self, value: Any) -> str:
+        """Convert boolean value to 'yes' or 'no' string"""
+        if isinstance(value, str):
+            value = value.lower()
+        
+        if value in [True, 'true', 'yes', 1]:
+            return 'yes'
+        else:
+            return 'no'
+    
+    def _load_specialization_trees(self):
+        """Load specialization trees and build talent-to-specialization mapping"""
+        self._talent_specializations = {}
+        
+        oggdata_dir = self._find_oggdata_directory()
+        if oggdata_dir is None:
+            print("Warning: OggData directory not found, specialization tree mapping will not work")
+            return
+        
+        # Find all specialization XML files recursively
+        specialization_files = []
+        for root, dirs, files in os.walk(oggdata_dir):
+            for file in files:
+                if file.endswith('.xml'):
+                    file_path = os.path.join(root, file)
+                    try:
+                        # Check if this is a specialization file by looking at the root element
+                        tree = ET.parse(file_path)
+                        root_elem = tree.getroot()
+                        if root_elem.tag.endswith('Specialization') or 'Specialization' in root_elem.tag:
+                            specialization_files.append(file_path)
+                    except Exception:
+                        # Skip files that can't be parsed as XML
+                        continue
+        
+        if not specialization_files:
+            print("Warning: No specialization files found in OggData directory")
+            return
+        
+        print(f"Loading specialization trees from {len(specialization_files)} specialization file(s)")
+        
+        for file_path in specialization_files:
+            try:
+                self._parse_specialization_tree(file_path)
+            except Exception as e:
+                print(f"Error parsing specialization tree {file_path}: {e}")
+        
+        print(f"Loaded {len(self._talent_specializations)} talent-specialization mappings")
+    
+    def _parse_specialization_tree(self, file_path: str):
+        """Parse a single specialization tree XML file"""
+        try:
+            tree = ET.parse(file_path)
+            root = tree.getroot()
+            
+            # Get specialization key and name
+            spec_key = self._get_text(root, 'Key')
+            spec_name = self._get_text(root, 'Name')
+            
+            if not spec_key or not spec_name:
+                print(f"Missing Key or Name in specialization file: {file_path}")
+                return
+            
+            # Find the TalentRows element first
+            talent_rows_elem = self._find_with_namespace(root, 'TalentRows')
+            if talent_rows_elem is None:
+                print(f"No TalentRows element found in specialization file: {file_path}")
+                return
+            
+            # Find all talent rows within the TalentRows element
+            talent_rows = self._findall_with_namespace(talent_rows_elem, 'TalentRow')
+            if not talent_rows:
+                print(f"No talent rows found in specialization file: {file_path}")
+                return
+            
+            for talent_row in talent_rows:
+                # Find the Talents element within this TalentRow
+                talents_elem = self._find_with_namespace(talent_row, 'Talents')
+                if talents_elem is not None:
+                    # Find all Key elements within the Talents element
+                    talent_keys = self._findall_with_namespace(talents_elem, 'Key')
+                    for talent_key_elem in talent_keys:
+                        talent_key = talent_key_elem.text.strip() if talent_key_elem.text else ''
+                        if talent_key:
+                            # Add this specialization to the talent's list
+                            if talent_key not in self._talent_specializations:
+                                self._talent_specializations[talent_key] = []
+                            if spec_name not in self._talent_specializations[talent_key]:
+                                self._talent_specializations[talent_key].append(spec_name)
+            
+        except Exception as e:
+            print(f"Error parsing specialization tree {file_path}: {e}")
+    
+    def _get_talent_specializations(self, talent_key: str) -> List[str]:
+        """Get the list of specialization trees that contain this talent"""
+        return self._talent_specializations.get(talent_key, [])
+    
+    def _find_xml_files_recursively(self, directory: str, filename: str = None) -> List[str]:
+        """Recursively find XML files in the given directory and its subdirectories"""
+        xml_files = []
+        
+        if not os.path.exists(directory):
+            return xml_files
+        
+        for root, dirs, files in os.walk(directory):
+            for file in files:
+                if file.endswith('.xml'):
+                    if filename is None or file == filename:
+                        xml_files.append(os.path.join(root, file))
+        
+        return xml_files
+    
+    def _find_oggdata_directory(self) -> Optional[str]:
+        """Find the OggData directory from common locations"""
+        possible_paths = [
+            'OggData',
+            '../OggData',
+            './OggData',
+            os.path.join(os.path.dirname(__file__), '..', '..', 'OggData'),
+            os.path.join(os.path.dirname(__file__), '..', 'OggData')
+        ]
+        
+        for path in possible_paths:
+            if os.path.exists(path) and os.path.isdir(path):
+                return os.path.abspath(path)
+        
+        return None

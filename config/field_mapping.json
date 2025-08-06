@@ -71,9 +71,10 @@
   "talents": {
     "Name": "name",
     "Description": "description",
-    "Activation": "activation",
+    "ActivationValue": "activation",
     "Ranked": "ranked",
-    "Trees": "trees"
+    "ForceTalent": "forceTalent",
+    "Trees": "specializationTrees"
   },
   "force_powers": {
     "Name": "name",
