@@ -123,11 +123,11 @@ class ImportManager:
                 if record_type in all_records:
                     all_records[record_type].extend(records)
         
-        # Parse Adversaries JSON files - TEMPORARILY COMMENTED OUT FOR VEHICLE TESTING
-        # if self.adversaries_directory:
-        #     self._log_status(f"Parsing Adversaries files from: {self.adversaries_directory}")
-        #     json_records = self.json_parser.scan_directory(self.adversaries_directory, self.selected_sources)
-        #     all_records['npcs'].extend(json_records)
+        # Parse Adversaries JSON files
+        if self.adversaries_directory:
+            self._log_status(f"Parsing Adversaries files from: {self.adversaries_directory}")
+            json_records = self.json_parser.scan_directory(self.adversaries_directory, self.selected_sources)
+            all_records['npcs'].extend(json_records)
         
         # Filter by selected record types (if any are selected)
         if self.selected_record_types:
@@ -213,10 +213,10 @@ class ImportManager:
                     if record_type in all_records:
                         all_records[record_type].extend(records)
             
-            # Parse Adversaries JSON files - TEMPORARILY COMMENTED OUT FOR VEHICLE TESTING
-            # if self.adversaries_directory:
-            #     json_records = self.json_parser.scan_directory(self.adversaries_directory, self.selected_sources)
-            #     all_records['npcs'].extend(json_records)
+            # Parse Adversaries JSON files
+            if self.adversaries_directory:
+                json_records = self.json_parser.scan_directory(self.adversaries_directory, self.selected_sources)
+                all_records['npcs'].extend(json_records)
             
             # Filter by selected record types (if any are selected)
             if self.selected_record_types:

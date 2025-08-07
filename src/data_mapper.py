@@ -878,6 +878,10 @@ class DataMapper:
         if not isinstance(data, dict):
             data = {}
         
+        # Check if this is an adversary format (has type, characteristics, derived)
+        if 'type' in data and 'characteristics' in data:
+            return self._convert_adversary(npc, campaign_id, category)
+        
         # Convert description and add to data
         if 'description' in npc:
             data['description'] = self._convert_description(npc['description'])
@@ -899,6 +903,586 @@ class DataMapper:
         }
         
         return realm_npc
+    
+    def _convert_adversary(self, npc: Dict[str, Any], campaign_id: str, category: str) -> Dict[str, Any]:
+        """Convert adversary to Realm VTT format with proper skills structure"""
+        data = npc.get('data', {})
+        
+        # Get basic info
+        name = npc.get('name', 'Unknown Adversary')
+        description = npc.get('description', '')
+        notes = npc.get('notes', '')
+        npc_type = data.get('type', 'rival').lower()
+        subtype = data.get('subtype', '')
+        
+        # Get characteristics
+        characteristics = data.get('characteristics', {})
+        brawn = characteristics.get('Brawn', characteristics.get('brawn', 1))
+        agility = characteristics.get('Agility', characteristics.get('agility', 1))
+        intellect = characteristics.get('Intellect', characteristics.get('intellect', 1))
+        cunning = characteristics.get('Cunning', characteristics.get('cunning', 1))
+        willpower = characteristics.get('Willpower', characteristics.get('willpower', 1))
+        presence = characteristics.get('Presence', characteristics.get('presence', 1))
+        
+        # Get derived stats
+        derived = data.get('derived', {})
+        soak = derived.get('soak', 0)
+        wounds = derived.get('wounds', 10)
+        strain = derived.get('strain', 10)
+        
+        # Handle wounds and strain based on NPC type
+        if npc_type == 'minion':
+            wounds_per_minion = wounds
+            number_in_group = 3  # Default group size
+            wound_threshold = wounds_per_minion * number_in_group
+            wounds_remaining = wound_threshold
+            strain_threshold = 0
+            strain_remaining = 0
+        elif npc_type == 'rival':
+            wounds_per_minion = 0
+            number_in_group = 0
+            wound_threshold = wounds
+            wounds_remaining = wounds
+            strain_threshold = 0
+            strain_remaining = 0
+        else:  # nemesis
+            wounds_per_minion = 0
+            number_in_group = 0
+            wound_threshold = wounds
+            wounds_remaining = wounds
+            strain_threshold = strain
+            strain_remaining = strain
+        
+        # Create comprehensive skills list
+        skills = self._create_full_skills_list(data.get('skills', []), npc_type)
+        
+        # Convert weapons and gear to inventory items
+        inventory = self._convert_adversary_inventory(data.get('weapons', []), data.get('gear', []))
+        
+        realm_data = {
+            "skills": skills,
+            "unarmedAttack": [self._create_unarmed_attack()],
+            "type": npc_type,
+            "brawn": brawn,
+            "agility": agility,
+            "intellect": intellect,
+            "cunning": cunning,
+            "willpower": willpower,
+            "presence": presence,
+            "defenseMelee": 0,
+            "defenseRanged": 0,
+            "encumbranceThreshold": brawn + 5,  # Standard calculation
+            "soakValue": soak,
+            "strainRemaining": strain_remaining,
+            "strainThreshold": strain_threshold,
+            "strainThresholdBonus": 0,
+            "woundThreshold": wound_threshold,
+            "woundThresholdBonus": 0,
+            "woundsRemaining": wounds_remaining,
+            "speciesName": "Human",  # Default
+            "subtype": subtype,
+            "wounds": 0,
+            "strain": 0,
+            "rangeBand": "Medium",
+            "inventory": inventory
+        }
+        
+        # Add minion-specific fields
+        if npc_type == 'minion':
+            realm_data["woundsPerMinion"] = wounds_per_minion
+            realm_data["numberInGroup"] = number_in_group
+        
+        # Convert description with special adversary format
+        if description:
+            realm_data['description'] = self._convert_adversary_description(description, name)
+        
+        realm_npc = {
+            "name": name,
+            "recordType": "npcs",
+            "campaignId": campaign_id,
+            "category": category,
+            "unidentifiedName": "Unknown Adversary",
+            "identified": True,
+            "shared": False,
+            "locked": True,
+            "data": realm_data
+        }
+        
+        return realm_npc
+    
+    def _create_full_skills_list(self, adversary_skills: List[str], npc_type: str) -> List[Dict[str, Any]]:
+        """Create the complete skills list with proper UUIDs and stats"""
+        # All skills with their stats and groups (from the user's example)
+        all_skills = [
+            {"name": "Astrogation", "stat": "intellect", "group": "General"},
+            {"name": "Athletics", "stat": "brawn", "group": "General"},
+            {"name": "Brawl", "stat": "brawn", "group": "Combat"},
+            {"name": "Charm", "stat": "presence", "group": "General"},
+            {"name": "Coercion", "stat": "willpower", "group": "General"},
+            {"name": "Computers", "stat": "intellect", "group": "General"},
+            {"name": "Cool", "stat": "presence", "group": "General"},
+            {"name": "Coordination", "stat": "agility", "group": "General"},
+            {"name": "Core Worlds", "stat": "intellect", "group": "Knowledge"},
+            {"name": "Deception", "stat": "cunning", "group": "General"},
+            {"name": "Discipline", "stat": "willpower", "group": "General"},
+            {"name": "Education", "stat": "intellect", "group": "Knowledge"},
+            {"name": "Gunnery", "stat": "agility", "group": "Combat"},
+            {"name": "Leadership", "stat": "presence", "group": "General"},
+            {"name": "Lightsaber", "stat": "brawn", "group": "Combat"},
+            {"name": "Lore", "stat": "intellect", "group": "Knowledge"},
+            {"name": "Mechanics", "stat": "intellect", "group": "General"},
+            {"name": "Medicine", "stat": "intellect", "group": "General"},
+            {"name": "Melee", "stat": "brawn", "group": "Combat"},
+            {"name": "Negotiation", "stat": "presence", "group": "General"},
+            {"name": "Outer Rim", "stat": "intellect", "group": "Knowledge"},
+            {"name": "Perception", "stat": "cunning", "group": "General"},
+            {"name": "Piloting (Planetary)", "stat": "agility", "group": "General"},
+            {"name": "Piloting (Space)", "stat": "agility", "group": "General"},
+            {"name": "Ranged (Heavy)", "stat": "agility", "group": "Combat"},
+            {"name": "Ranged (Light)", "stat": "agility", "group": "Combat"},
+            {"name": "Resilience", "stat": "brawn", "group": "General"},
+            {"name": "Skulduggery", "stat": "cunning", "group": "General"},
+            {"name": "Stealth", "stat": "agility", "group": "General"},
+            {"name": "Streetwise", "stat": "cunning", "group": "General"},
+            {"name": "Survival", "stat": "cunning", "group": "General"},
+            {"name": "Underworld", "stat": "intellect", "group": "Knowledge"},
+            {"name": "Vigilance", "stat": "willpower", "group": "General"},
+            {"name": "Xenology", "stat": "intellect", "group": "Knowledge"}
+        ]
+        
+        # Create skill name mappings for common variations
+        skill_mappings = {
+            "ranged: heavy": "Ranged (Heavy)",
+            "ranged: light": "Ranged (Light)", 
+            "ranged heavy": "Ranged (Heavy)",
+            "ranged light": "Ranged (Light)",
+            "piloting planetary": "Piloting (Planetary)",
+            "piloting space": "Piloting (Space)"
+        }
+        
+        # Normalize adversary skills list and preserve ranks
+        normalized_skills = {}
+        if isinstance(adversary_skills, list):
+            for skill in adversary_skills:
+                if isinstance(skill, str):
+                    # Check if it needs mapping
+                    mapped_skill = skill_mappings.get(skill.lower(), skill)
+                    normalized_skills[mapped_skill] = 1  # Default rank
+                elif isinstance(skill, dict):
+                    # Handle dict format with ranks
+                    for skill_name, rank in skill.items():
+                        mapped_skill = skill_mappings.get(skill_name.lower(), skill_name)
+                        normalized_skills[mapped_skill] = rank
+        elif isinstance(adversary_skills, dict):
+            # Handle dict format directly
+            for skill_name, rank in adversary_skills.items():
+                mapped_skill = skill_mappings.get(skill_name.lower(), skill_name)
+                normalized_skills[mapped_skill] = rank
+        
+        skills_list = []
+        for skill_info in all_skills:
+            skill_name = skill_info["name"]
+            
+            # Determine rank based on NPC type and if skill is trained
+            if skill_name in normalized_skills:
+                if npc_type == 'minion':
+                    rank = 2  # Group skill for minions always rank 2
+                    career_or_minion_skill = True
+                else:
+                    rank = normalized_skills[skill_name]  # Use actual rank for rivals/nemesis
+                    career_or_minion_skill = True
+            else:
+                rank = 0  # Untrained
+                career_or_minion_skill = False
+            
+            skill_record = {
+                "_id": str(uuid.uuid4()),
+                "name": skill_name,
+                "unidentifiedName": skill_name,
+                "recordType": "skill",
+                "identified": True,
+                "icon": "IconTools",
+                "data": {
+                    "group": skill_info["group"],
+                    "stat": skill_info["stat"],
+                    "rank": rank
+                }
+            }
+            
+            if career_or_minion_skill:
+                skill_record["data"]["careerOrMinionSkill"] = True
+            
+            skills_list.append(skill_record)
+        
+        return skills_list
+    
+    def _create_unarmed_attack(self) -> Dict[str, Any]:
+        """Create standard unarmed attack item"""
+        return {
+            "unidentifiedName": "Unarmed Combat",
+            "recordType": "items",
+            "portrait": "/images/bc390eaa-d17a-4022-a1ca-fa388c12e498_29.webp",
+            "_id": str(uuid.uuid4()),
+            "name": "Unarmed Combat",
+            "identified": True,
+            "icon": "IconBox",
+            "data": {
+                "damage": 0,
+                "crit": 5,
+                "carried": "equipped",
+                "type": "melee weapon",
+                "range": "Engaged",
+                "skill": "Brawl",
+                "weaponSkill": "Brawl",
+                "special": ["unarmed", "disorient", "knockdown"],
+                "disorient": 1,
+                "description": "Unarmed attacks use the Brawl skill and Brawn for base damage. Damage can be done to strain instead of wounds."
+            }
+        }
+    
+    def _convert_adversary_description(self, description: str, npc_name: str) -> str:
+        """Convert adversary description format to Realm VTT richtext format"""
+        if not description:
+            return ""
+        
+        # Start with NPC name as H2
+        converted = f"<h2>{npc_name}</h2>\n\n"
+        
+        # Add the description
+        converted += description
+        
+        # Convert dice symbols from :symbol: format to proper spans
+        dice_mappings = {
+            ':boost:': '<span class="boost" data-dice-type="boost" contenteditable="false" style="display: inline-block;"></span>',
+            ':setback:': '<span class="setback" data-dice-type="setback" contenteditable="false" style="display: inline-block;"></span>',
+            ':advantage:': '<span class="advantage" data-dice-type="advantage" contenteditable="false" style="display: inline-block;"></span>',
+            ':threat:': '<span class="threat" data-dice-type="threat" contenteditable="false" style="display: inline-block;"></span>',
+            ':success:': '<span class="success" data-dice-type="success" contenteditable="false" style="display: inline-block;"></span>',
+            ':failure:': '<span class="failure" data-dice-type="failure" contenteditable="false" style="display: inline-block;"></span>',
+            ':triumph:': '<span class="triumph" data-dice-type="triumph" contenteditable="false" style="display: inline-block;"></span>',
+            ':despair:': '<span class="despair" data-dice-type="despair" contenteditable="false" style="display: inline-block;"></span>',
+            ':force:': '<span class="force" data-dice-type="force" contenteditable="false" style="display: inline-block;"></span>',
+            ':darkside:': '<span class="dark" data-dice-type="dark" contenteditable="false" style="display: inline-block;"></span>',
+            ':lightside:': '<span class="light" data-dice-type="light" contenteditable="false" style="display: inline-block;"></span>',
+            ':difficulty:': '<span class="difficulty" data-dice-type="difficulty" contenteditable="false" style="display: inline-block;"></span>',
+            ':challenge:': '<span class="challenge" data-dice-type="challenge" contenteditable="false" style="display: inline-block;"></span>',
+            ':ability:': '<span class="ability" data-dice-type="ability" contenteditable="false" style="display: inline-block;"></span>',
+            ':proficiency:': '<span class="proficiency" data-dice-type="proficiency" contenteditable="false" style="display: inline-block;"></span>'
+        }
+        
+        # Apply all dice symbol conversions
+        for old_symbol, new_span in dice_mappings.items():
+            converted = converted.replace(old_symbol, new_span)
+        
+        return converted
+    
+    def _find_item_by_name(self, name: str) -> Optional[Dict[str, Any]]:
+        """Find an item by name (case-insensitive) in the OGG database"""
+        # Initialize items loader if needed
+        if not hasattr(self, '_items_loader'):
+            from json_parser import JSONParser
+            json_parser = JSONParser()
+            self._items_loader = json_parser.get_items_loader()
+        
+        # Search all items for case-insensitive name match
+        all_items = self._items_loader.load_all_items()
+        search_name = name.lower().strip()
+        
+        for key, item in all_items.items():
+            item_name = item.get('name', '').lower().strip()
+            if item_name == search_name:
+                return item
+        
+        return None
+    
+    def _parse_item_count(self, item_text: str) -> tuple[int, str]:
+        """Parse count from item text like '2 Frag grenades' -> (2, 'Frag grenade')"""
+        import re
+        
+        # Look for number at the start
+        match = re.match(r'^(\d+)\s+(.+)', item_text.strip())
+        if match:
+            count = int(match.group(1))
+            name = match.group(2)
+            # Attempt to singularize the name
+            singular_name = self._singularize_name(name)
+            return count, singular_name
+        
+        return 1, item_text.strip()
+    
+    def _singularize_name(self, name: str) -> str:
+        """Simple singularization of item names"""
+        name = name.strip()
+        
+        # Special cases that don't follow normal rules
+        special_cases = {
+            'glasses': 'glasses',  # Don't singularize
+            'credits': 'credit',
+            'grenades': 'grenade',
+            'rifles': 'rifle',
+        }
+        
+        name_lower = name.lower()
+        for plural, singular in special_cases.items():
+            if name_lower.endswith(plural):
+                # Preserve original case
+                prefix = name[:-len(plural)]
+                if name_lower == plural:
+                    # Whole word matches, preserve case
+                    if name.isupper():
+                        return prefix + singular.upper()
+                    elif name.istitle():
+                        return prefix + singular.capitalize()
+                    else:
+                        return prefix + singular
+                else:
+                    # Partial match, preserve case
+                    return prefix + singular
+        
+        # Common plural patterns
+        if name_lower.endswith('ves'):
+            # knives -> knife
+            return name[:-3] + 'fe'
+        elif name_lower.endswith('ies'):
+            # batteries -> battery
+            return name[:-3] + 'y'
+        elif name_lower.endswith('es') and not name_lower.endswith(('ses', 'ches', 'shes', 'xes', 'zes')):
+            # boxes -> box, but not glasses, churches, dishes, fixes, buzzes
+            return name[:-2]
+        elif name_lower.endswith('s') and not name_lower.endswith('ss'):
+            # blasters -> blaster, but not glass -> glas
+            return name[:-1]
+        
+        return name
+    
+    def _parse_armor_stats(self, item_text: str) -> tuple[str, int, int]:
+        """Parse armor stats from text like 'Armoured clothing (+1 Soak, +1 Defence)' -> ('Armored clothing', 1, 1)"""
+        import re
+        
+        # Look for pattern: name (stats in parentheses)
+        match = re.match(r'^(.+?)\s*\(([^)]+)\)', item_text.strip())
+        if not match:
+            return item_text.strip(), 0, 0
+        
+        name = match.group(1).strip()
+        stats_text = match.group(2)
+        
+        # Convert British to American spelling (case-insensitive)
+        import re
+        name = re.sub(r'\bArmoured\b', 'Armored', name, flags=re.IGNORECASE)
+        name = re.sub(r'\bArmour\b', 'Armor', name, flags=re.IGNORECASE)
+        name = re.sub(r'\bDefence\b', 'Defense', name, flags=re.IGNORECASE)
+        name = re.sub(r'\bColour\b', 'Color', name, flags=re.IGNORECASE)
+        
+        soak = 0
+        defense = 0
+        
+        # Look for soak values
+        soak_match = re.search(r'[+]?(\d+)\s*(?:Soak|soak)', stats_text)
+        if soak_match:
+            soak = int(soak_match.group(1))
+        
+        # Look for defense values (both Defence and Defense)
+        defense_match = re.search(r'[+]?(\d+)\s*(?:Defence|Defense|defence|defense)', stats_text)
+        if defense_match:
+            defense = int(defense_match.group(1))
+        
+        return name, soak, defense
+    
+    def _create_adhoc_weapon(self, weapon_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create an ad-hoc weapon item from adversary weapon object"""
+        name = weapon_data.get('name', 'Unknown Weapon')
+        skill = weapon_data.get('skill', 'Ranged (Heavy)')
+        damage = weapon_data.get('damage', weapon_data.get('plus-damage', 0))
+        critical = weapon_data.get('critical', 3)
+        weapon_range = weapon_data.get('range', 'Short')
+        
+        # Determine weapon type based on skill
+        if skill.lower() in ['brawl', 'melee', 'lightsaber']:
+            weapon_type = 'melee weapon'
+        else:
+            weapon_type = 'ranged weapon'
+        
+        return {
+            'recordType': 'items',
+            'name': name,
+            'unidentifiedName': 'Unidentified Item',
+            'identified': True,
+            'locked': True,
+            '_id': str(uuid.uuid4()),
+            'data': {
+                'type': weapon_type,
+                'subtype': skill,
+                'damage': damage,
+                'crit': critical,
+                'range': weapon_range,
+                'weaponSkill': skill,
+                'skill': skill,
+                'carried': 'equipped',
+                'count': 1
+            }
+        }
+    
+    def _create_adhoc_armor(self, name: str, soak: int, defense: int) -> Dict[str, Any]:
+        """Create an ad-hoc armor item"""
+        # Apply British to American spelling conversion (case-insensitive)
+        import re
+        american_name = name
+        american_name = re.sub(r'\bArmoured\b', 'Armored', american_name, flags=re.IGNORECASE)
+        american_name = re.sub(r'\bArmour\b', 'Armor', american_name, flags=re.IGNORECASE)
+        american_name = re.sub(r'\bDefence\b', 'Defense', american_name, flags=re.IGNORECASE)
+        american_name = re.sub(r'\bColour\b', 'Color', american_name, flags=re.IGNORECASE)
+        
+        return {
+            'recordType': 'items',
+            'name': american_name,
+            'unidentifiedName': 'Unidentified Item', 
+            'identified': True,
+            'locked': True,
+            '_id': str(uuid.uuid4()),
+            'data': {
+                'type': 'armor',
+                'soakBonus': soak,
+                'defense': defense,
+                'carried': 'equipped',
+                'count': 1
+            }
+        }
+    
+    def _create_adhoc_gear(self, name: str, count: int = 1) -> Dict[str, Any]:
+        """Create an ad-hoc gear item"""
+        return {
+            'recordType': 'items',
+            'name': name,
+            'unidentifiedName': 'Unidentified Item',
+            'identified': True,
+            'locked': True,
+            '_id': str(uuid.uuid4()),
+            'data': {
+                'type': 'general',
+                'carried': 'equipped',
+                'count': count
+            }
+        }
+    
+    def _create_credits_item(self, amount: int) -> Dict[str, Any]:
+        """Create a credits item as pack type with cash field"""
+        return {
+            'recordType': 'items',
+            'name': 'Credits',
+            'unidentifiedName': 'Credits',
+            'identified': True,
+            'locked': True,
+            '_id': str(uuid.uuid4()),
+            'data': {
+                'type': 'pack',
+                'cash': amount,
+                'carried': 'equipped',
+                'count': 1
+            }
+        }
+    
+    def _is_credits_item(self, name: str) -> tuple[bool, int]:
+        """Check if item is credits and return amount"""
+        import re
+        name_lower = name.lower().strip()
+        
+        # Look for patterns like "500 credits", "1000 credit", "Credits", etc.
+        credit_match = re.match(r'^(\d+)\s+credits?$', name_lower)
+        if credit_match:
+            return True, int(credit_match.group(1))
+        
+        # Just "credits" or "credit" with no number
+        if name_lower in ['credits', 'credit']:
+            return True, 100  # Default amount
+        
+        return False, 0
+    
+    def _convert_adversary_inventory(self, weapons: List[Any], gear: List[Any]) -> List[Dict[str, Any]]:
+        """Convert adversary weapons and gear to Realm VTT inventory items"""
+        inventory = []
+        
+        # Process weapons
+        for weapon in weapons:
+            if isinstance(weapon, str):
+                # Parse count if present
+                count, weapon_name = self._parse_item_count(weapon)
+                
+                # Try to find in OGG database using singularized name, then original name
+                singular_name = self._singularize_name(weapon_name)
+                ogg_item = self._find_item_by_name(singular_name)
+                if not ogg_item and singular_name != weapon_name:
+                    # Try original name if singularized didn't work
+                    ogg_item = self._find_item_by_name(weapon_name)
+                if ogg_item:
+                    # Convert OGG item to Realm VTT format
+                    realm_item = self._convert_item(ogg_item, '', '')
+                    realm_item['_id'] = str(uuid.uuid4())
+                    realm_item['data']['count'] = count
+                    realm_item['data']['carried'] = 'equipped'
+                    inventory.append(realm_item)
+                else:
+                    # Create ad-hoc gear item (simple string weapons become gear)
+                    adhoc_item = self._create_adhoc_gear(weapon_name, count)
+                    inventory.append(adhoc_item)
+            
+            elif isinstance(weapon, dict):
+                # Create ad-hoc weapon from object
+                adhoc_weapon = self._create_adhoc_weapon(weapon)
+                inventory.append(adhoc_weapon)
+        
+        # Process gear
+        for gear_item in gear:
+            if isinstance(gear_item, str):
+                # Check if this is credits first
+                is_credits, credit_amount = self._is_credits_item(gear_item)
+                if is_credits:
+                    credits_item = self._create_credits_item(credit_amount)
+                    inventory.append(credits_item)
+                    continue
+                
+                # Parse count if present
+                count, gear_name = self._parse_item_count(gear_item)
+                
+                # Check if the parsed name is credits (after count parsing)
+                is_credits_parsed, credit_amount_parsed = self._is_credits_item(gear_name)
+                if is_credits_parsed:
+                    # Use the count as the credit amount if it was parsed
+                    final_amount = credit_amount_parsed
+                    if count > 1:
+                        final_amount = count
+                    credits_item = self._create_credits_item(final_amount)
+                    inventory.append(credits_item)
+                    continue
+                
+                # Try to parse armor stats from parentheses
+                parsed_name, soak, defense = self._parse_armor_stats(gear_name)
+                
+                # Try to find in OGG database first using singularized name, then original name
+                singular_name = self._singularize_name(parsed_name)
+                ogg_item = self._find_item_by_name(singular_name)
+                if not ogg_item and singular_name != parsed_name:
+                    # Try original name if singularized didn't work
+                    ogg_item = self._find_item_by_name(parsed_name)
+                if ogg_item:
+                    # Convert OGG item to Realm VTT format
+                    realm_item = self._convert_item(ogg_item, '', '')
+                    realm_item['_id'] = str(uuid.uuid4())
+                    realm_item['data']['count'] = count
+                    realm_item['data']['carried'] = 'equipped'
+                    inventory.append(realm_item)
+                else:
+                    # Create ad-hoc item based on stats
+                    if soak > 0 or defense > 0:
+                        # Has armor stats, create armor item
+                        adhoc_item = self._create_adhoc_armor(parsed_name, soak, defense)
+                        adhoc_item['data']['count'] = count
+                    else:
+                        # No armor stats, create general gear
+                        adhoc_item = self._create_adhoc_gear(parsed_name, count)
+                    inventory.append(adhoc_item)
+        
+        return inventory
     
     def _convert_restricted_value(self, restricted_value: Any) -> str:
         """Convert OggDude restricted value (true/false) to Realm VTT format (yes/no)"""

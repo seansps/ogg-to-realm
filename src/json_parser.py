@@ -50,8 +50,11 @@ class JSONParser:
             
             # Handle different JSON structures
             if isinstance(data, list):
-                # If the file contains a list of records
+                # If the file contains a list of records (adversaries format)
+                filename = Path(file_path).stem
                 for item in data:
+                    # Add filename as subtype info
+                    item['_filename'] = filename
                     record = self._extract_npc_data(item)
                     if record:
                         records.append(record)
@@ -62,12 +65,6 @@ class JSONParser:
                         record = self._extract_npc_data(npc)
                         if record:
                             records.append(record)
-                # TODO: Re-enable adversaries parsing later
-                # elif 'adversaries' in data:
-                #     for adversary in data['adversaries']:
-                #         record = self._extract_npc_data(adversary)
-                #         if record:
-                #             records.append(record)
                 else:
                     # Assume it's a single NPC record
                     record = self._extract_npc_data(data)
@@ -89,6 +86,12 @@ class JSONParser:
             # Handle different NPC data structures
             name = npc_data.get('name') or npc_data.get('Name') or 'Unknown NPC'
             description = npc_data.get('description') or npc_data.get('Description') or ''
+            notes = npc_data.get('notes', '')
+            
+            # Extract type and subtype for adversaries format
+            npc_type = npc_data.get('type', 'Rival')
+            filename = npc_data.get('_filename', '')
+            subtype = filename.replace('-', ' ').title() if filename else ''
             
             # Extract source from tags or direct source field
             source = ''
@@ -122,27 +125,34 @@ class JSONParser:
             # Extract armor
             armor = self._extract_armor(npc_data)
             
+            # Extract derived stats for adversaries format
+            derived = npc_data.get('derived', {})
+            
             npc = {
                 'recordType': 'npcs',
                 'name': name,
                 'description': description,
+                'notes': notes,
                 'source': source,
                 'data': {
+                    'type': npc_type,
+                    'subtype': subtype,
                     'characteristics': characteristics,
+                    'derived': derived,
                     'skills': skills,
                     'talents': talents,
                     'equipment': equipment,
                     'weapons': weapons,
                     'armor': armor,
-                    'woundThreshold': npc_data.get('woundThreshold', npc_data.get('WoundThreshold', npc_data.get('derived', {}).get('wounds', 10))),
-                    'strainThreshold': npc_data.get('strainThreshold', npc_data.get('StrainThreshold', 10)),
-                    'soak': npc_data.get('soak', npc_data.get('Soak', npc_data.get('derived', {}).get('soak', 0))),
-                    'defense': npc_data.get('defense', npc_data.get('Defense', npc_data.get('derived', {}).get('defence', 0))),
+                    'gear': npc_data.get('gear', []),
+                    'tags': tags,
+                    'woundThreshold': npc_data.get('woundThreshold', npc_data.get('WoundThreshold', derived.get('wounds', 10))),
+                    'strainThreshold': npc_data.get('strainThreshold', npc_data.get('StrainThreshold', derived.get('strain', 10))),
+                    'soak': npc_data.get('soak', npc_data.get('Soak', derived.get('soak', 0))),
+                    'defense': npc_data.get('defense', npc_data.get('Defense', derived.get('defence', 0))),
                     'species': npc_data.get('species', npc_data.get('Species', '')),
                     'career': npc_data.get('career', npc_data.get('Career', '')),
                     'specialization': npc_data.get('specialization', npc_data.get('Specialization', '')),
-                    'level': npc_data.get('level', npc_data.get('Level', 1)),
-                    'experience': npc_data.get('experience', npc_data.get('Experience', 0))
                 },
                 'unidentifiedName': 'Unknown NPC',
                 'locked': True
@@ -324,21 +334,31 @@ class JSONParser:
         
         filtered_records = []
         for record in records:
+            # Check if record has tags (adversaries format) or source field (OggDude format)
+            record_tags = record.get('data', {}).get('tags', [])
             record_source = record.get('source', '')
+            
             # Ensure record_source is a string
             if not isinstance(record_source, str):
                 record_source = str(record_source) if record_source else ''
             
+            record_matched = False
             for source_config in self.sources_config['sources']:
                 if source_config['key'] in selected_sources:
+                    # Check adversaries sources in tags
                     for adversaries_source in source_config['adversaries_sources']:
-                        # Ensure adversaries_source is a string
-                        if isinstance(adversaries_source, str) and adversaries_source.lower() in record_source.lower():
+                        if isinstance(record_tags, list) and adversaries_source in record_tags:
                             filtered_records.append(record)
+                            record_matched = True
                             break
-                    else:
-                        continue
-                    break
+                        # Also check in source field for backwards compatibility
+                        elif isinstance(adversaries_source, str) and adversaries_source.lower() in record_source.lower():
+                            filtered_records.append(record)
+                            record_matched = True
+                            break
+                    
+                    if record_matched:
+                        break
         
         return filtered_records
     
