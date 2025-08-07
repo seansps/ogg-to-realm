@@ -923,6 +923,9 @@ class DataMapper:
             r'\[DARKSIDEPOINT\]': 'dark',
             r'\[DARKPOINT\]': 'dark',
             r'\[DA\]': 'dark',
+            # FP
+            r'\[FP\]': 'forcepoint',
+            r'\[FORCEPOINT\]': 'forcepoint',
             # Success
             r'\[SUCCESS\]': 'success',
             r'\[SU\]': 'success',
