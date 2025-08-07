@@ -38,8 +38,8 @@ def test_forsaken_jedi_features_present():
     assert sense['data'].get('isForcePower') is True
 
     # Description should contain light pip spans and difficulty replacements
-    assert '<span class="light"' in move['data'].get('description', '')
-    assert '<span class="light"' in sense['data'].get('description', '')
+    assert '<span class="forcepoint"' in move['data'].get('description', '')
+    assert '<span class="forcepoint"' in sense['data'].get('description', '')
 
 
 if __name__ == '__main__':
