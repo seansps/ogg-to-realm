@@ -1003,10 +1003,16 @@ class DataMapper:
         adversary_talents = data.get('talents', [])
         if isinstance(adversary_talents, list) and adversary_talents:
             talents_list: List[Dict[str, Any]] = []
+            # Track force rating if provided via talent string
+            found_force_rating: Optional[int] = None
             for raw_talent in adversary_talents:
                 if not isinstance(raw_talent, str):
                     continue
                 talent_name, talent_rank = self._parse_talent_name_and_rank(raw_talent)
+                # Handle Force Rating special case: do not add as a talent
+                if talent_name.strip().lower() == 'force rating':
+                    found_force_rating = max(found_force_rating or 0, talent_rank or 1)
+                    continue
                 looked_up_talent = self._get_talent_by_name(talent_name)
                 if looked_up_talent:
                     # Deep copy and annotate rank
@@ -1044,6 +1050,17 @@ class DataMapper:
                     })
             if talents_list:
                 realm_data['talents'] = talents_list
+            # Apply force rating if found
+            if found_force_rating is not None:
+                realm_data['forceRating'] = int(found_force_rating) if found_force_rating > 0 else 1
+
+        # Convert abilities to features list with skill/difficulty parsing
+        adversary_abilities = data.get('abilities', [])
+        features_from_abilities = self._convert_adversary_abilities(adversary_abilities)
+        if features_from_abilities:
+            # Merge with any existing features
+            existing_features = realm_data.get('features', [])
+            realm_data['features'] = existing_features + features_from_abilities
         
         realm_npc = {
             "name": name,
@@ -1073,6 +1090,148 @@ class DataMapper:
                 rank = 1
             return (name, rank if rank > 0 else 1)
         return (str(text).strip(), 1)
+
+    def _convert_adversary_abilities(self, abilities: Any) -> List[Dict[str, Any]]:
+        """Convert adversary abilities into Realm VTT features with dice and skill/difficulty parsing."""
+        features: List[Dict[str, Any]] = []
+        if not isinstance(abilities, list):
+            return features
+        for ability in abilities:
+            if isinstance(ability, str):
+                name = ability.strip()
+                description = ''
+            elif isinstance(ability, dict):
+                name = str(ability.get('name', 'Ability')).strip()
+                description = str(ability.get('description', '') or '')
+            else:
+                continue
+
+            is_force_power = name.lower().startswith('force power')
+
+            # Convert dice tokens including :forcepip:
+            converted_desc = self._convert_colon_dice_tokens(description)
+
+            # Parse skill and difficulty from description
+            skill, difficulty = self._parse_ability_skill_and_difficulty(description)
+
+            feature_record = {
+                "_id": str(uuid.uuid4()),
+                "name": name,
+                "unidentifiedName": "Ability",
+                "recordType": "records",
+                "identified": True,
+                "data": {
+                    "isForcePower": bool(is_force_power),
+                    "description": converted_desc,
+                }
+            }
+
+            if skill:
+                feature_record["data"]["skill"] = skill
+            if difficulty:
+                feature_record["data"]["difficulty"] = difficulty
+
+            features.append(feature_record)
+
+        return features
+
+    def _convert_colon_dice_tokens(self, text: str) -> str:
+        """Convert colon-form dice tokens like :difficulty:, :boost:, :forcepip: to rich text spans."""
+        if not text:
+            return ""
+        converted = text
+        dice_mappings = {
+            ':boost:': ('boost', 'boost'),
+            ':setback:': ('setback', 'setback'),
+            ':advantage:': ('advantage', 'advantage'),
+            ':threat:': ('threat', 'threat'),
+            ':success:': ('success', 'success'),
+            ':failure:': ('failure', 'failure'),
+            ':triumph:': ('triumph', 'triumph'),
+            ':despair:': ('despair', 'despair'),
+            ':force:': ('force', 'force'),
+            ':darkside:': ('dark', 'dark'),
+            ':lightside:': ('light', 'light'),
+            ':difficulty:': ('difficulty', 'difficulty'),
+            ':challenge:': ('challenge', 'challenge'),
+            ':ability:': ('ability', 'ability'),
+            ':proficiency:': ('proficiency', 'proficiency'),
+            ':forcepip:': ('forcepoint', 'forcepoint'),
+            # difficulty words handled below
+        }
+        for token, (css, dice_type) in dice_mappings.items():
+            if dice_type:
+                converted = converted.replace(token, f'<span class="{css}" data-dice-type="{dice_type}" contenteditable="false" style="display: inline-block;"></span>')
+        # Replace difficulty-word tokens with label and repeated difficulty dice spans
+        def diff_spans(count: int) -> str:
+            span = '<span class="difficulty" data-dice-type="difficulty" contenteditable="false" style="display: inline-block;"></span>'
+            return ''.join([span for _ in range(count)])
+        replacements = [
+            (':easy:', 'Easy', 1),
+            (':average:', 'Average', 2),
+            (':hard:', 'Hard', 3),
+            (':daunting:', 'Daunting', 4),
+            (':formidable:', 'Formidable', 5),
+        ]
+        for token, label, count in replacements:
+            if token in converted:
+                converted = converted.replace(token, f'{label} ({diff_spans(count)})')
+        return converted
+
+    def _normalize_skill_name_for_text(self, skill_text: str) -> Optional[str]:
+        if not skill_text:
+            return None
+        s = skill_text.strip()
+        # Normalize Piloting/Ranged colon & hyphen variants
+        replacements = {
+            'ranged: heavy': 'Ranged (Heavy)',
+            'ranged heavy': 'Ranged (Heavy)',
+            'ranged - heavy': 'Ranged (Heavy)',
+            'ranged: light': 'Ranged (Light)',
+            'ranged light': 'Ranged (Light)',
+            'ranged - light': 'Ranged (Light)',
+            'piloting: planetary': 'Piloting (Planetary)',
+            'piloting planetary': 'Piloting (Planetary)',
+            'piloting - planetary': 'Piloting (Planetary)',
+            'piloting: space': 'Piloting (Space)',
+            'piloting space': 'Piloting (Space)',
+            'piloting - space': 'Piloting (Space)'
+        }
+        key = s.lower()
+        # Fix common misspelling
+        key = key.replace('plantary', 'planetary')
+        if key in replacements:
+            return replacements[key]
+        # Title-case single words; keep parentheses if present
+        return s
+
+    def _parse_ability_skill_and_difficulty(self, description: str) -> tuple[Optional[str], Optional[str]]:
+        """Parse skill and colon-token difficulty from ability descriptions."""
+        if not description:
+            return (None, None)
+        text = description
+        # Find difficulty token
+        diff_match = re.search(r':(easy|average|hard|daunting|formidable):', text, flags=re.IGNORECASE)
+        difficulty = None
+        if diff_match:
+            diff_key = diff_match.group(1).lower()
+            diff_map = {
+                'easy': 'Easy',
+                'average': 'Average',
+                'hard': 'Hard',
+                'daunting': 'Daunting',
+                'formidable': 'Formidable'
+            }
+            difficulty = diff_map.get(diff_key)
+            # Search for skill after the difficulty token, before the word 'check'
+            remainder = text[diff_match.end():]
+            skill_match = re.search(r'([A-Za-z]+(?:\s*[:\-]\s*[A-Za-z]+)?(?:\s*\([^)]+\))?)\s+check', remainder, flags=re.IGNORECASE)
+            if skill_match:
+                raw_skill = skill_match.group(1).strip()
+                skill = self._normalize_skill_name_for_text(raw_skill)
+                return (skill, difficulty)
+        # Fallback to generic parser
+        return self._parse_skill_and_difficulty(description)
 
     def _get_talent_by_name(self, name: str) -> Optional[Dict[str, Any]]:
         """Lookup a talent from OggDude Talents.xml by its display name and return full Realm VTT talent data."""
