@@ -1156,7 +1156,7 @@ class DataMapper:
             ':challenge:': ('challenge', 'challenge'),
             ':ability:': ('ability', 'ability'),
             ':proficiency:': ('proficiency', 'proficiency'),
-            ':forcepip:': ('forcepoint', 'forcepoint'),
+            ':forcepip:': ('light', 'light'),
             # difficulty words handled below
         }
         for token, (css, dice_type) in dice_mappings.items():
