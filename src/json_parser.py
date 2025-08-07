@@ -116,6 +116,9 @@ class JSONParser:
             # Extract talents
             talents = self._extract_talents(npc_data)
             
+            # Extract abilities (can be strings or objects with name/description)
+            abilities = self._extract_abilities(npc_data)
+            
             # Extract equipment
             equipment = self._extract_equipment(npc_data)
             
@@ -141,6 +144,7 @@ class JSONParser:
                     'derived': derived,
                     'skills': skills,
                     'talents': talents,
+                    'abilities': abilities,
                     'equipment': equipment,
                     'weapons': weapons,
                     'armor': armor,
@@ -247,6 +251,27 @@ class JSONParser:
             talents.append(talents_data)
         
         return talents
+
+    def _extract_abilities(self, npc_data: Dict[str, Any]) -> List[Any]:
+        """Extract abilities from NPC data (strings or objects with name/description)"""
+        abilities: List[Any] = []
+        abilities_data = (
+            npc_data.get('abilities') or
+            npc_data.get('Abilities') or
+            []
+        )
+        if isinstance(abilities_data, list):
+            for ability in abilities_data:
+                if isinstance(ability, str):
+                    abilities.append(ability)
+                elif isinstance(ability, dict):
+                    name = ability.get('name') or ability.get('Name')
+                    description = ability.get('description') or ability.get('Description') or ''
+                    if name:
+                        abilities.append({'name': name, 'description': description})
+        elif isinstance(abilities_data, str):
+            abilities.append(abilities_data)
+        return abilities
     
     def _extract_equipment(self, npc_data: Dict[str, Any]) -> List[str]:
         """Extract equipment from NPC data"""
