@@ -1,5 +1,6 @@
 import re
 import uuid
+import copy
 from typing import Dict, List, Any, Optional
 
 class DataMapper:
@@ -995,6 +996,52 @@ class DataMapper:
         # Convert description with special adversary format
         if description:
             realm_data['description'] = self._convert_adversary_description(description, name)
+
+        # Convert talents (lookup from OggDude XML by name and apply rank)
+        adversary_talents = data.get('talents', [])
+        if isinstance(adversary_talents, list) and adversary_talents:
+            talents_list: List[Dict[str, Any]] = []
+            for raw_talent in adversary_talents:
+                if not isinstance(raw_talent, str):
+                    continue
+                talent_name, talent_rank = self._parse_talent_name_and_rank(raw_talent)
+                looked_up_talent = self._get_talent_by_name(talent_name)
+                if looked_up_talent:
+                    # Deep copy and annotate rank
+                    talent_copy = copy.deepcopy(looked_up_talent)
+                    talent_copy['_id'] = str(uuid.uuid4())
+                    if 'data' not in talent_copy or not isinstance(talent_copy['data'], dict):
+                        talent_copy['data'] = {}
+                    talent_copy['data']['rank'] = talent_rank
+                    # Special handling: if Adversary, scale modifier value to rank
+                    if talent_copy.get('name', '').lower() == 'adversary':
+                        modifiers = talent_copy['data'].get('modifiers', [])
+                        if isinstance(modifiers, list):
+                            for mod in modifiers:
+                                if isinstance(mod, dict):
+                                    mod_data = mod.get('data', {})
+                                    if isinstance(mod_data, dict) and mod_data.get('type') == 'upgradeDifficultyOfAttacksTargetingYou':
+                                        mod_data['value'] = str(talent_rank)
+                    talents_list.append(talent_copy)
+                else:
+                    # Fallback minimal talent structure
+                    talents_list.append({
+                        '_id': str(uuid.uuid4()),
+                        'name': talent_name,
+                        'recordType': 'talents',
+                        'identified': True,
+                        'unidentifiedName': 'Unknown Talent',
+                        'icon': 'IconStar',
+                        'data': {
+                            'name': talent_name,
+                            'description': f'Talent {talent_name}',
+                            'activation': 'Passive',
+                            'ranked': 'no',
+                            'rank': talent_rank
+                        }
+                    })
+            if talents_list:
+                realm_data['talents'] = talents_list
         
         realm_npc = {
             "name": name,
@@ -1009,6 +1056,47 @@ class DataMapper:
         }
         
         return realm_npc
+
+    def _parse_talent_name_and_rank(self, text: str) -> tuple[str, int]:
+        """Parse a talent string like 'Skilled Jockey 1' into (name, rank). Defaults rank to 1."""
+        if not text:
+            return ('', 1)
+        match = re.match(r'^\s*(.*?)\s*(\d+)?\s*$', str(text))
+        if match:
+            name = match.group(1).strip()
+            rank_str = match.group(2)
+            try:
+                rank = int(rank_str) if rank_str is not None else 1
+            except ValueError:
+                rank = 1
+            return (name, rank if rank > 0 else 1)
+        return (str(text).strip(), 1)
+
+    def _get_talent_by_name(self, name: str) -> Optional[Dict[str, Any]]:
+        """Lookup a talent from OggDude Talents.xml by its display name and return full Realm VTT talent data."""
+        if not name:
+            return None
+        # Lazy init XML parser and load talents index
+        if not hasattr(self, '_xml_parser'):
+            from xml_parser import XMLParser
+            self._xml_parser = XMLParser()
+        xmlp = self._xml_parser
+        # Ensure talents loaded
+        if not hasattr(xmlp, '_talents') or not xmlp._talents:
+            try:
+                xmlp._load_talents()
+            except Exception:
+                return None
+        search_name = name.strip().lower()
+        # Exact, case-insensitive match against loaded talents
+        for key, talent in getattr(xmlp, '_talents', {}).items():
+            try:
+                tname = talent.get('name', '')
+            except AttributeError:
+                continue
+            if isinstance(tname, str) and tname.strip().lower() == search_name:
+                return xmlp._get_talent_data_by_key(key)
+        return None
     
     def _create_full_skills_list(self, adversary_skills: List[str], npc_type: str) -> List[Dict[str, Any]]:
         """Create the complete skills list with proper UUIDs and stats"""
@@ -1056,8 +1144,12 @@ class DataMapper:
             "ranged: light": "Ranged (Light)", 
             "ranged heavy": "Ranged (Heavy)",
             "ranged light": "Ranged (Light)",
+            "ranged: heavy": "Ranged (Heavy)",
+            "ranged: light": "Ranged (Light)",
             "piloting planetary": "Piloting (Planetary)",
-            "piloting space": "Piloting (Space)"
+            "piloting space": "Piloting (Space)",
+            "piloting: planetary": "Piloting (Planetary)",
+            "piloting: space": "Piloting (Space)"
         }
         
         # Normalize adversary skills list and preserve ranks
