@@ -2335,8 +2335,21 @@ class XMLParser:
         text = text.replace('[DE]', '<span class="despair" data-dice-type="despair" contenteditable="false" style="display: inline-block;"></span>')
         text = text.replace('[DESPAIR]', '<span class="despair" data-dice-type="despair" contenteditable="false" style="display: inline-block;"></span>')
         
-        # Force Power tags
-        text = text.replace('[FP]', '<span class="oggdude-tag">[FP]</span>')
+        # Force Point tags
+        text = text.replace('[FP]', '<span class="forcepoint" data-dice-type="forcepoint" contenteditable="false" style="display: inline-block;"></span>')
+        text = text.replace('[FORCEPOINT]', '<span class="forcepoint" data-dice-type="forcepoint" contenteditable="false" style="display: inline-block;"></span>')
+        
+        # Dark Side Force Point tags
+        text = text.replace('[DARKSIDE]', '<span class="dark" data-dice-type="dark" contenteditable="false" style="display: inline-block;"></span>')
+        text = text.replace('[DARKSIDEPOINT]', '<span class="dark" data-dice-type="dark" contenteditable="false" style="display: inline-block;"></span>')
+        text = text.replace('[DARKPOINT]', '<span class="dark" data-dice-type="dark" contenteditable="false" style="display: inline-block;"></span>')
+        text = text.replace('[DA]', '<span class="dark" data-dice-type="dark" contenteditable="false" style="display: inline-block;"></span>')
+        
+        # Light Side Force Point tags
+        text = text.replace('[LIGHTSIDE]', '<span class="light" data-dice-type="light" contenteditable="false" style="display: inline-block;"></span>')
+        text = text.replace('[LIGHTSIDEPOINT]', '<span class="light" data-dice-type="light" contenteditable="false" style="display: inline-block;"></span>')
+        text = text.replace('[LIGHTPOINT]', '<span class="light" data-dice-type="light" contenteditable="false" style="display: inline-block;"></span>')
+        text = text.replace('[LI]', '<span class="light" data-dice-type="light" contenteditable="false" style="display: inline-block;"></span>')
         
         # Text formatting tags
         text = text.replace('[H4]', '<h4>')
