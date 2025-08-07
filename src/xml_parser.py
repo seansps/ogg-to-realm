@@ -21,6 +21,8 @@ class XMLParser:
         self._specializations = {}  # Will store specialization keys to names mapping
         self._careers = {}  # Will store career keys to names mapping
         self._force_abilities = {}  # Will store force ability keys to data mapping
+        self._vehicle_actions = {}  # Will store vehicle action keys to data mapping
+        self._items_loader = None  # Shared items loader for vehicle weapon lookup
         
         # Load reference data
         self._load_talents()
@@ -30,6 +32,8 @@ class XMLParser:
         self._load_specializations()
         self._load_careers()
         self._load_force_abilities()
+        self._load_vehicle_actions()
+        self._init_items_loader()
     
     def set_data_directory(self, data_dir: str):
         """Set the data directory and reload reference data"""
@@ -1016,57 +1020,236 @@ class XMLParser:
         return [vehicle] if vehicle else []
     
     def _extract_vehicle_data(self, vehicle_elem: ET.Element) -> Optional[Dict[str, Any]]:
-        """Extract vehicle data from XML element"""
+        """Extract vehicle data from XML element and convert to NPC format"""
         try:
-            # Get the vehicle key for duplicate checking
-            vehicle_key = self._get_text(vehicle_elem, 'Key')
+            # Get basic info
+            key = self._get_text(vehicle_elem, 'Key')
+            name = self._get_text(vehicle_elem, 'Name')
+            description = self._get_text(vehicle_elem, 'Description', '')
+            source = self._get_text(vehicle_elem, 'Source', '')
             
-            # Extract raw data using OggDude field names
-            raw_data = {
-                'Name': self._get_text(vehicle_elem, 'Name'),
-                'Description': self._get_text(vehicle_elem, 'Description'),
-                'Type': self._get_text(vehicle_elem, 'Type'),
-                'Encumbrance': self._get_int(vehicle_elem, 'Encumbrance', 0),
-                'Price': self._get_text(vehicle_elem, 'Price', '0'),
-                'Rarity': self._get_int(vehicle_elem, 'Rarity', 0),
-                'Restricted': self._get_bool(vehicle_elem, 'Restricted', False),
-                'Silhouette': self._get_int(vehicle_elem, 'Silhouette', 0),
-                'Speed': self._get_int(vehicle_elem, 'Speed', 0),
-                'Handling': self._get_int(vehicle_elem, 'Handling', 0),
-                'Armor': self._get_int(vehicle_elem, 'Armor', 0),
-                'HullTrauma': self._get_int(vehicle_elem, 'HullTrauma', 0),
-                'SystemStrain': self._get_int(vehicle_elem, 'SystemStrain', 0),
-                'PassengerCapacity': self._get_int(vehicle_elem, 'PassengerCapacity', 0),
-                'EncumbranceCapacity': self._get_int(vehicle_elem, 'EncumbranceCapacity', 0),
-                'Consumables': self._get_text(vehicle_elem, 'Consumables'),
-                'Hyperdrive': self._get_text(vehicle_elem, 'Hyperdrive')
+            # Convert description to rich text
+            if description:
+                description = self._convert_oggdude_format_to_rich_text(description)
+            
+            # 1. Ignore Categories tag - not implemented
+            
+            # 2. Use Type as subtype
+            subtype = self._get_text(vehicle_elem, 'Type', '')
+            
+            # 3. Convert SensorRangeValue (remove 'sr' prefix)
+            sensor_range = self._get_text(vehicle_elem, 'SensorRangeValue', '')
+            if sensor_range.startswith('sr'):
+                sensor_range = sensor_range[2:]  # Remove 'sr' prefix
+            
+            # 4. Format hyperdrive from Primary/Backup values
+            hyperdrive_primary = self._get_text(vehicle_elem, 'HyperdrivePrimary', '')
+            hyperdrive_backup = self._get_text(vehicle_elem, 'HyperdriveBackup', '')
+            hyperdrive = ''
+            if hyperdrive_primary and hyperdrive_backup:
+                hyperdrive = f"Class {hyperdrive_primary} (backup Class {hyperdrive_backup})"
+            elif hyperdrive_primary:
+                hyperdrive = f"Class {hyperdrive_primary}"
+            
+            # 5. Convert NaviComputer to boolean
+            navicomputer_text = self._get_text(vehicle_elem, 'NaviComputer', 'false').lower()
+            navicomputer = navicomputer_text == 'true'
+            
+            # Parse restricted same as items - "Yes" or "No"
+            restricted_bool = self._get_text(vehicle_elem, 'Restricted', 'false').lower() == 'true'
+            restricted = "yes" if restricted_bool else "no"
+            
+            # 6. Handle numeric conversions
+            try:
+                passengers = int(self._get_text(vehicle_elem, 'Passengers', '0'))
+            except ValueError:
+                passengers = 0
+            
+            try:
+                encumbrance = int(self._get_text(vehicle_elem, 'EncumbranceCapacity', '0'))
+            except ValueError:
+                encumbrance = 0
+                
+            try:
+                hardpoints = int(self._get_text(vehicle_elem, 'HP', '0'))
+            except ValueError:
+                hardpoints = 0
+            
+            # 7. Parse Silhouette to "Silhouette X" format
+            silhouette_value = self._get_text(vehicle_elem, 'Silhouette', '0')
+            silhouette = f"Silhouette {silhouette_value}"
+            
+            # 8. Map defense zones
+            defense = {
+                'fore': int(self._get_text(vehicle_elem, 'DefFore', '0')),
+                'aft': int(self._get_text(vehicle_elem, 'DefAft', '0')),
+                'port': int(self._get_text(vehicle_elem, 'DefPort', '0')),
+                'starboard': int(self._get_text(vehicle_elem, 'DefStarboard', '0'))
             }
             
-            # Apply field mapping
-            mapped_data = self._apply_field_mapping('vehicles', raw_data)
+            # 9. Handle vehicle weapons as inventory items
+            inventory = []
+            vehicle_weapons = vehicle_elem.find('VehicleWeapons')
+            if vehicle_weapons is not None:
+                for weapon_element in vehicle_weapons.findall('VehicleWeapon'):
+                    weapon_item = self._parse_vehicle_weapon(weapon_element)
+                    if weapon_item:
+                        inventory.append(weapon_item)
             
-            # Get sources and convert to category
+            # 10. Add all vehicle actions to features array
+            features = []
+            for action_key, action_data in self._vehicle_actions.items():
+                features.append({
+                    'name': action_data['name'],
+                    'description': action_data['description']
+                })
+            
+            # Get sources and convert to category  
             sources = self._get_sources(vehicle_elem)
             category = self._get_category_from_sources(sources)
             
-            # Vehicles are npcs in Realm VTT with type = 'vehicle'
-            vehicle = {
+            # Build the vehicle data as NPC format
+            vehicle_data = {
                 'recordType': 'npcs',
-                'name': mapped_data.get('name', 'Unknown Vehicle'),
-                'description': mapped_data.get('description', ''),
+                'name': name,
+                'description': description,
+                'sources': sources,
                 'category': category,
                 'data': {
-                    'type': 'vehicle',
-                    **mapped_data
+                    'subtype': subtype,
+                    'sensorRange': sensor_range,
+                    'hyperdrive': hyperdrive,
+                    'navicomputer': navicomputer,
+                    'restricted': restricted,
+                    'crew': self._get_text(vehicle_elem, 'Crew', ''),
+                    'passengers': passengers,
+                    'encumbrance': encumbrance,
+                    'consumables': self._get_text(vehicle_elem, 'Consumables', ''),
+                    'silhouette': silhouette,
+                    'speed': int(self._get_text(vehicle_elem, 'Speed', '0')),
+                    'handling': int(self._get_text(vehicle_elem, 'Handling', '0')),
+                    'defense': defense,
+                    'armor': int(self._get_text(vehicle_elem, 'Armor', '0')),
+                    'hullTrauma': int(self._get_text(vehicle_elem, 'HullTrauma', '0')),
+                    'systemStrain': int(self._get_text(vehicle_elem, 'SystemStrain', '0')),
+                    'hardpoints': hardpoints,
+                    'price': int(self._get_text(vehicle_elem, 'Price', '0')),
+                    'rarity': int(self._get_text(vehicle_elem, 'Rarity', '0')),
+                    'starship': self._get_text(vehicle_elem, 'Starship', 'false').lower() == 'true',
+                    'inventory': inventory,
+                    'features': features
                 },
                 'unidentifiedName': 'Unknown Vehicle',
                 'locked': True,
-                'key': vehicle_key  # Store the key for duplicate checking
+                'key': key  # Store the key for duplicate checking
             }
-            return vehicle
+            
+            return vehicle_data
             
         except Exception as e:
             print(f"Error extracting vehicle data: {e}")
+            return None
+
+    def _parse_vehicle_weapon(self, weapon_element) -> Optional[Dict[str, Any]]:
+        """Parse a vehicle weapon as an inventory item by looking up from Items cache"""
+        try:
+            key = self._get_text(weapon_element, 'Key', '')
+            location = self._get_text(weapon_element, 'Location', '')
+            is_turret = self._get_text(weapon_element, 'Turret', 'false').lower() == 'true'
+            
+            # Parse firing arcs
+            firing_arcs = []
+            firing_arcs_element = weapon_element.find('FiringArcs')
+            if firing_arcs_element is not None:
+                for arc in ['Fore', 'Aft', 'Port', 'Starboard', 'Dorsal', 'Ventral']:
+                    if self._get_text(firing_arcs_element, arc, 'false').lower() == 'true':
+                        firing_arcs.append(arc.lower())
+            
+            # Look up the item from our items loader
+            base_item = self._items_loader.get_item_by_key(key)
+            if not base_item:
+                print(f"Warning: Vehicle weapon with key '{key}' not found in items cache")
+                return None
+            
+            # Make a deep copy of the item to avoid modifying the cached version
+            import copy
+            weapon_item = copy.deepcopy(base_item)
+            
+            # Add vehicle-specific information to the description (without firing arcs)
+            vehicle_info_parts = []
+            vehicle_info_parts.append(f"<strong>Location:</strong> {location}")
+            
+            if is_turret:
+                vehicle_info_parts.append(f"<strong>Turret:</strong> Yes")
+            else:
+                vehicle_info_parts.append(f"<strong>Turret:</strong> No")
+            
+            # Add vehicle info to the end of the description
+            if vehicle_info_parts:
+                vehicle_info = "<br><br>" + "<br>".join(vehicle_info_parts)
+                current_desc = weapon_item.get('description', '')
+                weapon_item['description'] = current_desc + vehicle_info
+            
+            # Add the proper fields structure from your example
+            weapon_item['fields'] = {
+                "accurate": {"hidden": True},
+                "blast": {"hidden": True},
+                "breach": {"hidden": True},
+                "burn": {"hidden": True},
+                "concussive": {"hidden": True},
+                "consumable": {"hidden": True},
+                "cumbersome": {"hidden": True},
+                "defensive": {"hidden": True},
+                "deflection": {"hidden": True},
+                "disorient": {"hidden": True},
+                "ensnare": {"hidden": True},
+                "guided": {"hidden": True},
+                "hasUseBtn": {"hidden": False},
+                "inaccurate": {"hidden": True},
+                "limitedAmmo": {"hidden": True},
+                "linked": {"hidden": True},
+                "pierce": {"hidden": True},
+                "prepare": {"hidden": True},
+                "slowFiring": {"hidden": True},
+                "stun": {"hidden": True},
+                "tractor": {"hidden": True},
+                "vicious": {"hidden": True},
+                "animationProps": {"hidden": False},
+                "armorAttachmentProperties": {"hidden": True},
+                "armorProperties": {"hidden": True},
+                "attackDividerBox": {"hidden": False},
+                "autoFireBtn": {"hidden": False},
+                "consumableProperties": {"hidden": True},
+                "generalWeaponProperties": {"hidden": False},
+                "hardpoints": {"hidden": False},
+                "itemQualities": {"hidden": False},
+                "packProperties": {"hidden": True},
+                "stunBtn": {"hidden": True},
+                "weaponAttached": {"hidden": True},
+                "weaponAttachedLabel": {"hidden": True},
+                "weaponAttachmentProperties": {"hidden": True},
+                "weaponProperties": {"hidden": False},
+                "weaponType": {"hidden": True},
+                "attachmentsProperties": {"hidden": True},
+                "useBtn": {"hidden": True},
+                "attachments": {"hidden": True}
+            }
+            
+            # Ensure proper structure for inventory items
+            if 'data' not in weapon_item:
+                weapon_item['data'] = {}
+            
+            # Set carried status for vehicle weapons
+            weapon_item['data']['carried'] = 'equipped'
+            weapon_item['data']['count'] = 1
+            
+            # Add firing arcs as proper field
+            weapon_item['data']['firingArc'] = firing_arcs
+            
+            return weapon_item
+            
+        except Exception as e:
+            print(f"Error parsing vehicle weapon: {e}")
             return None
     
     def _parse_armor(self, root: ET.Element) -> List[Dict[str, Any]]:
@@ -2817,6 +3000,71 @@ class XMLParser:
         except Exception as e:
             print(f"Error loading force abilities: {e}")
             self._force_abilities = {}
+    
+    def _load_vehicle_actions(self):
+        """Load vehicle actions into memory for adding to all vehicles"""
+        try:
+            vehicle_actions_file = os.path.join(self.data_dir, 'VehActions.xml')
+            if not os.path.exists(vehicle_actions_file):
+                print(f"Warning: VehActions.xml not found at {vehicle_actions_file}")
+                return
+                
+            tree = ET.parse(vehicle_actions_file)
+            root = tree.getroot()
+            
+            self._vehicle_actions = {}
+            
+            for action_elem in root.findall('.//VehAction'):
+                key = self._get_text(action_elem, 'Key')
+                if key:
+                    # Parse additional metadata for human-readable format
+                    action_type = self._get_text(action_elem, 'ActionTypeValue', '')
+                    pilot_only = self._get_text(action_elem, 'PilotOnly', 'false')
+                    requires_speed = self._get_text(action_elem, 'RequiresSpeed', 'false')
+                    
+                    # Build human-readable metadata
+                    metadata_parts = []
+                    if action_type:
+                        # Convert action type to readable format
+                        if action_type == 'vaManeuver':
+                            metadata_parts.append('Maneuver')
+                        elif action_type == 'vaAction':
+                            metadata_parts.append('Action')
+                        else:
+                            metadata_parts.append(action_type.replace('va', ''))
+                    
+                    if pilot_only.lower() == 'true':
+                        metadata_parts.append('Pilot Only')
+                    
+                    if requires_speed.lower() == 'true':
+                        metadata_parts.append('Requires Speed')
+                    
+                    # Get description and add metadata
+                    description = self._get_text(action_elem, 'Description', '')
+                    if metadata_parts:
+                        metadata_text = f"<br><strong>Requirements:</strong> {', '.join(metadata_parts)}"
+                        description += metadata_text
+                    
+                    action_data = {
+                        'name': self._get_text(action_elem, 'Name'),
+                        'description': description
+                    }
+                    self._vehicle_actions[key] = action_data
+            
+            print(f"Loading vehicle actions from 1 VehActions.xml file(s)")
+            print(f"  Loading from: {vehicle_actions_file}")
+            print(f"Loaded {len(self._vehicle_actions)} vehicle actions")
+            
+        except Exception as e:
+            print(f"Error loading vehicle actions: {e}")
+            self._vehicle_actions = {}
+    
+    def _init_items_loader(self):
+        """Initialize the shared items loader for vehicle weapon lookup"""
+        from items_loader import ItemsLoader
+        self._items_loader = ItemsLoader(self)  # Pass self as xml_parser_instance
+        # Pre-load items during initialization
+        self._items_loader.load_all_items()
     
     def _get_force_ability_description(self, key: str) -> Optional[str]:
         """Get force ability description from key"""

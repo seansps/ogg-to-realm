@@ -6,6 +6,7 @@ from pathlib import Path
 class JSONParser:
     def __init__(self):
         self.sources_config = self._load_sources_config()
+        self._items_loader = None  # Will be initialized when needed
     
     def _load_sources_config(self) -> Dict[str, Any]:
         """Load sources configuration"""
@@ -61,11 +62,12 @@ class JSONParser:
                         record = self._extract_npc_data(npc)
                         if record:
                             records.append(record)
-                elif 'adversaries' in data:
-                    for adversary in data['adversaries']:
-                        record = self._extract_npc_data(adversary)
-                        if record:
-                            records.append(record)
+                # TODO: Re-enable adversaries parsing later
+                # elif 'adversaries' in data:
+                #     for adversary in data['adversaries']:
+                #         record = self._extract_npc_data(adversary)
+                #         if record:
+                #             records.append(record)
                 else:
                     # Assume it's a single NPC record
                     record = self._extract_npc_data(data)
@@ -373,3 +375,26 @@ class JSONParser:
             all_records.extend(records)
         
         return all_records 
+    
+    def get_items_loader(self):
+        """Get or create ItemsLoader for looking up items from XML"""
+        if self._items_loader is None:
+            from xml_parser import XMLParser
+            from items_loader import ItemsLoader
+            xml_parser = XMLParser()
+            self._items_loader = ItemsLoader(xml_parser)
+            self._items_loader.load_all_items()
+        return self._items_loader
+    
+    def get_item_by_key(self, key: str) -> Optional[Dict[str, Any]]:
+        """
+        Get an item by key from XML files (for NPC weapon lookup)
+        
+        Args:
+            key: The item key to look up
+            
+        Returns:
+            Item data or None if not found
+        """
+        items_loader = self.get_items_loader()
+        return items_loader.get_item_by_key(key)

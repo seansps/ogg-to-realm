@@ -629,7 +629,7 @@ class DataMapper:
         
         realm_vehicle = {
             "name": vehicle.get('name', 'Unknown Vehicle'),
-            "recordType": "vehicles",
+            "recordType": "npcs",
             "campaignId": campaign_id,
             "category": category,
             "unidentifiedName": "Unknown Vehicle",
@@ -657,10 +657,10 @@ class DataMapper:
             "recordType": "npcs",
             "campaignId": campaign_id,
             "category": category,
-            "unidentifiedName": "Unknown NPC",
-            "identified": False,
+            "unidentifiedName": npc.get('unidentifiedName', 'Unknown NPC'),
+            "identified": npc.get('identified', False),
             "shared": False,
-            "locked": True,
+            "locked": npc.get('locked', True),
             "data": data
         }
         
