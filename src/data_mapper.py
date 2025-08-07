@@ -552,20 +552,26 @@ class DataMapper:
     
     def _convert_force_power(self, power: Dict[str, Any], campaign_id: str, category: str) -> Dict[str, Any]:
         """Convert force power to Realm VTT format"""
+        # Get the data and ensure it's a dict
         data = power.get('data', {})
+        if not isinstance(data, dict):
+            data = {}
+        
+        # Convert description and add to data - but preserve existing data
+        converted_data = data.copy()  # Start with all existing data
+        converted_data['name'] = power.get('name', 'Unknown Force Power')
+        if 'description' in power:
+            converted_data['description'] = self._convert_description(power['description'])
+        elif 'description' in data:
+            converted_data['description'] = self._convert_description(data['description'])
         
         realm_record = {
             'name': power.get('name', 'Unknown Force Power'),
-            'category': category or 'Force and Destiny Core Rulebook',
+            'category': category or 'Star Wars RPG',
             'campaignId': campaign_id,
             'recordType': 'force_powers',
-            'data': {
-                'name': power.get('name', 'Unknown Force Power'),
-                'description': self._convert_description(power.get('description', '')),
-                'activation': data.get('activation', ''),
-                'forcePowerType': data.get('forcePowerType', ''),
-                'upgrades': data.get('upgrades', [])
-            },
+            'data': converted_data,  # Use all the data including talents, connectors, cost, prereqs, etc.
+            'fields': power.get('fields', {}),  # Include fields for UI hiding
             'unidentifiedName': 'Unknown Force Power',
             'locked': True
         }

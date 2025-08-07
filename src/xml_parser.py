@@ -766,6 +766,10 @@ class XMLParser:
             # Apply field mapping
             mapped_data = self._apply_field_mapping('force_powers', raw_data)
             
+            # Convert description to rich text format
+            if 'description' in mapped_data and mapped_data['description']:
+                mapped_data['description'] = self._convert_oggdude_format_to_rich_text(mapped_data['description'])
+            
             # Get sources and convert to category
             sources = self._get_sources(power_elem)
             category = self._get_category_from_sources(sources)
@@ -786,11 +790,12 @@ class XMLParser:
                         base_ability_key = abilities[0]  # Get the first ability key
                         base_description = self._get_force_ability_description(base_ability_key)
                         if base_description:
-                            # Add the base description to the main description
+                            # Convert base description to rich text and add to main description
+                            rich_base_description = self._convert_oggdude_format_to_rich_text(base_description)
                             if mapped_data.get('description'):
-                                mapped_data['description'] += f"<br><br><strong>Base Ability:</strong> {base_description}"
+                                mapped_data['description'] += f"<br><br><strong>Base Ability:</strong> {rich_base_description}"
                             else:
-                                mapped_data['description'] = f"<strong>Base Ability:</strong> {base_description}"
+                                mapped_data['description'] = f"<strong>Base Ability:</strong> {rich_base_description}"
                         
                         # Calculate base cost as the highest cost in the first row
                         if costs:
@@ -2326,6 +2331,34 @@ class XMLParser:
         # Despair: [DE] and [DESPAIR]
         text = text.replace('[DE]', '<span class="despair" data-dice-type="despair" contenteditable="false" style="display: inline-block;"></span>')
         text = text.replace('[DESPAIR]', '<span class="despair" data-dice-type="despair" contenteditable="false" style="display: inline-block;"></span>')
+        
+        # Force Power tags
+        text = text.replace('[FP]', '<span class="oggdude-tag">[FP]</span>')
+        
+        # Text formatting tags
+        text = text.replace('[H4]', '<h4>')
+        text = text.replace('[h4]', '</h4>')
+        text = text.replace('[H3]', '<h3>')
+        text = text.replace('[h3]', '</h3>')
+        text = text.replace('[H2]', '<h2>')
+        text = text.replace('[h2]', '</h2>')
+        text = text.replace('[H1]', '<h1>')
+        text = text.replace('[h1]', '</h1>')
+        
+        # Bold tags
+        text = text.replace('[B]', '<strong>')
+        text = text.replace('[b]', '</strong>')
+        
+        # Italic tags
+        text = text.replace('[I]', '<em>')
+        text = text.replace('[i]', '</em>')
+        
+        # Paragraph tags
+        text = text.replace('[P]', '<p>')
+        text = text.replace('[p]', '</p>')
+        
+        # Line break
+        text = text.replace('[BR]', '<br>')
         
         return text.strip() 
 
