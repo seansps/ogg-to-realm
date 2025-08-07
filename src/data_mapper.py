@@ -1252,6 +1252,19 @@ class DataMapper:
         key = s.lower()
         # Fix common misspelling
         key = key.replace('plantary', 'planetary')
+        # Map Knowledge (X) -> X specific knowledge skill
+        knowledge_match = re.search(r'^knowledge\s*\(([^)]+)\)\s*$', key, flags=re.IGNORECASE)
+        if knowledge_match:
+            k = knowledge_match.group(1).strip().lower()
+            knowledge_map = {
+                'core worlds': 'Core Worlds',
+                'education': 'Education',
+                'lore': 'Lore',
+                'outer rim': 'Outer Rim',
+                'underworld': 'Underworld',
+                'xenology': 'Xenology',
+            }
+            return knowledge_map.get(k, knowledge_match.group(1).strip().title())
         if key in replacements:
             return replacements[key]
         # Title-case single words; keep parentheses if present
