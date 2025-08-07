@@ -83,7 +83,7 @@ def test_force_rating_and_abilities_parsing():
     assert enhance is not None
     edata = enhance['data']
     assert edata.get('isForcePower') is True
-    assert '<span class="light"' in edata.get('description', '')
+    assert '<span class="forcepoint"' in edata.get('description', '')
 
     # Piloting colon variant and misspelling handling in ability parsing
     tricky = next((f for f in features if f['name'] == 'Tricky Flight'), None)
