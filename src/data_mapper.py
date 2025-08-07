@@ -723,6 +723,34 @@ class DataMapper:
             
             realm_data['inventory'] = converted_inventory
         
+        # Process features to add proper structure
+        if 'features' in realm_data and isinstance(realm_data['features'], list):
+            converted_features = []
+            for feature in realm_data['features']:
+                if isinstance(feature, dict):
+                    # Parse skill and difficulty from description
+                    description = feature.get('description', '')
+                    skill, difficulty = self._parse_skill_and_difficulty(description)
+                    
+                    converted_feature = {
+                        "_id": str(uuid.uuid4()),
+                        "name": feature.get('name', 'Unknown Action'),
+                        "unidentifiedName": feature.get('name', 'Unknown Action'),
+                        "recordType": "records",
+                        "identified": True,
+                        "data": {
+                            "actionModifiersAccordion": None,
+                            "skill": skill,
+                            "difficulty": difficulty,
+                            "actionDetailsAccordion": None,
+                            "description": self._convert_description(description) if description else "",
+                            "descriptionAcc": None
+                        }
+                    }
+                    converted_features.append(converted_feature)
+            
+            realm_data['features'] = converted_features
+        
         realm_vehicle = {
             "name": vehicle.get('name', 'Unknown Vehicle'),
             "recordType": "npcs",
@@ -736,6 +764,112 @@ class DataMapper:
         }
         
         return realm_vehicle
+    
+    def _parse_skill_and_difficulty(self, description: str) -> tuple[str, str]:
+        """Parse skill check from description text
+        
+        Returns:
+            tuple: (skill, difficulty) - both as Realm VTT values or (None, None) if not found
+        """
+        if not description:
+            return (None, None)
+        
+        # First, clean BBCode and HTML tags from the description
+        clean_description = re.sub(r'<[^>]*>', '', description)
+        clean_description = re.sub(r'\[/?[BbIiUu]\]', '', clean_description)
+        clean_description = re.sub(r'\[DI\]', '', clean_description)
+        
+        # Pattern to match skill checks - more flexible approach
+        patterns = [
+            # Pattern 1: "makes a Hard (...) Streetwise check"
+            r'makes?\s+an?\s+(\w+)\s+\([^)]*\)\s+([^c]+?)\s+check',
+            # Pattern 2: "make a Hard (...) Knowledge (Education) check"  
+            r'makes?\s+an?\s+(\w+)\s+\([^)]*\)\s+(Knowledge\s*\([^)]+\))\s+check',
+            # Pattern 3: "make a Hard Knowledge (Education) check" (without difficulty parentheses)
+            r'makes?\s+an?\s+(\w+)\s+(Knowledge\s*\([^)]+\))\s+check',
+            # Pattern 4: "make a Hard Streetwise check" (simple format without difficulty parentheses)
+            r'makes?\s+an?\s+(\w+)\s+([A-Za-z]+)\s+check',
+            # Pattern 5: "Make an Easy (-) Perception check" (with difficulty parentheses)
+            r'makes?\s+an?\s+(\w+)\s+\([^)]*\)\s+([A-Za-z]+)\s+check',
+            # Pattern 6: "Requires an Average (--) Coordination check"
+            r'requires?\s+an?\s+(\w+)\s+\([^)]*\)\s+([A-Za-z]+)\s+check',
+            # Pattern 7: "Must make a Formidable (-----) Discipline check"
+            r'must\s+makes?\s+an?\s+(\w+)\s+\([^)]*\)\s+([A-Za-z]+)\s+check'
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, clean_description, re.IGNORECASE)
+            if match:
+                difficulty_text = match.group(1).strip()
+                skill_text = match.group(2).strip()
+                break
+        else:
+            return (None, None)
+        
+        # Map difficulty to Realm VTT format
+        difficulty_mapping = {
+            "easy": "Easy",
+            "average": "Average", 
+            "hard": "Hard",
+            "daunting": "Daunting",
+            "formidable": "Formidable"
+        }
+        difficulty = difficulty_mapping.get(difficulty_text.lower(), None)
+        
+        # Map skill to Realm VTT format
+        # Handle skills like "Knowledge (Education)" -> "Education"
+        knowledge_match = re.search(r'Knowledge\s*\(([^)]+)\)', skill_text, re.IGNORECASE)
+        if knowledge_match:
+            knowledge_type = knowledge_match.group(1).strip()
+            # Map knowledge types to Realm skills
+            knowledge_mapping = {
+                "core worlds": "Core Worlds",
+                "education": "Education", 
+                "lore": "Lore",
+                "outer rim": "Outer Rim",
+                "underworld": "Underworld",
+                "xenology": "Xenology"
+            }
+            skill = knowledge_mapping.get(knowledge_type.lower(), None)
+        else:
+            # Handle regular skills
+            skill_mapping = {
+                "astrogation": "Astrogation",
+                "athletics": "Athletics", 
+                "brawl": "Brawl",
+                "charm": "Charm",
+                "coercion": "Coercion",
+                "computers": "Computers",
+                "cool": "Cool",
+                "coordination": "Coordination",
+                "deception": "Deception",
+                "discipline": "Discipline",
+                "gunnery": "Gunnery",
+                "leadership": "Leadership",
+                "lightsaber": "Lightsaber",
+                "mechanics": "Mechanics",
+                "medicine": "Medicine",
+                "melee": "Melee",
+                "negotiation": "Negotiation",
+                "perception": "Perception",
+                 "piloting - planetary": "Piloting (Planetary)",
+                "piloting - space": "Piloting (Space)",
+                "ranged - heavy": "Ranged (Heavy)",
+                "ranged - light": "Ranged (Light)",
+                "piloting (planetary)": "Piloting (Planetary)",
+                "piloting (space)": "Piloting (Space)",
+                "ranged (heavy)": "Ranged (Heavy)",
+                "ranged (light)": "Ranged (Light)",
+                "resilience": "Resilience",
+                "skulduggery": "Skulduggery",
+                "stealth": "Stealth",
+                "streetwise": "Streetwise",
+                "survival": "Survival",
+                "vigilance": "Vigilance"
+            }
+            skill = skill_mapping.get(skill_text.lower(), None)
+        
+        return (skill, difficulty)
     
     def _convert_npc(self, npc: Dict[str, Any], campaign_id: str, category: str) -> Dict[str, Any]:
         """Convert NPC to Realm VTT format"""

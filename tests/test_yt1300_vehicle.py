@@ -147,12 +147,22 @@ def test_yt1300_vehicle_parsing():
         assert isinstance(features, list), "Features should be a list"
         assert len(features) > 0, "Should have some features"
         
-        # Each feature should have name and description
+        # Check first feature has proper structure
+        first_feature = features[0]
+        assert '_id' in first_feature, "Feature should have UUID _id field"
+        assert len(first_feature['_id']) == 36, f"Expected UUID format, got {first_feature['_id']}"
+        assert first_feature['recordType'] == 'records', f"Expected recordType 'records', got {first_feature.get('recordType')}"
+        assert first_feature['identified'] == True, "Expected feature to be identified"
+        assert 'unidentifiedName' in first_feature, "Expected unidentifiedName field"
+        assert 'data' in first_feature, "Expected data field"
+        assert 'description' in first_feature['data'], "Expected description in feature data"
+        
+        # Each feature should have name and description in data
         for feature in features:
             assert 'name' in feature, "Feature should have name"
-            assert 'description' in feature, "Feature should have description"
+            assert 'data' in feature and 'description' in feature['data'], "Feature should have description in data"
             assert isinstance(feature['name'], str), "Feature name should be string"
-            assert isinstance(feature['description'], str), "Feature description should be string"
+            assert isinstance(feature['data']['description'], str), "Feature description should be string"
         
         print("✓ YT-1300 Light Freighter vehicle parsing test passed")
         return True
