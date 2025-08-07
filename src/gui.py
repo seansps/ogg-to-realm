@@ -431,17 +431,8 @@ class OggDudeImporterGUI:
             var = tk.BooleanVar(value=True)  # Default to checked
             self.record_type_vars[record_type] = var
             
-            checkbox = ttk.Checkbutton(selection_frame, text=display_name, variable=var, 
-                                      command=self.update_warnings)
+            checkbox = ttk.Checkbutton(selection_frame, text=display_name, variable=var)
             checkbox.grid(row=i//2, column=i%2, sticky=tk.W, padx=10, pady=5)
-        
-        # Warning messages frame
-        self.warnings_frame = ttk.LabelFrame(scrollable_frame, text="Import Warnings", padding=10)
-        self.warnings_frame.pack(fill=tk.X, padx=20, pady=5)
-        
-        # Warning labels (initially hidden)
-        self.npc_warning_label = ttk.Label(self.warnings_frame, text="⚠️ Vehicles and NPCs will be missing equipment unless Items are also parsed.", foreground="orange")
-        self.spec_warning_label = ttk.Label(self.warnings_frame, text="⚠️ Specializations without Talents also parsed will be missing the Talent records.", foreground="orange")
         
         # Max import frame
         max_import_frame = ttk.LabelFrame(scrollable_frame, text="Testing Options", padding=10)
@@ -768,8 +759,6 @@ class OggDudeImporterGUI:
                 else:
                     print(f"DEBUG: Record type '{record_type}' not found in count_labels: {list(self.count_labels.keys())}")
             
-            # Update warnings
-            self.update_warnings()
             
             # Enable import button if we have records in selected types
             total_records = sum(filtered_counts.values())
@@ -788,19 +777,6 @@ class OggDudeImporterGUI:
             self.update_status(f"Parse error: {e}")
             return False
     
-    def update_warnings(self):
-        """Update warning messages based on selected record types"""
-        # Hide all warnings initially
-        self.npc_warning_label.pack_forget()
-        self.spec_warning_label.pack_forget()
-        
-        # Check if NPCs are selected but Items are not
-        if self.record_type_vars['npcs'].get() and not self.record_type_vars['items'].get():
-            self.npc_warning_label.pack(fill=tk.X, padx=5, pady=2)
-        
-        # Check if Specializations are selected but Talents are not
-        if self.record_type_vars['specializations'].get() and not self.record_type_vars['talents'].get():
-            self.spec_warning_label.pack(fill=tk.X, padx=5, pady=2)
     
     def get_selected_record_types(self) -> List[str]:
         """Get list of selected record types"""

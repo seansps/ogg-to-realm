@@ -268,6 +268,7 @@ class ImportManager:
                     if not self.is_importing:
                         break
                     
+                    realm_record = None
                     try:
                         # Convert record to Realm VTT format
                         realm_record = self.data_mapper.convert_oggdude_to_realm_vtt(
