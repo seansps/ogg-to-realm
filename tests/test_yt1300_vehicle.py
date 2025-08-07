@@ -113,6 +113,13 @@ def test_yt1300_vehicle_parsing():
         assert 'dorsal' in firing_arc, "Expected dorsal in firing arcs"
         assert 'ventral' not in firing_arc, "Did not expect ventral in dorsal weapon firing arcs"
         
+        # Check animation for laser weapons (YT-1300 is not TIE, so should have hue 360)
+        assert 'animation' in dorsal_weapon['data'], "Expected animation field for laser weapon"
+        animation = dorsal_weapon['data']['animation']
+        assert animation['animationName'] == 'bolt_3', f"Expected animationName 'bolt_3', got {animation.get('animationName')}"
+        assert animation['hue'] == 360, f"Expected hue 360 for non-TIE vehicle, got {animation.get('hue')}"
+        assert animation['sound'] == 'laser_2', f"Expected sound 'laser_2', got {animation.get('sound')}"
+        
         # Check second weapon (ventral) - now as inventory item
         ventral_weapon = inventory[1]
         assert ventral_weapon['recordType'] == 'items', "Expected weapon to be an item record"
@@ -129,6 +136,11 @@ def test_yt1300_vehicle_parsing():
         assert 'starboard' in firing_arc, "Expected starboard in firing arcs"
         assert 'dorsal' not in firing_arc, "Did not expect dorsal in ventral weapon firing arcs"
         assert 'ventral' in firing_arc, "Expected ventral in firing arcs"
+        
+        # Check animation for laser weapons (same as dorsal)
+        assert 'animation' in ventral_weapon['data'], "Expected animation field for laser weapon"
+        animation = ventral_weapon['data']['animation']
+        assert animation['hue'] == 360, f"Expected hue 360 for non-TIE vehicle, got {animation.get('hue')}"
         
         # Check features (should include all vehicle actions)
         features = data['features']

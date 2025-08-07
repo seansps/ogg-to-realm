@@ -683,7 +683,41 @@ class DataMapper:
                 # Add UUID and ensure firing arc is preserved
                 converted_item['_id'] = str(uuid.uuid4())
                 if firing_arc and 'data' in converted_item:
-                    converted_item['data']['firingArc'] = firing_arc
+                    # Check if firing arc contains all directions
+                    all_directions = {'fore', 'aft', 'port', 'starboard', 'dorsal', 'ventral'}
+                    firing_arc_set = set(firing_arc) if isinstance(firing_arc, list) else set()
+                    
+                    if firing_arc_set == all_directions:
+                        # Replace with ["all"] if all directions are present
+                        converted_item['data']['firingArc'] = ['all']
+                    else:
+                        # Keep the original firing arc
+                        converted_item['data']['firingArc'] = firing_arc
+                
+                # Add animation for vehicle weapons with "Blaster" or "Laser" in the name
+                item_name = converted_item.get('name', '')
+                if ('Blaster' in item_name or 'Laser' in item_name) and 'data' in converted_item:
+                    # Check if vehicle name contains "TIE" to determine hue color
+                    vehicle_name = vehicle.get('name', '')
+                    hue = 129 if 'TIE' in vehicle_name else 360
+                    
+                    converted_item['data']['animation'] = {
+                        "animationName": "bolt_3",
+                        "moveToDestination": True,
+                        "stretchToDestination": False,
+                        "destinationOnly": False,
+                        "startAtCenter": False,
+                        "scale": 0.75,
+                        "opacity": 1,
+                        "animationSpeed": 12,
+                        "rotation": -90,
+                        "hue": hue,
+                        "contrast": None,
+                        "brightness": None,
+                        "moveSpeed": 2,
+                        "sound": "laser_2",
+                        "count": 1
+                    }
                 
                 converted_inventory.append(converted_item)
             
