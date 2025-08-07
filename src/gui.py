@@ -395,8 +395,8 @@ class OggDudeImporterGUI:
         check_setup_button.pack(side=tk.LEFT, padx=5)
         
         # Parse button
-        parse_button = ttk.Button(buttons_frame, text="Parse Files", command=self.parse_files)
-        parse_button.pack(side=tk.LEFT, padx=5)
+        self.parse_button = ttk.Button(buttons_frame, text="Parse Files", command=self.parse_files)
+        self.parse_button.pack(side=tk.LEFT, padx=5)
         
         # Import button
         self.import_button = ttk.Button(buttons_frame, text="Start Import", command=self.start_import, state=tk.DISABLED)
@@ -433,6 +433,20 @@ class OggDudeImporterGUI:
             
             checkbox = ttk.Checkbutton(selection_frame, text=display_name, variable=var)
             checkbox.grid(row=i//2, column=i%2, sticky=tk.W, padx=10, pady=5)
+        
+        # Progress frame
+        self.progress_frame = ttk.LabelFrame(scrollable_frame, text="Import Progress", padding=10)
+        self.progress_frame.pack(fill=tk.X, padx=20, pady=5)
+        
+        self.progress_var = tk.DoubleVar()
+        self.progress_bar = ttk.Progressbar(self.progress_frame, variable=self.progress_var, maximum=100)
+        self.progress_bar.pack(fill=tk.X, padx=10, pady=5)
+        
+        self.progress_label = ttk.Label(self.progress_frame, text="Progress: 0/0 (0.0%)")
+        self.progress_label.pack(pady=5)
+        
+        self.operation_label = ttk.Label(self.progress_frame, text="Current: None")
+        self.operation_label.pack(pady=5)
         
         # Max import frame
         max_import_frame = ttk.LabelFrame(scrollable_frame, text="Testing Options", padding=10)
@@ -481,20 +495,6 @@ class OggDudeImporterGUI:
             label = ttk.Label(counts_frame, text=f"{display_name}: 0")
             label.grid(row=i//2, column=i%2, sticky=tk.W, padx=10, pady=5)
             self.count_labels[record_type] = label
-        
-        # Progress frame
-        self.progress_frame = ttk.LabelFrame(scrollable_frame, text="Import Progress", padding=10)
-        self.progress_frame.pack(fill=tk.X, padx=20, pady=5)
-        
-        self.progress_var = tk.DoubleVar()
-        self.progress_bar = ttk.Progressbar(self.progress_frame, variable=self.progress_var, maximum=100)
-        self.progress_bar.pack(fill=tk.X, padx=10, pady=5)
-        
-        self.progress_label = ttk.Label(self.progress_frame, text="Progress: 0/0 (0.0%)")
-        self.progress_label.pack(pady=5)
-        
-        self.operation_label = ttk.Label(self.progress_frame, text="Current: None")
-        self.operation_label.pack(pady=5)
         
         # Pack the canvas and scrollbar
         self.import_canvas.pack(side="left", fill="both", expand=True)
@@ -708,74 +708,120 @@ class OggDudeImporterGUI:
                                "Check the record types you want to import above.")
             return False
         
-        # Set selected sources in import manager
-        self.import_manager.set_selected_sources(selected_sources)
+        # Disable parse button and show progress
+        self.parse_button.config(state=tk.DISABLED, text="Parsing...")
+        self.progress_var.set(0)
+        self.progress_label.config(text="Parsing files...")
+        self.operation_label.config(text="Current: Scanning directories and loading files")
+        self.root.update_idletasks()
         
-        # Set selected record types in import manager
-        self.import_manager.set_selected_record_types(selected_record_types)
-        
-        # Set max import limit in import manager
-        max_import_limit = self.get_max_import_limit()
-        self.import_manager.set_max_import_limit(max_import_limit)
-        
-        # Set directory paths in import manager
-        self.import_manager.set_oggdude_directory(self.oggdude_path_var.get())
-        self.import_manager.set_adversaries_directory(self.adversaries_path_var.get())
-        
-        # Update category from selected sources
-        self.update_category_from_sources()
-        
+        # Start parsing in background thread
+        parse_thread = threading.Thread(
+            target=self._parse_files_background,
+            args=(selected_sources, selected_record_types),
+            daemon=True
+        )
+        parse_thread.start()
+        return True  # Return True immediately since we're parsing asynchronously
+    
+    def _parse_files_background(self, selected_sources, selected_record_types):
+        """Parse files in background thread"""
         try:
+            # Set selected sources in import manager
+            self.import_manager.set_selected_sources(selected_sources)
+            
+            # Set selected record types in import manager
+            self.import_manager.set_selected_record_types(selected_record_types)
+            
+            # Set max import limit in import manager
+            max_import_limit = self.get_max_import_limit()
+            self.import_manager.set_max_import_limit(max_import_limit)
+            
+            # Set directory paths in import manager
+            self.import_manager.set_oggdude_directory(self.oggdude_path_var.get())
+            self.import_manager.set_adversaries_directory(self.adversaries_path_var.get())
+            
+            # Update category from selected sources
+            self.root.after(0, self.update_category_from_sources)
+            
             # Parse files
             counts = self.import_manager.parse_files()
             
-            # Debug: Print the counts we received
-            print(f"DEBUG: Received counts from import manager: {counts}")
+            # Update GUI from main thread
+            self.root.after(0, self._parse_files_complete, counts, selected_record_types)
             
-            # Filter counts based on selected record types
-            filtered_counts = {record_type: count for record_type, count in counts.items() 
-                             if record_type in selected_record_types}
-            
-            # Update count labels
-            for record_type, count in counts.items():
-                if record_type in self.count_labels:
-                    # Use the same display name logic as when creating labels
-                    if record_type == 'npcs':
-                        display_name = 'NPCs / Vehicles'
-                    elif record_type == 'force_powers':
-                        display_name = 'Force Powers'
-                    elif record_type == 'signature_abilities':
-                        display_name = 'Signature Abilities'
-                    else:
-                        display_name = record_type.title()
-                    
-                    # Show count in parentheses if not selected
-                    if record_type in selected_record_types:
-                        self.count_labels[record_type].config(text=f"{display_name}: {count}")
-                    else:
-                        self.count_labels[record_type].config(text=f"{display_name}: {count} (not selected)")
-                    
-                    print(f"DEBUG: Updated {record_type} label to {count}")
-                else:
-                    print(f"DEBUG: Record type '{record_type}' not found in count_labels: {list(self.count_labels.keys())}")
-            
-            
-            # Enable import button if we have records in selected types
-            total_records = sum(filtered_counts.values())
-            if total_records > 0:
-                self.import_button.config(state=tk.NORMAL)
-                messagebox.showinfo("Success", f"Found {total_records} records to import from selected types")
-                return True
-            else:
-                self.import_button.config(state=tk.DISABLED)
-                messagebox.showwarning("Warning", "No records found in selected record types")
-                return False
-                
         except Exception as e:
+            # Handle error from main thread
+            self.root.after(0, self._parse_files_error, str(e))
+    
+    def _parse_files_complete(self, counts, selected_record_types):
+        """Handle parsing completion in main thread"""
+        # Update progress to show parsing is complete
+        self.progress_var.set(100)
+        self.progress_label.config(text="Parsing complete")
+        self.operation_label.config(text="Current: Files parsed successfully")
+        self.root.update_idletasks()
+        
+        # Debug: Print the counts we received
+        print(f"DEBUG: Received counts from import manager: {counts}")
+        
+        # Filter counts based on selected record types
+        filtered_counts = {record_type: count for record_type, count in counts.items() 
+                         if record_type in selected_record_types}
+        
+        # Update count labels
+        for record_type, count in counts.items():
+            if record_type in self.count_labels:
+                # Use the same display name logic as when creating labels
+                if record_type == 'npcs':
+                    display_name = 'NPCs / Vehicles'
+                elif record_type == 'force_powers':
+                    display_name = 'Force Powers'
+                elif record_type == 'signature_abilities':
+                    display_name = 'Signature Abilities'
+                else:
+                    display_name = record_type.title()
+                
+                # Show count in parentheses if not selected
+                if record_type in selected_record_types:
+                    self.count_labels[record_type].config(text=f"{display_name}: {count}")
+                else:
+                    self.count_labels[record_type].config(text=f"{display_name}: {count} (not selected)")
+                
+                print(f"DEBUG: Updated {record_type} label to {count}")
+            else:
+                print(f"DEBUG: Record type '{record_type}' not found in count_labels: {list(self.count_labels.keys())}")
+        
+        # Reset progress display after parsing
+        self.progress_var.set(0)
+        self.progress_label.config(text="Ready to import")
+        self.operation_label.config(text="Current: None")
+        
+        # Re-enable parse button
+        self.parse_button.config(state=tk.NORMAL, text="Parse Files")
+        
+        # Enable import button if we have records in selected types
+        total_records = sum(filtered_counts.values())
+        if total_records > 0:
+            self.import_button.config(state=tk.NORMAL)
+            messagebox.showinfo("Success", f"Found {total_records} records to import from selected types")
+        else:
             self.import_button.config(state=tk.DISABLED)
-            messagebox.showerror("Error", f"Failed to parse files: {e}")
-            self.update_status(f"Parse error: {e}")
-            return False
+            messagebox.showwarning("Warning", "No records found in selected record types")
+    
+    def _parse_files_error(self, error_message):
+        """Handle parsing error in main thread"""
+        # Reset progress on error
+        self.progress_var.set(0)
+        self.progress_label.config(text="Parse failed")
+        self.operation_label.config(text="Current: None")
+        
+        # Re-enable parse button
+        self.parse_button.config(state=tk.NORMAL, text="Parse Files")
+        
+        self.import_button.config(state=tk.DISABLED)
+        messagebox.showerror("Error", f"Failed to parse files: {error_message}")
+        self.update_status(f"Parse error: {error_message}")
     
     
     def get_selected_record_types(self) -> List[str]:
