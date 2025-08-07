@@ -56,7 +56,7 @@ def test_adversary_inventory_parsing():
         # Check inventory
         inventory = converted['data']['inventory']
         assert isinstance(inventory, list), "Inventory should be a list"
-        assert len(inventory) == 8, f"Expected 8 inventory items, got {len(inventory)}"
+        assert len(inventory) == 9, f"Expected 9 inventory items, got {len(inventory)}"
         
         print(f"✓ Converted to Realm VTT with {len(inventory)} inventory items")
         
@@ -73,7 +73,8 @@ def test_adversary_inventory_parsing():
             'Utility Belt',
             'Extra Reload',  # Should be singularized and found in OGG
             'Stormtrooper Armor',  # Ad-hoc armor item (armour → Armor conversion)
-            'Frag Grenade'  # From "2 Frag grenades" with count=2
+            'Frag Grenade',  # From "2 Frag grenades" with count=2
+            'Unarmed Combat'
         ]
         
         for expected_item in expected_items:

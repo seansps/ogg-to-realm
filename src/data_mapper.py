@@ -964,7 +964,6 @@ class DataMapper:
         
         realm_data = {
             "skills": skills,
-            "unarmedAttack": [self._create_unarmed_attack()],
             "type": npc_type,
             "brawn": brawn,
             "agility": agility,
@@ -1062,6 +1061,15 @@ class DataMapper:
             existing_features = realm_data.get('features', [])
             realm_data['features'] = existing_features + features_from_abilities
         
+        # Ensure unarmed attack is included as equipped inventory item
+        unarmed_item = self._create_unarmed_attack()
+        if isinstance(unarmed_item, dict):
+            unarmed_item['_id'] = str(uuid.uuid4())
+            # enforce equipped
+            if 'data' in unarmed_item:
+                unarmed_item['data']['carried'] = 'equipped'
+            inventory.insert(0, unarmed_item)
+
         realm_npc = {
             "name": name,
             "recordType": "npcs",
