@@ -904,6 +904,9 @@ class XMLParser:
             talent_name = ability_data.get('name', 'Unknown Upgrade')
             talent_description = ability_data.get('description', '')
             
+            # Convert description to rich text format
+            rich_description = self._convert_oggdude_format_to_rich_text(talent_description)
+            
             # Create the talent data structure
             talent_data = {
                 "_id": self._generate_uuid(),
@@ -914,7 +917,7 @@ class XMLParser:
                 "icon": "IconStar",
                 "data": {
                     "talentAccordion": None,
-                    "description": f"<p>{talent_description}</p>",
+                    "description": rich_description,
                     "ranked": "yes",
                     "cost": cost,
                     "forceTalent": "yes",
@@ -2345,11 +2348,18 @@ class XMLParser:
         text = text.replace('[H1]', '<h1>')
         text = text.replace('[h1]', '</h1>')
         
-        # Bold tags
+        # Bold tags - handle case-insensitive matching for OggDude inconsistencies
+        # Match [B] or [b] followed by content followed by [B] or [b] (any case combination)
+        text = re.sub(r'\[B\](.*?)\[b\]', r'<strong>\1</strong>', text, flags=re.IGNORECASE)
+        text = re.sub(r'\[b\](.*?)\[B\]', r'<strong>\1</strong>', text, flags=re.IGNORECASE)
+        # Handle remaining simple cases
         text = text.replace('[B]', '<strong>')
         text = text.replace('[b]', '</strong>')
         
-        # Italic tags
+        # Italic tags - handle case-insensitive matching for OggDude inconsistencies  
+        text = re.sub(r'\[I\](.*?)\[i\]', r'<em>\1</em>', text, flags=re.IGNORECASE)
+        text = re.sub(r'\[i\](.*?)\[I\]', r'<em>\1</em>', text, flags=re.IGNORECASE)
+        # Handle remaining simple cases
         text = text.replace('[I]', '<em>')
         text = text.replace('[i]', '</em>')
         
