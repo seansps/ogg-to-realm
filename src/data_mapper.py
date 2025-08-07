@@ -1004,6 +1004,11 @@ class DataMapper:
             talents_list: List[Dict[str, Any]] = []
             # Track force rating if provided via talent string
             found_force_rating: Optional[int] = None
+            # Optional definition maps provided by JSON parser
+            definition_maps = data.get('definitions') if isinstance(data, dict) else None
+            talents_defs = None
+            if isinstance(definition_maps, dict):
+                talents_defs = definition_maps.get('talents')
             for raw_talent in adversary_talents:
                 if not isinstance(raw_talent, str):
                     continue
@@ -1031,22 +1036,46 @@ class DataMapper:
                                         mod_data['value'] = str(talent_rank)
                     talents_list.append(talent_copy)
                 else:
-                    # Fallback minimal talent structure
-                    talents_list.append({
-                        '_id': str(uuid.uuid4()),
-                        'name': talent_name,
-                        'recordType': 'talents',
-                        'identified': True,
-                        'unidentifiedName': 'Unknown Talent',
-                        'icon': 'IconStar',
-                        'data': {
+                    # Try JSON-defined talents as fallback
+                    if isinstance(talents_defs, dict):
+                        tdef = talents_defs.get(talent_name.strip().lower())
+                    else:
+                        tdef = None
+                    if isinstance(tdef, dict):
+                        description_html = self._convert_description(tdef.get('description', '') or '')
+                        talents_list.append({
+                            '_id': str(uuid.uuid4()),
+                            'name': tdef.get('name', talent_name),
+                            'recordType': 'talents',
+                            'identified': True,
+                            'unidentifiedName': 'Unknown Talent',
+                            'icon': 'IconStar',
+                            'data': {
+                                'name': tdef.get('name', talent_name),
+                                'description': description_html,
+                                'activation': 'Passive',
+                                'ranked': 'no',
+                                'forceTalent': 'no',
+                                'rank': talent_rank
+                            }
+                        })
+                    else:
+                        # Fallback minimal talent structure
+                        talents_list.append({
+                            '_id': str(uuid.uuid4()),
                             'name': talent_name,
-                            'description': f'Talent {talent_name}',
-                            'activation': 'Passive',
-                            'ranked': 'no',
-                            'rank': talent_rank
-                        }
-                    })
+                            'recordType': 'talents',
+                            'identified': True,
+                            'unidentifiedName': 'Unknown Talent',
+                            'icon': 'IconStar',
+                            'data': {
+                                'name': talent_name,
+                                'description': f'Talent {talent_name}',
+                                'activation': 'Passive',
+                                'ranked': 'no',
+                                'rank': talent_rank
+                            }
+                        })
             if talents_list:
                 realm_data['talents'] = talents_list
             # Apply force rating if found
@@ -1057,7 +1086,8 @@ class DataMapper:
 
         # Convert abilities to features list with skill/difficulty parsing
         adversary_abilities = data.get('abilities', [])
-        features_from_abilities = self._convert_adversary_abilities(adversary_abilities)
+        definition_maps = data.get('definitions') if isinstance(data, dict) else None
+        features_from_abilities = self._convert_adversary_abilities(adversary_abilities, definition_maps)
         if features_from_abilities:
             # Merge with any existing features
             existing_features = realm_data.get('features', [])
@@ -1101,7 +1131,7 @@ class DataMapper:
             return (name, rank if rank > 0 else 1)
         return (str(text).strip(), 1)
 
-    def _convert_adversary_abilities(self, abilities: Any) -> List[Dict[str, Any]]:
+    def _convert_adversary_abilities(self, abilities: Any, definition_maps: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """Convert adversary abilities into Realm VTT features with dice and skill/difficulty parsing."""
         features: List[Dict[str, Any]] = []
         if not isinstance(abilities, list):
@@ -1110,6 +1140,18 @@ class DataMapper:
             if isinstance(ability, str):
                 name = ability.strip()
                 description = ''
+                # If definitions provided, enrich description
+                if isinstance(definition_maps, dict):
+                    abilities_defs = definition_maps.get('abilities', {}) or {}
+                    force_defs = definition_maps.get('force_powers', {}) or {}
+                    # Derive lookup key: for names like "Force Power: Enhance", also try stripped token
+                    key = name.lower()
+                    lookup = abilities_defs.get(key) or force_defs.get(key)
+                    if not lookup and key.startswith('force power:'):
+                        short = key.split(':', 1)[1].strip()
+                        lookup = force_defs.get(short)
+                    if isinstance(lookup, dict):
+                        description = lookup.get('description', '') or ''
             elif isinstance(ability, dict):
                 name = str(ability.get('name', 'Ability')).strip()
                 description = str(ability.get('description', '') or '')

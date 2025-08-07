@@ -7,6 +7,8 @@ class JSONParser:
     def __init__(self):
         self.sources_config = self._load_sources_config()
         self._items_loader = None  # Will be initialized when needed
+        # Cache of adversary definition files per base directory
+        self._defs_cache = {}
     
     def _load_sources_config(self) -> Dict[str, Any]:
         """Load sources configuration"""
@@ -47,6 +49,8 @@ class JSONParser:
                 return []
             
             records = []
+            base_dir = Path(file_path).parent
+            adversary_defs = self._load_adversary_definitions(base_dir)
             
             # Handle different JSON structures
             if isinstance(data, list):
@@ -55,6 +59,8 @@ class JSONParser:
                 for item in data:
                     # Add filename as subtype info
                     item['_filename'] = filename
+                    # Attach adversary definitions so downstream can use them
+                    item['definitions'] = adversary_defs
                     record = self._extract_npc_data(item)
                     if record:
                         records.append(record)
@@ -62,11 +68,15 @@ class JSONParser:
                 # If the file contains a single record or structured data
                 if 'npcs' in data:
                     for npc in data['npcs']:
+                        if isinstance(npc, dict):
+                            npc['definitions'] = adversary_defs
                         record = self._extract_npc_data(npc)
                         if record:
                             records.append(record)
                 else:
                     # Assume it's a single NPC record
+                    if isinstance(data, dict):
+                        data['definitions'] = adversary_defs
                     record = self._extract_npc_data(data)
                     if record:
                         records.append(record)
@@ -131,6 +141,9 @@ class JSONParser:
             # Extract derived stats for adversaries format
             derived = npc_data.get('derived', {})
             
+            # Pull through attached definition maps if present
+            definitions = npc_data.get('definitions') if isinstance(npc_data, dict) else None
+
             npc = {
                 'recordType': 'npcs',
                 'name': name,
@@ -150,6 +163,7 @@ class JSONParser:
                     'armor': armor,
                     'gear': npc_data.get('gear', []),
                     'tags': tags,
+                    'definitions': definitions,
                     'woundThreshold': npc_data.get('woundThreshold', npc_data.get('WoundThreshold', derived.get('wounds', 10))),
                     'strainThreshold': npc_data.get('strainThreshold', npc_data.get('StrainThreshold', derived.get('strain', 10))),
                     'soak': npc_data.get('soak', npc_data.get('Soak', derived.get('soak', 0))),
@@ -405,8 +419,10 @@ class JSONParser:
             print(f"Directory {directory_path} does not exist")
             return all_records
         
-        # Scan for JSON files recursively
-        json_files = list(directory.rglob('*.json'))
+        # Scan for JSON files recursively (exclude definition files)
+        json_files_all = list(directory.rglob('*.json'))
+        def_names = {'talents.json', 'abilities.json', 'force-powers.json'}
+        json_files = [p for p in json_files_all if p.name.lower() not in def_names]
         print(f"Found {len(json_files)} JSON files in {directory_path}")
         
         for json_file in json_files:
@@ -443,3 +459,64 @@ class JSONParser:
         """
         items_loader = self.get_items_loader()
         return items_loader.get_item_by_key(key)
+
+    def _load_adversary_definitions(self, base_dir: Path) -> Dict[str, Dict[str, Any]]:
+        """Load talents.json, abilities.json, force-powers.json under base_dir (recursively) and index by name."""
+        try:
+            base_key = str(base_dir.resolve())
+        except Exception:
+            base_key = str(base_dir)
+        if base_key in self._defs_cache:
+            return self._defs_cache[base_key]
+
+        talents_map: Dict[str, Dict[str, Any]] = {}
+        abilities_map: Dict[str, Dict[str, Any]] = {}
+        force_powers_map: Dict[str, Dict[str, Any]] = {}
+
+        def index_list(obj, target_map):
+            try:
+                if isinstance(obj, list):
+                    for entry in obj:
+                        if isinstance(entry, dict):
+                            name = entry.get('name') or entry.get('Name')
+                            desc = entry.get('description') or entry.get('Description') or ''
+                            if isinstance(name, str):
+                                target_map[name.strip().lower()] = {'name': name.strip(), 'description': desc}
+                elif isinstance(obj, dict):
+                    for k, v in obj.items():
+                        if not isinstance(k, str):
+                            continue
+                        key = k.strip().lower()
+                        if isinstance(v, str):
+                            target_map[key] = {'name': k.strip(), 'description': v}
+                        elif isinstance(v, dict):
+                            name = (v.get('name') or k).strip()
+                            desc = v.get('description') or ''
+                            target_map[key] = {'name': name, 'description': desc}
+            except Exception:
+                pass
+
+        try:
+            for p in base_dir.rglob('*.json'):
+                name = p.name.lower()
+                try:
+                    with open(p, 'r', encoding='utf-8') as f:
+                        content = json.load(f)
+                except Exception:
+                    continue
+                if name == 'talents.json':
+                    index_list(content, talents_map)
+                elif name == 'abilities.json':
+                    index_list(content, abilities_map)
+                elif name == 'force-powers.json':
+                    index_list(content, force_powers_map)
+        except Exception:
+            pass
+
+        defs = {
+            'talents': talents_map,
+            'abilities': abilities_map,
+            'force_powers': force_powers_map,
+        }
+        self._defs_cache[base_key] = defs
+        return defs
