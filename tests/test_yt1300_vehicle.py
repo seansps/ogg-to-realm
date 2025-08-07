@@ -38,23 +38,28 @@ def test_yt1300_vehicle_parsing():
         
         # Should return exactly one vehicle
         assert len(vehicles) == 1, f"Expected 1 vehicle, got {len(vehicles)}"
-        vehicle = vehicles[0]
+        raw_vehicle = vehicles[0]
         
-        # Check basic structure
+        # Convert through data mapper to test the final Realm VTT output
+        from data_mapper import DataMapper
+        data_mapper = DataMapper()
+        vehicle = data_mapper.convert_oggdude_to_realm_vtt(raw_vehicle, "test_campaign_id", "Test Category")
+        
+        # Check basic structure (data mapper output)
         assert vehicle['recordType'] == 'npcs', f"Expected recordType 'npcs', got {vehicle['recordType']}"
         assert vehicle['name'] == 'YT-1300 Light Freighter', f"Expected name 'YT-1300 Light Freighter', got {vehicle['name']}"
         assert vehicle['unidentifiedName'] == 'Unknown Vehicle', f"Expected unidentifiedName 'Unknown Vehicle'"
         assert vehicle['locked'] == True, "Expected vehicle to be locked"
-        assert vehicle['key'] == 'YT1300', f"Expected key 'YT1300', got {vehicle.get('key')}"
-        
-        # Check description is converted to rich text
-        assert 'YT-1300 Light Freighter' in vehicle['description'], "Vehicle name should be in description"
-        assert len(vehicle['description']) > 0, "Description should not be empty"
+        assert vehicle['campaignId'] == 'test_campaign_id', f"Expected campaignId 'test_campaign_id', got {vehicle.get('campaignId')}"
+        assert vehicle['category'] == 'Test Category', f"Expected category 'Test Category', got {vehicle.get('category')}"
+        assert vehicle['identified'] == True, "Expected vehicle to be identified"
+        assert vehicle['shared'] == False, "Expected vehicle to not be shared"
         
         # Check data fields
         data = vehicle['data']
         
         # Basic vehicle properties
+        assert data['type'] == 'vehicle', f"Expected type 'vehicle', got {data.get('type')}"
         assert data['subtype'] == 'Freighter', f"Expected subtype 'Freighter', got {data.get('subtype')}"
         assert data['sensorRange'] == 'Short', f"Expected sensorRange 'Short', got {data.get('sensorRange')}"  # 'sr' prefix removed
         assert data['hyperdrive'] == 'Class 2 (backup Class 12)', f"Expected hyperdrive format, got {data.get('hyperdrive')}"
@@ -62,25 +67,26 @@ def test_yt1300_vehicle_parsing():
         assert data['restricted'] == 'no', f"Expected restricted 'no', got {data.get('restricted')}"
         assert data['crew'] == 'One Pilot, One Co-Pilot, One Engineer', f"Unexpected crew value"
         assert data['passengers'] == 6, f"Expected passengers 6, got {data.get('passengers')}"
-        assert data['encumbrance'] == 165, f"Expected encumbrance 165, got {data.get('encumbrance')}"
+        assert data['encumbranceCapacity'] == 165, f"Expected encumbranceCapacity 165, got {data.get('encumbranceCapacity')}"
         assert data['consumables'] == 'Two Months', f"Unexpected consumables value"
-        assert data['silhouette'] == 'Silhouette 4', f"Expected silhouette 'Silhouette 4', got {data.get('silhouette')}"
+        assert data['size'] == 'Silhouette 4', f"Expected size 'Silhouette 4', got {data.get('size')}"
         assert data['speed'] == 3, f"Expected speed 3, got {data.get('speed')}"
         assert data['handling'] == -1, f"Expected handling -1, got {data.get('handling')}"
-        assert data['armor'] == 3, f"Expected armor 3, got {data.get('armor')}"
-        assert data['hullTrauma'] == 22, f"Expected hullTrauma 22, got {data.get('hullTrauma')}"
-        assert data['systemStrain'] == 15, f"Expected systemStrain 15, got {data.get('systemStrain')}"
+        assert data['soakValue'] == 3, f"Expected soakValue 3, got {data.get('soakValue')}"
+        assert data['woundThreshold'] == 22, f"Expected woundThreshold 22, got {data.get('woundThreshold')}"
+        assert data['woundsRemaining'] == 22, f"Expected woundsRemaining 22, got {data.get('woundsRemaining')}"
+        assert data['strainThreshold'] == 15, f"Expected strainThreshold 15, got {data.get('strainThreshold')}"
+        assert data['strainRemaining'] == 15, f"Expected strainRemaining 15, got {data.get('strainRemaining')}"
         assert data['hardpoints'] == 6, f"Expected hardpoints 6, got {data.get('hardpoints')}"
         assert data['price'] == 100000, f"Expected price 100000, got {data.get('price')}"
         assert data['rarity'] == 4, f"Expected rarity 4, got {data.get('rarity')}"
         assert data['starship'] == True, "Expected starship to be True"
         
-        # Check defense zones
-        defense = data['defense']
-        assert defense['fore'] == 1, f"Expected fore defense 1, got {defense.get('fore')}"
-        assert defense['aft'] == 1, f"Expected aft defense 1, got {defense.get('aft')}"
-        assert defense['port'] == 0, f"Expected port defense 0, got {defense.get('port')}"
-        assert defense['starboard'] == 0, f"Expected starboard defense 0, got {defense.get('starboard')}"
+        # Check defense zones (individual fields, 0 values should not be present)
+        assert data['defFore'] == 1, f"Expected defFore 1, got {data.get('defFore')}"
+        assert data['defAft'] == 1, f"Expected defAft 1, got {data.get('defAft')}"
+        assert 'defPort' not in data, "defPort should not be present when value is 0"
+        assert 'defStarboard' not in data, "defStarboard should not be present when value is 0"
         
         # Check inventory (weapons are stored as inventory items)
         inventory = data['inventory']
@@ -90,9 +96,11 @@ def test_yt1300_vehicle_parsing():
         dorsal_weapon = inventory[0]
         assert dorsal_weapon['recordType'] == 'items', "Expected weapon to be an item record"
         assert dorsal_weapon['name'] == 'Medium Laser Cannon', f"Expected 'Medium Laser Cannon', got {dorsal_weapon['name']}"
-        assert '<strong>Location:</strong> Dorsal' in dorsal_weapon['description'], "Expected location in description"
-        assert '<strong>Turret:</strong> Yes' in dorsal_weapon['description'], "Expected turret info in description"
-        assert 'Firing Arcs:' not in dorsal_weapon['description'], "Firing arcs should not be in description"
+        assert '_id' in dorsal_weapon, "Expected weapon to have UUID _id field"
+        assert len(dorsal_weapon['_id']) == 36, f"Expected UUID format, got {dorsal_weapon['_id']}"
+        assert '<strong>Location:</strong> Dorsal' in dorsal_weapon['data']['description'], "Expected location in description"
+        assert '<strong>Turret:</strong> Yes' in dorsal_weapon['data']['description'], "Expected turret info in description"
+        assert 'Firing Arcs:' not in dorsal_weapon['data']['description'], "Firing arcs should not be in description"
         assert dorsal_weapon['data']['carried'] == 'equipped', "Expected weapon to be equipped"
         assert 'fields' in dorsal_weapon, "Expected fields structure"
         
@@ -109,9 +117,9 @@ def test_yt1300_vehicle_parsing():
         ventral_weapon = inventory[1]
         assert ventral_weapon['recordType'] == 'items', "Expected weapon to be an item record"
         assert ventral_weapon['name'] == 'Medium Laser Cannon', f"Expected 'Medium Laser Cannon', got {ventral_weapon['name']}"
-        assert '<strong>Location:</strong> Ventral' in ventral_weapon['description'], "Expected location in description"
-        assert '<strong>Turret:</strong> Yes' in ventral_weapon['description'], "Expected turret info in description"
-        assert 'Firing Arcs:' not in ventral_weapon['description'], "Firing arcs should not be in description"
+        assert '<strong>Location:</strong> Ventral' in ventral_weapon['data']['description'], "Expected location in description"
+        assert '<strong>Turret:</strong> Yes' in ventral_weapon['data']['description'], "Expected turret info in description"
+        assert 'Firing Arcs:' not in ventral_weapon['data']['description'], "Firing arcs should not be in description"
         
         # Check firing arcs as proper field
         firing_arc = ventral_weapon['data']['firingArc']

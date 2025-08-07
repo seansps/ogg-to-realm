@@ -1,4 +1,5 @@
 import re
+import uuid
 from typing import Dict, List, Any, Optional
 
 class DataMapper:
@@ -622,13 +623,71 @@ class DataMapper:
         if not isinstance(data, dict):
             data = {}
         
+        # Create a copy to avoid modifying the original
+        realm_data = data.copy()
+        
         # Convert description and add to data
         if 'description' in vehicle:
-            data['description'] = self._convert_description(vehicle['description'])
+            realm_data['description'] = self._convert_description(vehicle['description'])
         
         # Convert restricted field from true/false to yes/no
-        if 'restricted' in data:
-            data['restricted'] = self._convert_restricted_value(data['restricted'])
+        if 'restricted' in realm_data:
+            realm_data['restricted'] = self._convert_restricted_value(realm_data['restricted'])
+        
+        # Field mappings for vehicles
+        if 'encumbrance' in realm_data:
+            realm_data['encumbranceCapacity'] = realm_data.pop('encumbrance')
+        
+        # Convert defense object to individual fields, ignore 0 values
+        if 'defense' in realm_data and isinstance(realm_data['defense'], dict):
+            defense = realm_data.pop('defense')
+            if defense.get('fore', 0) > 0:
+                realm_data['defFore'] = defense['fore']
+            if defense.get('aft', 0) > 0:
+                realm_data['defAft'] = defense['aft']
+            if defense.get('port', 0) > 0:
+                realm_data['defPort'] = defense['port']
+            if defense.get('starboard', 0) > 0:
+                realm_data['defStarboard'] = defense['starboard']
+        
+        # Convert armor to soakValue
+        if 'armor' in realm_data:
+            realm_data['soakValue'] = realm_data.pop('armor')
+        
+        # Convert hullTrauma to woundThreshold and set woundsRemaining
+        if 'hullTrauma' in realm_data:
+            hull_trauma = realm_data.pop('hullTrauma')
+            realm_data['woundThreshold'] = hull_trauma
+            realm_data['woundsRemaining'] = hull_trauma
+        
+        # Convert systemStrain to strainThreshold and set strainRemaining
+        if 'systemStrain' in realm_data:
+            system_strain = realm_data.pop('systemStrain')
+            realm_data['strainThreshold'] = system_strain
+            realm_data['strainRemaining'] = system_strain
+        
+        # Convert silhouette to size
+        if 'silhouette' in realm_data:
+            realm_data['size'] = realm_data.pop('silhouette')
+        
+        # Process inventory items through item converter
+        if 'inventory' in realm_data:
+            converted_inventory = []
+            for item in realm_data['inventory']:
+                # Store the firing arc before conversion
+                firing_arc = item.get('data', {}).get('firingArc', {})
+                
+                # Convert the item through the item data mapper
+                converted_item = self._convert_item(item, campaign_id, category)
+                
+                # Add UUID and ensure firing arc is preserved
+                converted_item['_id'] = str(uuid.uuid4())
+                if firing_arc and 'data' in converted_item:
+                    converted_item['data']['firingArc'] = firing_arc
+                
+                converted_inventory.append(converted_item)
+            
+            realm_data['inventory'] = converted_inventory
         
         realm_vehicle = {
             "name": vehicle.get('name', 'Unknown Vehicle'),
@@ -639,7 +698,7 @@ class DataMapper:
             "identified": True,
             "shared": False,
             "locked": True,
-            "data": data
+            "data": realm_data
         }
         
         return realm_vehicle
