@@ -92,10 +92,13 @@ class DataMapper:
             return self._convert_force_power(oggdude_record, campaign_id, category)
         elif record_type == 'skills':
             return self._convert_skill(oggdude_record, campaign_id, category)
-        elif record_type == 'vehicles':
-            return self._convert_vehicle(oggdude_record, campaign_id, category)
         elif record_type == 'npcs':
-            return self._convert_npc(oggdude_record, campaign_id, category)
+            # Check if this is a vehicle (npcs with data.type == "vehicle")
+            data = oggdude_record.get('data', {})
+            if isinstance(data, dict) and data.get('type') == 'vehicle':
+                return self._convert_vehicle(oggdude_record, campaign_id, category)
+            else:
+                return self._convert_npc(oggdude_record, campaign_id, category)
         else:
             print(f"Warning: Unknown record type '{record_type}' for record '{oggdude_record.get('name', 'Unknown')}' - skipping")
             return None
@@ -652,131 +655,21 @@ class DataMapper:
         if 'description' in npc:
             data['description'] = self._convert_description(npc['description'])
         
+        # Convert restricted field from true/false to yes/no if present
+        if 'restricted' in data:
+            data['restricted'] = self._convert_restricted_value(data['restricted'])
+        
         realm_npc = {
             "name": npc.get('name', 'Unknown NPC'),
-            "recordType": "npcs",
+            "recordType": "npcs", 
             "campaignId": campaign_id,
             "category": category,
             "unidentifiedName": npc.get('unidentifiedName', 'Unknown NPC'),
-            "identified": npc.get('identified', False),
+            "identified": npc.get('identified', True),
             "shared": False,
             "locked": npc.get('locked', True),
             "data": data
         }
-        
-        # Link equipment to existing items
-        equipment = realm_npc['data'].get('equipment', [])
-        linked_equipment = []
-        for item_name in equipment:
-            item_id = self.get_item_id(item_name)
-            if item_id:
-                linked_equipment.append({
-                    "_id": item_id,
-                    "name": item_name,
-                    "campaignId": campaign_id,
-                    "recordType": "items",
-                    "identified": True,
-                    "category": category,
-                    "unidentifiedName": "Unidentified Items"
-                })
-            else:
-                # Create a placeholder item if not found
-                linked_equipment.append({
-                    "name": item_name,
-                    "campaignId": campaign_id,
-                    "recordType": "items",
-                    "identified": False,
-                    "category": category,
-                    "unidentifiedName": "Unidentified Items",
-                    "data": {
-                        "type": "gear",
-                        "price": "0",
-                        "encumbrance": 0,
-                        "rarity": 0,
-                        "restricted": "no"
-                    }
-                })
-        
-        realm_npc['data']['equipment'] = linked_equipment
-        
-        # Link weapons to existing items
-        weapons = realm_npc['data'].get('weapons', [])
-        linked_weapons = []
-        for weapon_name in weapons:
-            weapon_id = self.get_item_id(weapon_name)
-            if weapon_id:
-                linked_weapons.append({
-                    "_id": weapon_id,
-                    "name": weapon_name,
-                    "campaignId": campaign_id,
-                    "recordType": "items",
-                    "identified": True,
-                    "category": category,
-                    "unidentifiedName": "Unidentified Items"
-                })
-            else:
-                # Create a placeholder weapon if not found
-                linked_weapons.append({
-                    "name": weapon_name,
-                    "campaignId": campaign_id,
-                    "recordType": "items",
-                    "identified": False,
-                    "category": category,
-                    "unidentifiedName": "Unidentified Items",
-                    "data": {
-                        "type": "ranged weapon",
-                        "price": "0",
-                        "encumbrance": 0,
-                        "rarity": 0,
-                        "weaponSkill": "Ranged (Light)",
-                        "damage": 0,
-                        "crit": 0,
-                        "range": "Short",
-                        "hardpoints": 0,
-                        "restricted": "no",
-                        "special": []
-                    }
-                })
-        
-        realm_npc['data']['weapons'] = linked_weapons
-        
-        # Link armor to existing items
-        armor = realm_npc['data'].get('armor', [])
-        linked_armor = []
-        for armor_name in armor:
-            armor_id = self.get_item_id(armor_name)
-            if armor_id:
-                linked_armor.append({
-                    "_id": armor_id,
-                    "name": armor_name,
-                    "campaignId": campaign_id,
-                    "recordType": "items",
-                    "identified": True,
-                    "category": category,
-                    "unidentifiedName": "Unidentified Items"
-                })
-            else:
-                # Create a placeholder armor if not found
-                linked_armor.append({
-                    "name": armor_name,
-                    "campaignId": campaign_id,
-                    "recordType": "items",
-                    "identified": False,
-                    "category": category,
-                    "unidentifiedName": "Unidentified Items",
-                    "data": {
-                        "type": "armor",
-                        "price": "0",
-                        "encumbrance": 0,
-                        "rarity": 0,
-                        "restricted": "no",
-                        "soak": 0,
-                        "defense": 0,
-                        "hardpoints": 0
-                    }
-                })
-        
-        realm_npc['data']['armor'] = linked_armor
         
         return realm_npc
     

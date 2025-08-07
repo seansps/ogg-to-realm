@@ -1116,6 +1116,7 @@ class XMLParser:
                 'sources': sources,
                 'category': category,
                 'data': {
+                    'type': 'vehicle',
                     'subtype': subtype,
                     'sensorRange': sensor_range,
                     'hyperdrive': hyperdrive,
