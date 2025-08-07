@@ -1051,7 +1051,9 @@ class DataMapper:
                 realm_data['talents'] = talents_list
             # Apply force rating if found
             if found_force_rating is not None:
-                realm_data['forceRating'] = int(found_force_rating) if found_force_rating > 0 else 1
+                fr_value = int(found_force_rating) if found_force_rating > 0 else 1
+                realm_data['forceRating'] = fr_value
+                realm_data['remainingForce'] = fr_value
 
         # Convert abilities to features list with skill/difficulty parsing
         adversary_abilities = data.get('abilities', [])
