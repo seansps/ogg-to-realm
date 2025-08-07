@@ -3331,6 +3331,7 @@ class XMLParser:
         clean_description = re.sub(r'\[/?[BbIiUu]\]', '', description)
         clean_description = re.sub(r'\[DI\]', '', clean_description)
         
+        
         # Pattern to match skill checks - more flexible approach
         # Look for patterns like "make/makes a [difficulty] (...) [skill] check"
         patterns = [
@@ -3447,9 +3448,9 @@ class XMLParser:
             # Apply field mapping
             mapped_data = self._apply_field_mapping('signature_abilities', raw_data)
             
-            # Convert description to rich text format
-            if 'description' in mapped_data and mapped_data['description']:
-                mapped_data['description'] = self._convert_oggdude_format_to_rich_text(mapped_data['description'])
+            # Parse skill check from original description BEFORE converting to rich text
+            original_description = mapped_data.get('description', '')
+            skill, difficulty = ("None", "None")
             
             # Get the base ability description and cost from the first ability row
             ability_rows = raw_data.get('AbilityRows', [])
@@ -3462,26 +3463,31 @@ class XMLParser:
                     base_ability_key = abilities[0]  # Get the first ability key
                     base_description = self._get_sig_ability_node_description(base_ability_key)
                     
-                    # Try to parse skill check from base description first
-                    skill, difficulty = ("None", "None")
+                    # Try to parse skill check from base description first (original format)
                     if base_description:
                         skill, difficulty = self._parse_skill_check_from_description(base_description)
                     
-                    # If no skill found in base description, try main description
-                    if skill == "None" and mapped_data.get('description'):
-                        skill, difficulty = self._parse_skill_check_from_description(mapped_data.get('description'))
+                    # If no skill found in base description, try main description (original format)
+                    if skill == "None" and original_description:
+                        skill, difficulty = self._parse_skill_check_from_description(original_description)
                     
                     # Set the skill and difficulty if found
                     if skill != "None":
                         mapped_data['skill'] = skill
                     if difficulty != "None":
                         mapped_data['difficulty'] = difficulty
+                    
+                    # Convert description to rich text format AFTER parsing skill check
+                    if original_description:
+                        mapped_data['description'] = self._convert_oggdude_format_to_rich_text(original_description)
                         
                         # Add the base description to the main description
-                        if mapped_data.get('description'):
-                            mapped_data['description'] += f"<br><br><strong>Base Ability:</strong> {base_description}"
-                        else:
-                            mapped_data['description'] = f"<strong>Base Ability:</strong> {base_description}"
+                        if base_description:
+                            base_description_rich = self._convert_oggdude_format_to_rich_text(base_description)
+                            mapped_data['description'] += f"<br><br><strong>Base Ability:</strong> {base_description_rich}"
+                    elif base_description:
+                        base_description_rich = self._convert_oggdude_format_to_rich_text(base_description)
+                        mapped_data['description'] = f"<strong>Base Ability:</strong> {base_description_rich}"
                     
                     # Calculate base cost as the highest cost in the first row
                     if costs:
@@ -3489,6 +3495,16 @@ class XMLParser:
                         mapped_data['cost'] = base_cost
                     else:
                         mapped_data['cost'] = 0
+            else:
+                # No ability rows, but still need to convert description and try to parse skill
+                if original_description:
+                    skill, difficulty = self._parse_skill_check_from_description(original_description)
+                    if skill != "None":
+                        mapped_data['skill'] = skill
+                    if difficulty != "None":
+                        mapped_data['difficulty'] = difficulty
+                    
+                    mapped_data['description'] = self._convert_oggdude_format_to_rich_text(original_description)
             
             # Find the career for this signature ability
             careers = raw_data.get('Careers', [])
