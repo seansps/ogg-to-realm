@@ -683,6 +683,8 @@ class DataMapper:
                 
                 # Add UUID and ensure firing arc is preserved
                 converted_item['_id'] = str(uuid.uuid4())
+                # Set icon on vehicle inventory items
+                self._set_inventory_item_icon(converted_item)
                 if firing_arc and 'data' in converted_item:
                     # Check if firing arc contains all directions
                     all_directions = {'fore', 'aft', 'port', 'starboard', 'dorsal', 'ventral'}
@@ -1512,15 +1514,18 @@ class DataMapper:
                     realm_item['_id'] = str(uuid.uuid4())
                     realm_item['data']['count'] = count
                     realm_item['data']['carried'] = 'equipped'
+                    self._set_inventory_item_icon(realm_item)
                     inventory.append(realm_item)
                 else:
                     # Create ad-hoc gear item (simple string weapons become gear)
                     adhoc_item = self._create_adhoc_gear(weapon_name, count)
+                    self._set_inventory_item_icon(adhoc_item)
                     inventory.append(adhoc_item)
             
             elif isinstance(weapon, dict):
                 # Create ad-hoc weapon from object
                 adhoc_weapon = self._create_adhoc_weapon(weapon)
+                self._set_inventory_item_icon(adhoc_weapon)
                 inventory.append(adhoc_weapon)
         
         # Process gear
@@ -1530,6 +1535,7 @@ class DataMapper:
                 is_credits, credit_amount = self._is_credits_item(gear_item)
                 if is_credits:
                     credits_item = self._create_credits_item(credit_amount)
+                    self._set_inventory_item_icon(credits_item)
                     inventory.append(credits_item)
                     continue
                 
@@ -1544,6 +1550,7 @@ class DataMapper:
                     if count > 1:
                         final_amount = count
                     credits_item = self._create_credits_item(final_amount)
+                    self._set_inventory_item_icon(credits_item)
                     inventory.append(credits_item)
                     continue
                 
@@ -1562,6 +1569,7 @@ class DataMapper:
                     realm_item['_id'] = str(uuid.uuid4())
                     realm_item['data']['count'] = count
                     realm_item['data']['carried'] = 'equipped'
+                    self._set_inventory_item_icon(realm_item)
                     inventory.append(realm_item)
                 else:
                     # Create ad-hoc item based on stats
@@ -1572,9 +1580,23 @@ class DataMapper:
                     else:
                         # No armor stats, create general gear
                         adhoc_item = self._create_adhoc_gear(parsed_name, count)
+                    self._set_inventory_item_icon(adhoc_item)
                     inventory.append(adhoc_item)
         
         return inventory
+
+    def _set_inventory_item_icon(self, item: Dict[str, Any]) -> None:
+        """Set the top-level icon for an inventory item. Weapons get IconBox. Others default to IconBox too."""
+        try:
+            data = item.get('data', {}) if isinstance(item, dict) else {}
+            item_type = (data.get('type') or '').lower() if isinstance(data, dict) else ''
+            if 'weapon' in item_type:
+                item['icon'] = 'IconBox'
+            else:
+                item['icon'] = 'IconBox'
+        except Exception:
+            # Fail-safe: ensure icon exists
+            item['icon'] = 'IconBox'
     
     def _convert_restricted_value(self, restricted_value: Any) -> str:
         """Convert OggDude restricted value (true/false) to Realm VTT format (yes/no)"""
