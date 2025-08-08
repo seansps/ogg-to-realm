@@ -1719,6 +1719,45 @@ class DataMapper:
     def _convert_adversary_inventory(self, weapons: List[Any], gear: List[Any]) -> List[Dict[str, Any]]:
         """Convert adversary weapons and gear to Realm VTT inventory items"""
         inventory = []
+        # Track items by normalized name for merging duplicate entries (e.g., Frag Grenade from weapons and gear)
+        name_to_index: Dict[str, int] = {}
+
+        def _normalize_item_name_for_index(item_obj: Dict[str, Any]) -> str:
+            return str(item_obj.get('name', '')).strip().lower()
+
+        def _set_ammo_if_applicable(item_obj: Dict[str, Any]) -> None:
+            try:
+                name_l = str(item_obj.get('name', '')).lower()
+                data = item_obj.get('data', {})
+                if isinstance(data, dict):
+                    count_val = data.get('count', 1)
+                    data['ammo'] = count_val
+            except Exception:
+                pass
+
+        def _add_or_merge(item_obj: Dict[str, Any]) -> None:
+            key = _normalize_item_name_for_index(item_obj)
+            if key and key in name_to_index:
+                existing = inventory[name_to_index[key]]
+                # Merge counts
+                existing_count = existing.get('data', {}).get('count', 1)
+                incoming_count = item_obj.get('data', {}).get('count', 1)
+                try:
+                    merged = int(existing_count) + int(incoming_count)
+                except Exception:
+                    merged = existing_count
+                if 'data' not in existing or not isinstance(existing['data'], dict):
+                    existing['data'] = {}
+                existing['data']['count'] = merged
+                # Keep equipped
+                existing['data']['carried'] = 'equipped'
+                _set_ammo_if_applicable(existing)
+            else:
+                # New entry
+                idx = len(inventory)
+                inventory.append(item_obj)
+                name_to_index[key] = idx
+                _set_ammo_if_applicable(item_obj)
         
         # Process weapons
         for weapon in weapons:
@@ -1739,18 +1778,18 @@ class DataMapper:
                     realm_item['data']['count'] = count
                     realm_item['data']['carried'] = 'equipped'
                     self._set_inventory_item_icon(realm_item)
-                    inventory.append(realm_item)
+                    _add_or_merge(realm_item)
                 else:
                     # Create ad-hoc gear item (simple string weapons become gear)
                     adhoc_item = self._create_adhoc_gear(weapon_name, count)
                     self._set_inventory_item_icon(adhoc_item)
-                    inventory.append(adhoc_item)
+                    _add_or_merge(adhoc_item)
             
             elif isinstance(weapon, dict):
                 # Create ad-hoc weapon from object
                 adhoc_weapon = self._create_adhoc_weapon(weapon)
                 self._set_inventory_item_icon(adhoc_weapon)
-                inventory.append(adhoc_weapon)
+                _add_or_merge(adhoc_weapon)
         
         # Process gear
         for gear_item in gear:
@@ -1760,7 +1799,7 @@ class DataMapper:
                 if is_credits:
                     credits_item = self._create_credits_item(credit_amount)
                     self._set_inventory_item_icon(credits_item)
-                    inventory.append(credits_item)
+                    _add_or_merge(credits_item)
                     continue
                 
                 # Parse count if present
@@ -1775,7 +1814,7 @@ class DataMapper:
                         final_amount = count
                     credits_item = self._create_credits_item(final_amount)
                     self._set_inventory_item_icon(credits_item)
-                    inventory.append(credits_item)
+                    _add_or_merge(credits_item)
                     continue
                 
                 # Try to parse armor stats from parentheses
@@ -1794,7 +1833,7 @@ class DataMapper:
                     realm_item['data']['count'] = count
                     realm_item['data']['carried'] = 'equipped'
                     self._set_inventory_item_icon(realm_item)
-                    inventory.append(realm_item)
+                    _add_or_merge(realm_item)
                 else:
                     # Create ad-hoc item based on stats
                     if soak > 0 or defense > 0:
@@ -1805,8 +1844,41 @@ class DataMapper:
                         # No armor stats, create general gear
                         adhoc_item = self._create_adhoc_gear(parsed_name, count)
                     self._set_inventory_item_icon(adhoc_item)
-                    inventory.append(adhoc_item)
+                    _add_or_merge(adhoc_item)
         
+        # Reconciliation pass: for grenade-like items, ensure count equals parsed sum from source lists
+        try:
+            # Precompute parsed counts from source text
+            source_counts: Dict[str, int] = {}
+            def add_source_count(name: str, cnt: int):
+                key = str(name).strip().lower()
+                source_counts[key] = source_counts.get(key, 0) + max(int(cnt), 0)
+
+            # From weapons list (strings only)
+            for weapon in weapons:
+                if isinstance(weapon, str):
+                    cnt, nm = self._parse_item_count(weapon)
+                    nm_s = self._singularize_name(nm)
+                    add_source_count(nm_s, cnt)
+            # From gear list
+            for gear_item in gear:
+                if isinstance(gear_item, str):
+                    cnt, nm = self._parse_item_count(gear_item)
+                    nm_s = self._singularize_name(nm)
+                    add_source_count(nm_s, cnt)
+
+            for item in inventory:
+                name_key = str(item.get('name', '')).strip().lower()
+                if 'grenade' in name_key and name_key in source_counts:
+                    # Force the count to the sum of occurrences from source lists
+                    if 'data' not in item or not isinstance(item['data'], dict):
+                        item['data'] = {}
+                    item['data']['count'] = source_counts[name_key]
+                    # Mirror ammo to count
+                    item['data']['ammo'] = item['data']['count']
+        except Exception:
+            pass
+
         return inventory
 
     def _set_inventory_item_icon(self, item: Dict[str, Any]) -> None:

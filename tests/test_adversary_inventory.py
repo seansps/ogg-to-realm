@@ -56,7 +56,7 @@ def test_adversary_inventory_parsing():
         # Check inventory
         inventory = converted['data']['inventory']
         assert isinstance(inventory, list), "Inventory should be a list"
-        assert len(inventory) == 9, f"Expected 9 inventory items, got {len(inventory)}"
+        assert len(inventory) == 8, f"Expected 8 inventory items, got {len(inventory)}"
         
         print(f"✓ Converted to Realm VTT with {len(inventory)} inventory items")
         
@@ -66,15 +66,14 @@ def test_adversary_inventory_parsing():
         
         # Check for expected items
         expected_items = [
+            'Unarmed Combat',
             'Blaster Rifle',
             'Vibroknife', 
             'Frag Grenade',
             'Light Repeating Blaster',
             'Utility Belt',
             'Extra Reload',  # Should be singularized and found in OGG
-            'Stormtrooper Armor',  # Ad-hoc armor item (armour → Armor conversion)
-            'Frag Grenade',  # From "2 Frag grenades" with count=2
-            'Unarmed Combat'
+            'Stormtrooper Armor'  # Ad-hoc armor item (armour → Armor conversion)
         ]
         
         for expected_item in expected_items:
@@ -83,7 +82,14 @@ def test_adversary_inventory_parsing():
         
         print("✓ All expected items found in inventory")
         
-        # Detailed item checks
+        # Detailed item checks and merged grenades
+        frag_items = [i for i in inventory if i['name'] == 'Frag Grenade']
+        assert len(frag_items) == 1, "Frag Grenade should appear once after merge"
+        frag = frag_items[0]
+        assert frag['data']['type'] in ['ranged weapon'], "Frag Grenade should be a ranged weapon"
+        assert frag['data'].get('count', 0) == 3, f"Frag Grenade merged count should be 3, got {frag['data'].get('count')}"
+        assert frag['data'].get('ammo', 0) == frag['data'].get('count'), "Ammo should equal count"
+
         for item in inventory:
             # All items should have required fields
             assert '_id' in item, f"Item {item['name']} missing _id field"
@@ -93,25 +99,12 @@ def test_adversary_inventory_parsing():
             assert 'type' in item['data'], f"Item {item['name']} missing type in data"
             assert 'carried' in item['data'], f"Item {item['name']} missing carried field"
             assert item['data']['carried'] == 'equipped', f"Item {item['name']} should be equipped"
-            
-            # Check specific items
             if item['name'] == 'Extra Reload':
                 assert item['data']['type'] == 'general', "Extra Reload should be general type"
-                print("✓ Extra Reload found in OGG and converted correctly")
-            
-            elif item['name'] == 'Stormtrooper Armor':  # Should be converted from 'armour' to 'Armor'
+            if item['name'] == 'Stormtrooper Armor':
                 assert item['data']['type'] == 'armor', "Stormtrooper Armor should be armor type"
                 assert item['data']['soakBonus'] == 2, "Stormtrooper Armor should have +2 soak"
                 assert item['data']['defense'] == 0, "Stormtrooper Armor should have 0 defense"
-                print("✓ Stormtrooper Armor parsed correctly with British→American spelling conversion")
-            
-            elif item['name'] == 'Frag Grenade':
-                assert item['data']['type'] in ['ranged weapon'], "Frag Grenade should be a ranged weapon"
-                # One should have count=1, the other count=2
-                count = item['data'].get('count', 1)
-                assert count in [1, 2], f"Frag Grenade should have count 1 or 2, got {count}"
-                if count == 2:
-                    print("✓ '2 Frag grenades' parsed correctly with count=2")
         
         print("✓ All inventory items have required fields and correct types")
         
