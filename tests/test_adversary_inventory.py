@@ -87,7 +87,8 @@ def test_adversary_inventory_parsing():
         assert len(frag_items) == 1, "Frag Grenade should appear once after merge"
         frag = frag_items[0]
         assert frag['data']['type'] in ['ranged weapon'], "Frag Grenade should be a ranged weapon"
-        assert frag['data'].get('count', 0) == 3, f"Frag Grenade merged count should be 3, got {frag['data'].get('count')}"
+        # Prefer gear-provided count when present (weapons list also contains a single Frag grenade)
+        assert frag['data'].get('count', 0) == 2, f"Frag Grenade merged count should be 2, got {frag['data'].get('count')}"
         assert frag['data'].get('ammo', 0) == frag['data'].get('count'), "Ammo should equal count"
 
         for item in inventory:

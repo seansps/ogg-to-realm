@@ -1846,35 +1846,41 @@ class DataMapper:
                     self._set_inventory_item_icon(adhoc_item)
                     _add_or_merge(adhoc_item)
         
-        # Reconciliation pass: for grenade-like items, ensure count equals parsed sum from source lists
+        # Reconciliation pass: for grenade-like items, prefer counts from gear list over weapons list
         try:
-            # Precompute parsed counts from source text
-            source_counts: Dict[str, int] = {}
-            def add_source_count(name: str, cnt: int):
+            # Precompute parsed counts from source text (separately for weapons and gear)
+            weapon_counts: Dict[str, int] = {}
+            gear_counts: Dict[str, int] = {}
+            def add_count(target: Dict[str, int], name: str, cnt: int):
                 key = str(name).strip().lower()
-                source_counts[key] = source_counts.get(key, 0) + max(int(cnt), 0)
+                target[key] = target.get(key, 0) + max(int(cnt), 0)
 
             # From weapons list (strings only)
             for weapon in weapons:
                 if isinstance(weapon, str):
                     cnt, nm = self._parse_item_count(weapon)
                     nm_s = self._singularize_name(nm)
-                    add_source_count(nm_s, cnt)
+                    add_count(weapon_counts, nm_s, cnt)
             # From gear list
             for gear_item in gear:
                 if isinstance(gear_item, str):
                     cnt, nm = self._parse_item_count(gear_item)
                     nm_s = self._singularize_name(nm)
-                    add_source_count(nm_s, cnt)
+                    add_count(gear_counts, nm_s, cnt)
 
             for item in inventory:
                 name_key = str(item.get('name', '')).strip().lower()
-                if 'grenade' in name_key and name_key in source_counts:
-                    # Force the count to the sum of occurrences from source lists
+                # Prefer the count specified in gear list if present; otherwise use weapons list
+                resolved = None
+                if name_key in gear_counts and gear_counts[name_key] > 0:
+                    resolved = gear_counts[name_key]
+                elif name_key in weapon_counts and weapon_counts[name_key] > 0:
+                    resolved = weapon_counts[name_key]
+                if resolved is not None:
                     if 'data' not in item or not isinstance(item['data'], dict):
                         item['data'] = {}
-                    item['data']['count'] = source_counts[name_key]
-                    # Mirror ammo to count
+                    item['data']['count'] = resolved
+                    # Mirror ammo to count for stackables/limited use items
                     item['data']['ammo'] = item['data']['count']
         except Exception:
             pass
