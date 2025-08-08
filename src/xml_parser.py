@@ -156,6 +156,7 @@ class XMLParser:
             "Force and Destiny Core Rulebook": "Force and Destiny Core Rulebook",
             "Far Horizons": "Far Horizons",
             "Dangerous Covenants": "Dangerous Covenants",
+            "Enter the Unknown": "Enter the Unknown",
             "Fly Casual": "Fly Casual",
             "Forged in Battle": "Forged in Battle",
             "Stay on Target": "Stay on Target",

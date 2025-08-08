@@ -43,6 +43,12 @@
       "adversaries_sources": []
     },
     {
+      "name": "Enter the Unknown",
+      "key": "enter-the-unknown",
+      "oggdude_sources": ["Enter the Unknown"],
+      "adversaries_sources": []
+    },
+    {
       "name": "Fly Casual",
       "key": "fly-casual",
       "oggdude_sources": ["Fly Casual"],
