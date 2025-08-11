@@ -3127,17 +3127,25 @@ class XMLParser:
     def _process_talent_rows(self, mapped_data: Dict[str, Any], talent_rows: List[Dict[str, Any]]):
         """Process talent rows and convert to Realm VTT format"""
         try:
-            for row_data in talent_rows:
-                # Use the index from the XML
-                # If no index specified, it's row 1
-                # If index is specified, it's row (index + 1)
-                xml_index = row_data.get('index', 0)
-                if xml_index == 0:
-                    # No index specified, this is row 1
-                    row_index = 1
+            # Check if all rows have the same index (especially index 0)
+            # If so, use the order in which they appear in the XML
+            all_same_index = len(set(row.get('index', 0) for row in talent_rows)) == 1
+            
+            for row_index, row_data in enumerate(talent_rows, 1):
+                if all_same_index:
+                    # Use the order in XML when all rows have the same index
+                    realm_row_index = row_index
                 else:
-                    # Index specified, this is row (index + 1)
-                    row_index = xml_index + 1
+                    # Use the index from the XML
+                    # If no index specified, it's row 1
+                    # If index is specified, it's row (index + 1)
+                    xml_index = row_data.get('index', 0)
+                    if xml_index == 0:
+                        # No index specified, this is row 1
+                        realm_row_index = 1
+                    else:
+                        # Index specified, this is row (index + 1)
+                        realm_row_index = xml_index + 1
                 
                 row_cost = row_data.get('cost', 0)
                 talents = row_data.get('talents', [])
@@ -3153,7 +3161,7 @@ class XMLParser:
                             talent_data_copy['data']['cost'] = row_cost
                         
                         # Set the talent in the correct position
-                        talent_field = f"talent{row_index}_{col_index}"
+                        talent_field = f"talent{realm_row_index}_{col_index}"
                         mapped_data[talent_field] = [talent_data_copy]
                     else:
                         # If talent not found, create a placeholder
@@ -3170,7 +3178,7 @@ class XMLParser:
                             "unidentifiedName": "Unknown Talent",
                             "icon": "IconStar"
                         }
-                        talent_field = f"talent{row_index}_{col_index}"
+                        talent_field = f"talent{realm_row_index}_{col_index}"
                         mapped_data[talent_field] = [placeholder_talent]
                         
         except Exception as e:
@@ -3739,7 +3747,24 @@ class XMLParser:
             # Only process the upgrade rows (rows 2 and 3)
             talent_rows = ability_rows[1:] if len(ability_rows) > 1 else []
             
+            # Check if all rows have the same index (especially index 0)
+            # If so, use the order in which they appear in the XML
+            all_same_index = len(set(row.get('index', 0) for row in talent_rows)) == 1
+            
             for row_index, row_data in enumerate(talent_rows, 1):
+                if all_same_index:
+                    # Use the order in XML when all rows have the same index
+                    realm_row_index = row_index
+                else:
+                    # Use the index from the XML
+                    xml_index = row_data.get('index', 0)
+                    if xml_index == 0:
+                        # No index specified, this is row 1
+                        realm_row_index = 1
+                    else:
+                        # Index specified, this is row (index + 1)
+                        realm_row_index = xml_index + 1
+                
                 abilities = row_data.get('abilities', [])
                 costs = row_data.get('costs', [])
                 
@@ -3760,7 +3785,7 @@ class XMLParser:
                             ability_data_copy['data']['signatureAbilityUpgrade'] = "yes"
                         
                         # Set the ability in the correct position
-                        ability_field = f"talent{row_index}_{col_index}"
+                        ability_field = f"talent{realm_row_index}_{col_index}"
                         mapped_data[ability_field] = [ability_data_copy]
                     else:
                         # If ability not found, create a placeholder
@@ -3778,7 +3803,7 @@ class XMLParser:
                             "unidentifiedName": "Unknown Ability",
                             "icon": "IconStar"
                         }
-                        ability_field = f"talent{row_index}_{col_index}"
+                        ability_field = f"talent{realm_row_index}_{col_index}"
                         mapped_data[ability_field] = [placeholder_ability]
                         
         except Exception as e:
