@@ -625,9 +625,9 @@ class XMLParser:
             # Find all careers for this specialization (some specializations work in multiple careers)
             career_names = self._find_careers_for_specialization(spec_key)
             if career_names:
-                mapped_data['career'] = ', '.join(career_names)
+                mapped_data['career'] = career_names
             else:
-                mapped_data['career'] = ''
+                mapped_data['career'] = []
             
             # Process talent rows and convert to Realm VTT format
             talent_rows = raw_data.get('TalentRows', [])

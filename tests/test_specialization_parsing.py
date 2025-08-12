@@ -117,11 +117,11 @@ def test_specialization_parsing():
             return False
         
         # Check career
-        career = data.get('career', '')
-        if career == 'Explorer':
+        career = data.get('career', [])
+        if career == ['Explorer']:
             print(f"  ✓ Career correctly found: {career}")
         else:
-            print(f"  ✗ Career finding failed: expected 'Explorer', got '{career}'")
+            print(f"  ✗ Career finding failed: expected ['Explorer'], got '{career}'")
             return False
         
         # Check talent fields
