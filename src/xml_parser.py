@@ -281,6 +281,7 @@ class XMLParser:
                 'Restricted': self._get_bool(weapon_elem, 'Restricted', False),
                 'SkillKey': self._get_text(weapon_elem, 'SkillKey'),
                 'Damage': self._get_int(weapon_elem, 'Damage', 0),
+                'DamageAdd': self._get_int(weapon_elem, 'DamageAdd', 0),
                 'Crit': self._get_int(weapon_elem, 'Crit', 0),
                 'RangeValue': self._get_text(weapon_elem, 'RangeValue'),
                 'Qualities': self._extract_qualities(weapon_elem),
@@ -304,6 +305,28 @@ class XMLParser:
             # Store original skill key and type for later use
             mapped_data['originalSkillKey'] = original_skill_key
             mapped_data['originalType'] = original_type
+            
+            # Handle damage logic: use DamageAdd if set, otherwise use Damage
+            damage_add = raw_data.get('DamageAdd', 0)
+            base_damage = raw_data.get('Damage', 0)
+            
+            if damage_add and damage_add > 0:
+                mapped_data['damage'] = damage_add
+            else:
+                mapped_data['damage'] = base_damage
+            
+            # Handle noAddBrawn field for melee weapons
+            # Set to true if it's a melee weapon (Melee, Lightsaber, or Brawl) and DamageAdd is not set
+            is_melee_weapon = original_skill_key in ['MELEE', 'BRAWL', 'LIGHTSABER', 'LTSABER']
+            has_damage_add = damage_add and damage_add > 0
+            
+            if is_melee_weapon and not has_damage_add:
+                mapped_data['noAddBrawn'] = True
+            else:
+                mapped_data['noAddBrawn'] = False
+            
+            # Clean up the temporary damageAdd field since it's not needed in Realm
+            mapped_data.pop('damageAdd', None)
             
             # Determine weapon type based on SkillKey
             if original_skill_key in ['MELEE', 'BRAWL', 'LIGHTSABER', 'LTSABER']:

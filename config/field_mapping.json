@@ -9,6 +9,7 @@
     "Restricted": "restricted",
     "SkillKey": "weaponSkill",
     "Damage": "damage",
+    "DamageAdd": "damageAdd",
     "Crit": "crit",
     "RangeValue": "range",
     "Qualities": "special",
