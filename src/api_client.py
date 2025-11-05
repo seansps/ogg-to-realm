@@ -17,15 +17,32 @@ class RealmVTTClient:
         """Set the campaign ID for API requests"""
         self.campaign_id = campaign_id
     
+    def set_token(self, token: str) -> bool:
+        """
+        Set JWT token directly (for Google login or other OAuth methods)
+
+        Args:
+            token: JWT access token
+
+        Returns:
+            bool: True if token was set successfully
+        """
+        if not token or not token.strip():
+            raise Exception("Token cannot be empty")
+
+        self.token = token.strip()
+        self.headers['Authorization'] = f'Bearer {self.token}'
+        return True
+
     def login(self, email: str, password: str, two_fa_code: Optional[str] = None) -> dict:
         """
         Login to Realm VTT and get JWT token
-        
+
         Args:
             email: User email
-            password: User password  
+            password: User password
             two_fa_code: Optional 2FA code if user has 2FA enabled
-            
+
         Returns:
             dict: Authentication response with accessToken
         """
@@ -34,28 +51,28 @@ class RealmVTTClient:
             "email": email,
             "password": password
         }
-        
+
         # Add 2FA code if provided
         if two_fa_code:
             auth_data["code"] = two_fa_code
-        
+
         try:
             response = requests.post(
                 f"{self.base_url}/authentication",
                 json=auth_data,
                 headers=self.headers
             )
-            
+
             response.raise_for_status()
             result = response.json()
-            
+
             # Store the token for future requests
             self.token = result.get('accessToken')
             if self.token:
                 self.headers['Authorization'] = f'Bearer {self.token}'
-            
+
             return result
-            
+
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 401:
                 error_msg = e.response.json().get('message', 'Authentication failed')

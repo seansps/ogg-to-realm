@@ -28,6 +28,7 @@ class OggDudeImporterGUI:
         self.email_var = tk.StringVar()
         self.password_var = tk.StringVar()
         self.two_fa_var = tk.StringVar()
+        self.jwt_token_var = tk.StringVar()
         self.invite_code_var = tk.StringVar()
         self.oggdude_path_var = tk.StringVar()
         self.adversaries_path_var = tk.StringVar()
@@ -169,7 +170,7 @@ class OggDudeImporterGUI:
         ttk.Label(login_frame, text="2FA Code (optional):").grid(row=2, column=0, sticky=tk.W, pady=5)
         two_fa_entry = ttk.Entry(login_frame, textvariable=self.two_fa_var, width=40)
         two_fa_entry.grid(row=2, column=1, sticky=(tk.W, tk.E), padx=5, pady=5)
-        
+
         # Login button and status
         login_button_frame = ttk.Frame(login_frame)
         login_button_frame.grid(row=3, column=0, columnspan=2, pady=20)
@@ -212,7 +213,45 @@ class OggDudeImporterGUI:
         
         clear_button = ttk.Button(save_load_frame, text="Clear Saved", command=self.clear_saved_credentials)
         clear_button.pack(side=tk.LEFT, padx=5)
-        
+
+        # Separator
+        separator = ttk.Separator(scrollable_frame, orient='horizontal')
+        separator.pack(fill=tk.X, padx=20, pady=20)
+
+        # Token login frame
+        token_frame = ttk.LabelFrame(scrollable_frame, text="Alternative: Login with JWT Token", padding=20)
+        token_frame.pack(fill=tk.X, padx=20, pady=10)
+
+        # Info label
+        info_label = ttk.Label(token_frame, text="For Google login or other OAuth methods:\n1. Login at realmvtt.com\n2. Open browser console (F12) and run: localStorage.getItem('feathers-jwt')\n3. Paste the token below",
+                              font=("Arial", 9), foreground="gray")
+        info_label.grid(row=0, column=0, columnspan=2, sticky=tk.W, pady=(0, 10))
+
+        # JWT Token
+        ttk.Label(token_frame, text="JWT Token:").grid(row=1, column=0, sticky=tk.W, pady=5)
+        token_entry = ttk.Entry(token_frame, textvariable=self.jwt_token_var, width=40)
+        token_entry.grid(row=1, column=1, sticky=(tk.W, tk.E), padx=5, pady=5)
+
+        # Token login button and status
+        token_button_frame = ttk.Frame(token_frame)
+        token_button_frame.grid(row=2, column=0, columnspan=2, pady=20)
+
+        self.token_login_button = ttk.Button(token_button_frame, text="Login with Token", command=self.login_with_token)
+        self.token_login_button.pack(side=tk.LEFT, padx=5)
+
+        # Token login status indicator
+        self.token_status_frame = ttk.Frame(token_button_frame)
+        self.token_status_frame.pack(side=tk.LEFT, padx=10)
+
+        self.token_status_icon = ttk.Label(self.token_status_frame, text="", font=("Arial", 14))
+        self.token_status_icon.pack(side=tk.LEFT)
+
+        self.token_status_text = ttk.Label(self.token_status_frame, text="", font=("Arial", 10))
+        self.token_status_text.pack(side=tk.LEFT, padx=5)
+
+        # Configure grid weights
+        token_frame.columnconfigure(1, weight=1)
+
         # Campaign frame
         campaign_frame = ttk.LabelFrame(scrollable_frame, text="Campaign", padding=20)
         campaign_frame.pack(fill=tk.X, padx=20, pady=10)
@@ -549,6 +588,21 @@ class OggDudeImporterGUI:
         else:
             self.campaign_status_icon.config(text="ℹ", foreground="black")
             self.campaign_status_text.config(text=message, foreground="black")
+
+    def update_token_status(self, message: str, status_type: str = "info"):
+        """Update token login status with visual indicators"""
+        if status_type == "success":
+            self.token_status_icon.config(text="✓", foreground="green")
+            self.token_status_text.config(text=message, foreground="green")
+        elif status_type == "error":
+            self.token_status_icon.config(text="✗", foreground="red")
+            self.token_status_text.config(text=message, foreground="red")
+        elif status_type == "loading":
+            self.token_status_icon.config(text="⟳", foreground="blue")
+            self.token_status_text.config(text=message, foreground="blue")
+        else:
+            self.token_status_icon.config(text="ℹ", foreground="black")
+            self.token_status_text.config(text=message, foreground="black")
     
     def update_connection_status(self):
         """Update the overall connection status display"""
@@ -595,7 +649,39 @@ class OggDudeImporterGUI:
             
         finally:
             self.login_button.config(state=tk.NORMAL)
-    
+
+    def login_with_token(self):
+        """Handle login with JWT token"""
+        token = self.jwt_token_var.get().strip()
+
+        if not token:
+            self.update_token_status("Please enter a JWT token", "error")
+            return
+
+        # Show loading state
+        self.update_token_status("Validating token...", "loading")
+        self.token_login_button.config(state=tk.DISABLED)
+        self.root.update_idletasks()
+
+        try:
+            # Set the token directly
+            self.api_client.set_token(token)
+            self.update_token_status("Token set successfully!", "success")
+            self.update_connection_status()
+            self.update_status("Login successful with JWT token")
+
+            # Auto-save credentials if checkbox is checked
+            if self.save_credentials_var.get():
+                self.save_credentials()
+
+        except Exception as e:
+            self.update_token_status(f"Token validation failed: {e}", "error")
+            self.update_connection_status()
+            self.update_status(f"Token login failed: {e}")
+
+        finally:
+            self.token_login_button.config(state=tk.NORMAL)
+
     def lookup_campaign(self):
         """Handle campaign lookup"""
         invite_code = self.invite_code_var.get().strip()
@@ -1068,17 +1154,20 @@ class OggDudeImporterGUI:
         email = self.email_var.get()
         password = self.password_var.get()
         two_fa = self.two_fa_var.get()
+        jwt_token = self.jwt_token_var.get()
         invite_code = self.invite_code_var.get()
         save_credentials = self.save_credentials_var.get()
-        
-        if not email or not password:
-            self.update_login_status("Please enter email and password first.", "error")
+
+        # Allow saving if either email/password OR JWT token is provided
+        if not ((email and password) or jwt_token):
+            self.update_login_status("Please enter email/password or JWT token first.", "error")
             return
-        
+
         credentials = {
             "email": email,
             "password": password,
             "two_fa": two_fa,
+            "jwt_token": jwt_token,
             "invite_code": invite_code
         }
         
@@ -1100,9 +1189,10 @@ class OggDudeImporterGUI:
                 self.email_var.set(credentials.get("email", ""))
                 self.password_var.set(credentials.get("password", ""))
                 self.two_fa_var.set(credentials.get("two_fa", ""))
+                self.jwt_token_var.set(credentials.get("jwt_token", ""))
                 self.invite_code_var.set(credentials.get("invite_code", ""))
                 self.save_credentials_var.set(True) # Assume saved if file exists
-                
+
                 if not silent:
                     self.update_login_status("Credentials loaded.", "success")
         except FileNotFoundError:
@@ -1121,6 +1211,7 @@ class OggDudeImporterGUI:
                 self.email_var.set("")
                 self.password_var.set("")
                 self.two_fa_var.set("")
+                self.jwt_token_var.set("")
                 self.invite_code_var.set("")
                 self.save_credentials_var.set(False)
                 self.update_login_status("Credentials cleared.", "success")
