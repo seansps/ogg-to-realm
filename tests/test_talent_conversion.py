@@ -186,7 +186,7 @@ def test_talent_data_extraction_passive():
 def test_adversary_talent_special_handling():
     """Test special handling for Adversary talent"""
     parser = XMLParser()
-    
+
     # Create a mock talent XML element for Adversary
     talent_xml = '''<?xml version="1.0" encoding="utf-8"?>
     <Talents>
@@ -200,45 +200,45 @@ def test_adversary_talent_special_handling():
         </Talent>
     </Talents>
     '''
-    
+
     root = ET.fromstring(talent_xml)
     talent_elem = root.find('Talent')
-    
+
     print("Testing Adversary talent special handling...")
     talent_data = parser._extract_talent_data(talent_elem)
-    
+
     if talent_data is None:
         print("  ✗ Adversary talent data extraction failed")
         return False
-    
+
     # Check the extracted data
     data = talent_data.get('data', {})
-    
+
     # Check that modifiers field is set
     modifiers = data.get('modifiers', [])
     if modifiers:
         print(f"  ✓ Modifiers field found with {len(modifiers)} modifier(s)")
-        
+
         # Check the first modifier structure
         if len(modifiers) > 0:
             modifier = modifiers[0]
             expected_id = "80ec474f-faea-4179-b19b-a66a4ba4de8b"
             expected_type = "upgradeDifficultyOfAttacksTargetingYou"
             expected_value = "1"
-            
+
             if modifier.get('_id') == expected_id:
                 print(f"  ✓ Modifier ID is correct: {expected_id}")
             else:
                 print(f"  ✗ Modifier ID is incorrect: {modifier.get('_id')} (expected: {expected_id})")
                 return False
-            
+
             modifier_data = modifier.get('data', {})
             if modifier_data.get('type') == expected_type:
                 print(f"  ✓ Modifier type is correct: {expected_type}")
             else:
                 print(f"  ✗ Modifier type is incorrect: {modifier_data.get('type')} (expected: {expected_type})")
                 return False
-            
+
             if modifier_data.get('value') == expected_value:
                 print(f"  ✓ Modifier value is correct: {expected_value}")
             else:
@@ -250,28 +250,132 @@ def test_adversary_talent_special_handling():
     else:
         print("  ✗ Modifiers field not found")
         return False
-    
+
+    return True
+
+def test_incidental_talent_tags():
+    """Test that taIncidental activation creates Incidental tag"""
+    parser = XMLParser()
+
+    # Create a mock talent XML element with taIncidental activation
+    talent_xml = '''<?xml version="1.0" encoding="utf-8"?>
+    <Talents>
+        <Talent>
+            <Key>TESTINCIDENTAL</Key>
+            <Name>Test Incidental</Name>
+            <Description>This is an incidental talent.</Description>
+            <ActivationValue>taIncidental</ActivationValue>
+            <Ranked>false</Ranked>
+            <ForceTalent>false</ForceTalent>
+        </Talent>
+    </Talents>
+    '''
+
+    root = ET.fromstring(talent_xml)
+    talent_elem = root.find('Talent')
+
+    print("Testing incidental talent tag creation...")
+    talent_data = parser._extract_talent_data(talent_elem)
+
+    if talent_data is None:
+        print("  ✗ Incidental talent data extraction failed")
+        return False
+
+    # Check the extracted data
+    data = talent_data.get('data', {})
+
+    # Check tags field
+    tags = data.get('tags', [])
+    if tags == ["Incidental"]:
+        print(f"  ✓ Tags correctly set to {tags}")
+    else:
+        print(f"  ✗ Tags incorrect: {tags} (expected: ['Incidental'])")
+        return False
+
+    # Check activation is still converted to Active
+    activation = data.get('activation', '')
+    if activation == 'Active':
+        print(f"  ✓ Activation converted correctly: '{activation}'")
+    else:
+        print(f"  ✗ Activation conversion failed: '{activation}' (expected: 'Active')")
+        return False
+
+    return True
+
+def test_incidental_out_of_turn_talent_tags():
+    """Test that taIncidentalOOT activation creates Incidental and Out of Turn tags"""
+    parser = XMLParser()
+
+    # Create a mock talent XML element with taIncidentalOOT activation
+    talent_xml = '''<?xml version="1.0" encoding="utf-8"?>
+    <Talents>
+        <Talent>
+            <Key>TESTINCIDENTALOOT</Key>
+            <Name>Test Incidental OOT</Name>
+            <Description>This is an incidental out of turn talent.</Description>
+            <ActivationValue>taIncidentalOOT</ActivationValue>
+            <Ranked>true</Ranked>
+            <ForceTalent>false</ForceTalent>
+        </Talent>
+    </Talents>
+    '''
+
+    root = ET.fromstring(talent_xml)
+    talent_elem = root.find('Talent')
+
+    print("Testing incidental out of turn talent tag creation...")
+    talent_data = parser._extract_talent_data(talent_elem)
+
+    if talent_data is None:
+        print("  ✗ Incidental OOT talent data extraction failed")
+        return False
+
+    # Check the extracted data
+    data = talent_data.get('data', {})
+
+    # Check tags field
+    tags = data.get('tags', [])
+    if tags == ["Incidental", "Out of Turn"]:
+        print(f"  ✓ Tags correctly set to {tags}")
+    else:
+        print(f"  ✗ Tags incorrect: {tags} (expected: ['Incidental', 'Out of Turn'])")
+        return False
+
+    # Check activation is still converted to Active
+    activation = data.get('activation', '')
+    if activation == 'Active':
+        print(f"  ✓ Activation converted correctly: '{activation}'")
+    else:
+        print(f"  ✗ Activation conversion failed: '{activation}' (expected: 'Active')")
+        return False
+
     return True
 
 if __name__ == "__main__":
     print("Running talent conversion tests...")
-    
+
     # Test activation value conversion
     activation_result = test_activation_value_conversion()
-    
+
     # Test boolean to yes/no conversion
     boolean_result = test_boolean_to_yes_no_conversion()
-    
+
     # Test talent data extraction
     extraction_result = test_talent_data_extraction()
-    
+
     # Test passive talent data extraction
     passive_result = test_talent_data_extraction_passive()
-    
+
     # Test adversary talent special handling
     adversary_result = test_adversary_talent_special_handling()
-    
-    if (activation_result and boolean_result and extraction_result and passive_result and adversary_result):
+
+    # Test incidental talent tags
+    incidental_result = test_incidental_talent_tags()
+
+    # Test incidental out of turn talent tags
+    incidental_oot_result = test_incidental_out_of_turn_talent_tags()
+
+    if (activation_result and boolean_result and extraction_result and passive_result and adversary_result and incidental_result and incidental_oot_result):
         print("\n✅ All talent conversion tests passed!")
     else:
         print("\n❌ Some talent conversion tests failed!")

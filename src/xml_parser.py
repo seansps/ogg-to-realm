@@ -723,14 +723,18 @@ class XMLParser:
             
             # Apply field mapping
             mapped_data = self._apply_field_mapping('talents', raw_data)
-            
+
             # Apply conversions for specific fields
+            # Get tags from activation value BEFORE converting it
             if 'activation' in mapped_data:
+                activation_tags = self._get_tags_from_activation(mapped_data['activation'])
+                if activation_tags:
+                    mapped_data['tags'] = activation_tags
                 mapped_data['activation'] = self._convert_activation_value(mapped_data['activation'])
-            
+
             if 'ranked' in mapped_data:
                 mapped_data['ranked'] = self._convert_boolean_to_yes_no(mapped_data['ranked'])
-            
+
             if 'forceTalent' in mapped_data:
                 mapped_data['forceTalent'] = self._convert_boolean_to_yes_no(mapped_data['forceTalent'])
             
@@ -2620,7 +2624,7 @@ class XMLParser:
         """Convert OggDude activation value to Realm VTT format"""
         if not activation_value:
             return ""
-        
+
         # Handle the activation value conversions
         if activation_value == "taPassive":
             return "Passive"
@@ -2633,7 +2637,30 @@ class XMLParser:
             return activation_value[2:]
         else:
             return activation_value
-    
+
+    def _get_tags_from_activation(self, activation_value: str) -> List[str]:
+        """Convert OggDude activation value to Realm VTT tags
+
+        Args:
+            activation_value: The OggDude activation value (e.g., 'taIncidental', 'taIncidentalOOT')
+
+        Returns:
+            List of tags for the talent (e.g., ['Incidental'], ['Incidental', 'Out of Turn'])
+        """
+        tags = []
+
+        if not activation_value:
+            return tags
+
+        # Check for incidental types
+        if activation_value == "taIncidental":
+            tags.append("Incidental")
+        elif activation_value == "taIncidentalOOT":
+            tags.append("Incidental")
+            tags.append("Out of Turn")
+
+        return tags
+
     def _convert_boolean_to_yes_no(self, value: Any) -> str:
         """Convert boolean value to 'yes' or 'no' string"""
         if isinstance(value, str):
