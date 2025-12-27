@@ -917,7 +917,17 @@ class DataMapper:
         notes = npc.get('notes', '')
         npc_type = data.get('type', 'rival').lower()
         subtype = data.get('subtype', '')
-        
+
+        # Extract species from tags (format: "species:Gamorrean") or direct field
+        species_name = data.get('species', '')
+        if not species_name:
+            tags = data.get('tags', [])
+            if isinstance(tags, list):
+                for tag in tags:
+                    if isinstance(tag, str) and tag.startswith('species:'):
+                        species_name = tag[8:]  # Remove "species:" prefix
+                        break
+
         # Get characteristics
         characteristics = data.get('characteristics', {})
         brawn = characteristics.get('Brawn', characteristics.get('brawn', 1))
@@ -981,7 +991,7 @@ class DataMapper:
             "woundThreshold": wound_threshold,
             "woundThresholdBonus": 0,
             "woundsRemaining": wounds_remaining,
-            "speciesName": "Human",  # Default
+            "speciesName": species_name,  # From species: tag or empty
             "subtype": subtype,
             "wounds": 0,
             "strain": 0,

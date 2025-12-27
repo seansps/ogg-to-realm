@@ -390,8 +390,8 @@ class JSONParser:
                             filtered_records.append(record)
                             record_matched = True
                             break
-                        # Also check in source field for backwards compatibility
-                        elif isinstance(adversaries_source, str) and adversaries_source.lower() in record_source.lower():
+                        # Also check in source field for backwards compatibility (exact match)
+                        elif isinstance(adversaries_source, str) and adversaries_source.lower() == record_source.lower():
                             filtered_records.append(record)
                             record_matched = True
                             break

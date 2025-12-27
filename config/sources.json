@@ -11,6 +11,15 @@
       "adversaries_sources": ["book:eote"]
     },
     {
+      "name": "Edge of the Empire Beginner Game",
+      "key": "book:eotebg",
+      "oggdude_sources": [
+        "Edge of the Empire Beginner Game",
+        "EotE Beginner Game"
+      ],
+      "adversaries_sources": ["book:eotebg"]
+    },
+    {
       "name": "Age of Rebellion Core Rulebook",
       "key": "book:aor",
       "oggdude_sources": [
@@ -19,6 +28,15 @@
         "AoR"
       ],
       "adversaries_sources": ["book:aor"]
+    },
+    {
+      "name": "Age of Rebellion Beginner Game",
+      "key": "book:aorbg",
+      "oggdude_sources": [
+        "Age of Rebellion Beginner Game",
+        "AoR Beginner Game"
+      ],
+      "adversaries_sources": ["book:aorbg"]
     },
     {
       "name": "Force and Destiny Core Rulebook",
@@ -31,238 +49,277 @@
       "adversaries_sources": ["book:fad"]
     },
     {
+      "name": "Force and Destiny Beginner Game",
+      "key": "book:fadbg",
+      "oggdude_sources": [
+        "Force and Destiny Beginner Game",
+        "FaD Beginner Game"
+      ],
+      "adversaries_sources": ["book:fadbg"]
+    },
+    {
       "name": "Far Horizons",
       "key": "far-horizons",
       "oggdude_sources": ["Far Horizons"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:fh"]
     },
     {
       "name": "Dangerous Covenants",
       "key": "dangerous-covenants",
       "oggdude_sources": ["Dangerous Covenants"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:dc"]
     },
     {
       "name": "Enter the Unknown",
       "key": "enter-the-unknown",
       "oggdude_sources": ["Enter the Unknown"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:etu"]
     },
     {
       "name": "Fly Casual",
       "key": "fly-casual",
       "oggdude_sources": ["Fly Casual"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:fc"]
     },
     {
       "name": "Forged in Battle",
       "key": "forged-in-battle",
       "oggdude_sources": ["Forged in Battle"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:fib"]
     },
     {
       "name": "Stay on Target",
       "key": "stay-on-target",
       "oggdude_sources": ["Stay on Target"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:sot"]
     },
     {
       "name": "Unlimited Power",
       "key": "unlimited-power",
       "oggdude_sources": ["Unlimited Power"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:up"]
     },
     {
       "name": "Disciples of Harmony",
       "key": "disciples-of-harmony",
       "oggdude_sources": ["Disciples of Harmony"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:doh"]
     },
     {
       "name": "Lords of Nal Hutta",
       "key": "lords-of-nal-hutta",
       "oggdude_sources": ["Lords of Nal Hutta"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:lonh"]
     },
     {
       "name": "Suns of Fortune",
       "key": "suns-of-fortune",
       "oggdude_sources": ["Suns of Fortune"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:sof"]
     },
     {
       "name": "Nexus of Power",
       "key": "nexus-of-power",
       "oggdude_sources": ["Nexus of Power", "Nexus of Power Sourcebook"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:nop"]
     },
     {
       "name": "Fully Operational",
       "key": "fully-operational",
       "oggdude_sources": ["Fully Operational"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:fo"]
     },
     {
       "name": "Cyphers and Masks",
       "key": "cyphers-and-masks",
       "oggdude_sources": ["Cyphers and Masks"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:cam"]
     },
     {
       "name": "Rise of the Separatists",
       "key": "rise-of-the-separatists",
       "oggdude_sources": ["Rise of the Separatists"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:rots"]
     },
     {
       "name": "Collapse of the Republic",
       "key": "collapse-of-the-republic",
       "oggdude_sources": ["Collapse of the Republic"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:cotr"]
     },
     {
       "name": "Dawn of Rebellion",
       "key": "dawn-of-rebellion",
       "oggdude_sources": ["Dawn of Rebellion"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:dor"]
     },
     {
       "name": "Chronicles of the Gatekeeper",
       "key": "chronicles-of-the-gatekeeper",
       "oggdude_sources": ["Chronicles of the Gatekeeper"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:cotg", "adventure:Chronicles of the Gatekeeper"]
     },
     {
       "name": "Savage Spirits",
       "key": "savage-spirits",
       "oggdude_sources": ["Savage Spirits"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:ss"]
     },
     {
       "name": "Endless Vigil",
       "key": "endless-vigil",
       "oggdude_sources": ["Endless Vigil"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:ev"]
     },
     {
       "name": "Lead by Example",
       "key": "lead-by-example",
       "oggdude_sources": ["Lead by Example"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:lbe"]
     },
     {
       "name": "Strongholds of Resistance",
       "key": "strongholds-of-resistance",
       "oggdude_sources": ["Strongholds of Resistance"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:sor"]
     },
     {
       "name": "Special Modifications",
       "key": "special-modifications",
       "oggdude_sources": ["Special Modifications"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:sm"]
     },
     {
       "name": "Keeping the Peace",
       "key": "keeping-the-peace",
       "oggdude_sources": ["Keeping the Peace", "Keeping the Peace source book"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:ktp"]
     },
     {
       "name": "Knights of Fate",
       "key": "knights-of-fate",
       "oggdude_sources": ["Knights of Fate"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:kof"]
     },
     {
       "name": "Ghosts of Dathomir",
       "key": "ghosts-of-dathomir",
       "oggdude_sources": ["Ghosts of Dathomir"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:god", "adventure:Ghosts of Dathomir"]
     },
     {
       "name": "Mask of the Pirate Queen",
       "key": "mask-of-the-pirate-queen",
       "oggdude_sources": ["Mask of the Pirate Queen"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:motpq", "adventure:Mask of the Pirate Queen"]
     },
     {
       "name": "No Disintegrations",
       "key": "no-disintegrations",
       "oggdude_sources": ["No Disintegrations"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:nd"]
     },
     {
       "name": "Onslaught at Arda I",
       "key": "onslaught-at-arda-i",
       "oggdude_sources": ["Onslaught at Arda I"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:oaai", "adventure:Onslaught at Arda I"]
     },
     {
       "name": "Under a Black Sun",
       "key": "under-a-black-sun",
       "oggdude_sources": ["Under a Black Sun"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:uabs", "adventure:Under a Black Sun"]
     },
     {
       "name": "Beyond the Rim",
       "key": "beyond-the-rim",
       "oggdude_sources": ["Beyond the Rim"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:btr", "adventure:Beyond the Rim"]
     },
     {
       "name": "Long Arm of the Hutt",
       "key": "long-arm-of-the-hutt",
       "oggdude_sources": ["Long Arm of the Hutt"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:laoth", "adventure:Long Arm of the Hutt"]
     },
     {
       "name": "Jewel of Yavin",
       "key": "jewel-of-yavin",
       "oggdude_sources": ["Jewel of Yavin"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:joy", "adventure:Jewel of Yavin"]
     },
     {
       "name": "Desperate Allies",
       "key": "desperate-allies",
       "oggdude_sources": ["Desperate Allies"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:da"]
     },
     {
       "name": "Friends Like These",
       "key": "friends-like-these",
       "oggdude_sources": ["Friends Like These"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:flt", "adventure:Friends Like These"]
     },
     {
       "name": "Allies and Adversaries",
       "key": "allies-and-adversaries",
       "oggdude_sources": ["Allies and Adversaries"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:aaa"]
     },
     {
       "name": "Force and Destiny Game Master's Kit",
       "key": "force-and-destiny-gm-kit",
       "oggdude_sources": ["Force and Destiny Game Master's Kit"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:fadgmk"]
+    },
+    {
+      "name": "Age of Rebellion Game Master's Kit",
+      "key": "age-of-rebellion-gm-kit",
+      "oggdude_sources": ["Age of Rebellion Game Master's Kit"],
+      "adversaries_sources": ["book:aorgmk"]
+    },
+    {
+      "name": "Edge of the Empire Game Master's Kit",
+      "key": "edge-of-the-empire-gm-kit",
+      "oggdude_sources": ["Edge of the Empire Game Master's Kit"],
+      "adversaries_sources": ["book:eotegmk"]
     },
     {
       "name": "Age of Rebellion Beta Rulebook",
       "key": "age-of-rebellion-beta",
       "oggdude_sources": ["Age of Rebellion Beta Rulebook"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:aorbeta"]
     },
     {
       "name": "Force and Destiny Beta Rulebook",
       "key": "force-and-destiny-beta",
       "oggdude_sources": ["Force and Destiny Beta Rulebook"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:fadbeta"]
     },
     {
       "name": "Unofficial Species Menagerie",
       "key": "unofficial-species-menagerie",
       "oggdude_sources": ["Unofficial Species Menagerie"],
-      "adversaries_sources": []
+      "adversaries_sources": ["book:usm"]
+    },
+    {
+      "name": "Escape from Mos Shuuta",
+      "key": "adventure:escape-from-mos-shuuta",
+      "oggdude_sources": ["Escape from Mos Shuuta"],
+      "adversaries_sources": ["book:eotebg", "adventure:Escape from Mos Shuuta"]
+    },
+    {
+      "name": "Takeover at Whisper Base",
+      "key": "adventure:takeover-at-whisper-base",
+      "oggdude_sources": ["Takeover at Whisper Base"],
+      "adversaries_sources": ["book:aorbg", "adventure:Takeover at Whisper Base"]
+    },
+    {
+      "name": "Mountaintop Rescue",
+      "key": "adventure:mountaintop-rescue",
+      "oggdude_sources": ["Mountaintop Rescue"],
+      "adversaries_sources": ["book:fadbg", "adventure:Mountaintop Rescue"]
     }
   ]
 }
