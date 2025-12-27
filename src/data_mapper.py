@@ -991,7 +991,7 @@ class DataMapper:
             "woundThreshold": wound_threshold,
             "woundThresholdBonus": 0,
             "woundsRemaining": wounds_remaining,
-            "speciesName": species_name or "Any",  # From species: tag or default to "Any"
+            "speciesName": species_name,  # From species: tag or empty
             "subtype": subtype,
             "wounds": 0,
             "strain": 0,
