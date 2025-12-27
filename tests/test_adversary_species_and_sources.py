@@ -102,8 +102,8 @@ def test_species_extraction_from_tags():
 
         human = next(r for r in records if r['name'] == 'Generic Human')
         converted_human = data_mapper.convert_oggdude_to_realm_vtt(human, 'test_campaign', 'Test')
-        assert converted_human['data']['speciesName'] == '', \
-            f"Expected speciesName '' (empty), got '{converted_human['data']['speciesName']}'"
+        assert converted_human['data']['speciesName'] == 'Any', \
+            f"Expected speciesName 'Any', got '{converted_human['data']['speciesName']}'"
 
         print("✓ Species extraction from tags test passed")
         return True
