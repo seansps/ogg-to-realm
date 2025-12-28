@@ -761,11 +761,11 @@ class DataMapper:
             "category": category,
             "unidentifiedName": "Unknown Vehicle",
             "identified": True,
-            "shared": False,
+            "shared": True,
             "locked": True,
             "data": realm_data
         }
-        
+
         return realm_vehicle
     
     def _parse_skill_and_difficulty(self, description: str) -> tuple[str, str]:
