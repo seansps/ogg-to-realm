@@ -1012,7 +1012,7 @@ class DataMapper:
             "woundsRemaining": wounds_remaining,
             "speciesName": species_name,  # From species: tag or empty
             "subtype": subtype,
-            "silhouette": silhouette,  # From "Silhouette X" ability or default 1
+            "size": silhouette,  # From "Silhouette X" ability or default "Silhouette 1"
             "wounds": 0,
             "strain": 0,
             "rangeBand": "Medium",
