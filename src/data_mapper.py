@@ -929,7 +929,8 @@ class DataMapper:
                         break
 
         # Extract silhouette from abilities (format: "Silhouette 3" or "Silhouette: 3")
-        silhouette = 1  # Default silhouette
+        # Realm VTT expects format "Silhouette X" as string
+        silhouette = "Silhouette 1"  # Default silhouette
         abilities = data.get('abilities', [])
         if isinstance(abilities, list):
             for ability in abilities:
@@ -943,7 +944,7 @@ class DataMapper:
                     import re
                     match = re.search(r'silhouette[:\s]+(\d+)', ability_str.lower())
                     if match:
-                        silhouette = int(match.group(1))
+                        silhouette = f"Silhouette {match.group(1)}"
                     break
 
         # Get characteristics

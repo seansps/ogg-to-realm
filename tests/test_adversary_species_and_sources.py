@@ -377,26 +377,26 @@ def test_silhouette_extraction():
         # Test Rancor - Silhouette 3
         rancor = next(r for r in records if r['name'] == 'Rancor')
         converted_rancor = data_mapper.convert_oggdude_to_realm_vtt(rancor, 'test_campaign', 'Test')
-        assert converted_rancor['data']['silhouette'] == 3, \
-            f"Expected silhouette 3 for Rancor, got {converted_rancor['data']['silhouette']}"
+        assert converted_rancor['data']['silhouette'] == "Silhouette 3", \
+            f"Expected 'Silhouette 3' for Rancor, got {converted_rancor['data']['silhouette']}"
 
         # Test Krayt Dragon - Silhouette: 4 (colon format)
         krayt = next(r for r in records if r['name'] == 'Krayt Dragon')
         converted_krayt = data_mapper.convert_oggdude_to_realm_vtt(krayt, 'test_campaign', 'Test')
-        assert converted_krayt['data']['silhouette'] == 4, \
-            f"Expected silhouette 4 for Krayt Dragon, got {converted_krayt['data']['silhouette']}"
+        assert converted_krayt['data']['silhouette'] == "Silhouette 4", \
+            f"Expected 'Silhouette 4' for Krayt Dragon, got {converted_krayt['data']['silhouette']}"
 
-        # Test Stormtrooper - No silhouette, should default to 1
+        # Test Stormtrooper - No silhouette, should default to Silhouette 1
         stormtrooper = next(r for r in records if r['name'] == 'Stormtrooper')
         converted_stormtrooper = data_mapper.convert_oggdude_to_realm_vtt(stormtrooper, 'test_campaign', 'Test')
-        assert converted_stormtrooper['data']['silhouette'] == 1, \
-            f"Expected silhouette 1 (default) for Stormtrooper, got {converted_stormtrooper['data']['silhouette']}"
+        assert converted_stormtrooper['data']['silhouette'] == "Silhouette 1", \
+            f"Expected 'Silhouette 1' (default) for Stormtrooper, got {converted_stormtrooper['data']['silhouette']}"
 
         # Test AT-ST Pilot - Dict format ability
         pilot = next(r for r in records if r['name'] == 'AT-ST Pilot')
         converted_pilot = data_mapper.convert_oggdude_to_realm_vtt(pilot, 'test_campaign', 'Test')
-        assert converted_pilot['data']['silhouette'] == 2, \
-            f"Expected silhouette 2 for AT-ST Pilot, got {converted_pilot['data']['silhouette']}"
+        assert converted_pilot['data']['silhouette'] == "Silhouette 2", \
+            f"Expected 'Silhouette 2' for AT-ST Pilot, got {converted_pilot['data']['silhouette']}"
 
         print("✓ Silhouette extraction test passed")
         return True
