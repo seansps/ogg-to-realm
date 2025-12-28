@@ -405,6 +405,35 @@ def test_silhouette_extraction():
         os.unlink(temp_file)
 
 
+def test_captive_rancor_silhouette():
+    """Test that Captive Rancor from creatures.json has correct silhouette"""
+    print("Testing Captive Rancor silhouette from real file...")
+
+    creatures_file = os.path.join(os.path.dirname(__file__), '..', 'Adversaries', 'creatures.json')
+    if not os.path.exists(creatures_file):
+        print("⚠ creatures.json not found, skipping test")
+        return True
+
+    parser = JSONParser()
+    data_mapper = DataMapper()
+
+    records = parser.parse_json_file(creatures_file)
+
+    # Find Captive Rancor
+    captive_rancor = next((r for r in records if r['name'] == 'Captive Rancor'), None)
+    if captive_rancor is None:
+        print("⚠ Captive Rancor not found in creatures.json, skipping test")
+        return True
+
+    converted = data_mapper.convert_oggdude_to_realm_vtt(captive_rancor, 'test_campaign', 'Test')
+
+    assert converted['data']['silhouette'] == "Silhouette 3", \
+        f"Expected 'Silhouette 3' for Captive Rancor, got {converted['data']['silhouette']}"
+
+    print("✓ Captive Rancor silhouette test passed")
+    return True
+
+
 def main():
     """Run all adversary species and sources tests"""
     print("Running adversary species and sources tests")
@@ -417,6 +446,7 @@ def main():
         test_adventure_tag_filtering,
         test_real_escapemosshuuta_file,
         test_silhouette_extraction,
+        test_captive_rancor_silhouette,
     ]
 
     passed = 0
