@@ -928,6 +928,24 @@ class DataMapper:
                         species_name = tag[8:]  # Remove "species:" prefix
                         break
 
+        # Extract silhouette from abilities (format: "Silhouette 3" or "Silhouette: 3")
+        silhouette = 1  # Default silhouette
+        abilities = data.get('abilities', [])
+        if isinstance(abilities, list):
+            for ability in abilities:
+                ability_str = ''
+                if isinstance(ability, str):
+                    ability_str = ability
+                elif isinstance(ability, dict):
+                    ability_str = ability.get('name', '')
+                if ability_str.lower().startswith('silhouette'):
+                    # Parse "Silhouette 3" or "Silhouette: 3" or "Silhouette 3."
+                    import re
+                    match = re.search(r'silhouette[:\s]+(\d+)', ability_str.lower())
+                    if match:
+                        silhouette = int(match.group(1))
+                    break
+
         # Get characteristics
         characteristics = data.get('characteristics', {})
         brawn = characteristics.get('Brawn', characteristics.get('brawn', 1))
@@ -993,6 +1011,7 @@ class DataMapper:
             "woundsRemaining": wounds_remaining,
             "speciesName": species_name,  # From species: tag or empty
             "subtype": subtype,
+            "silhouette": silhouette,  # From "Silhouette X" ability or default 1
             "wounds": 0,
             "strain": 0,
             "rangeBand": "Medium",

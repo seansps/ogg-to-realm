@@ -320,6 +320,91 @@ def test_real_escapemosshuuta_file():
     return True
 
 
+def test_silhouette_extraction():
+    """Test that silhouette is extracted from abilities"""
+    print("Testing silhouette extraction from abilities...")
+
+    parser = JSONParser()
+    data_mapper = DataMapper()
+
+    test_data = [
+        {
+            "name": "Rancor",
+            "type": "Nemesis",
+            "characteristics": {"Brawn": 6, "Agility": 2, "Intellect": 1, "Cunning": 3, "Willpower": 3, "Presence": 2},
+            "derived": {"soak": 12, "wounds": 42, "strain": 18},
+            "skills": {"Brawl": 3},
+            "abilities": ["Silhouette 3", "Sweep Attack"],
+            "tags": ["creature", "book:aaa"]
+        },
+        {
+            "name": "Krayt Dragon",
+            "type": "Nemesis",
+            "characteristics": {"Brawn": 7, "Agility": 2, "Intellect": 1, "Cunning": 2, "Willpower": 3, "Presence": 2},
+            "derived": {"soak": 14, "wounds": 60, "strain": 20},
+            "skills": {"Brawl": 4},
+            "abilities": ["Silhouette: 4", "Terrifying"],  # With colon format
+            "tags": ["creature", "book:eote"]
+        },
+        {
+            "name": "Stormtrooper",
+            "type": "Minion",
+            "characteristics": {"Brawn": 2, "Agility": 2, "Intellect": 2, "Cunning": 2, "Willpower": 2, "Presence": 2},
+            "derived": {"soak": 5, "wounds": 5},
+            "skills": {},
+            "abilities": [],  # No silhouette ability - should default to 1
+            "tags": ["imperial", "book:eote"]
+        },
+        {
+            "name": "AT-ST Pilot",
+            "type": "Rival",
+            "characteristics": {"Brawn": 2, "Agility": 3, "Intellect": 2, "Cunning": 2, "Willpower": 2, "Presence": 2},
+            "derived": {"soak": 3, "wounds": 12},
+            "skills": {"Gunnery": 2},
+            "abilities": [{"name": "Silhouette 2", "description": "This creature is larger than normal."}],  # Dict format
+            "tags": ["imperial", "book:aor"]
+        }
+    ]
+
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        json.dump(test_data, f)
+        temp_file = f.name
+
+    try:
+        records = parser.parse_json_file(temp_file)
+        assert len(records) == 4, f"Expected 4 records, got {len(records)}"
+
+        # Test Rancor - Silhouette 3
+        rancor = next(r for r in records if r['name'] == 'Rancor')
+        converted_rancor = data_mapper.convert_oggdude_to_realm_vtt(rancor, 'test_campaign', 'Test')
+        assert converted_rancor['data']['silhouette'] == 3, \
+            f"Expected silhouette 3 for Rancor, got {converted_rancor['data']['silhouette']}"
+
+        # Test Krayt Dragon - Silhouette: 4 (colon format)
+        krayt = next(r for r in records if r['name'] == 'Krayt Dragon')
+        converted_krayt = data_mapper.convert_oggdude_to_realm_vtt(krayt, 'test_campaign', 'Test')
+        assert converted_krayt['data']['silhouette'] == 4, \
+            f"Expected silhouette 4 for Krayt Dragon, got {converted_krayt['data']['silhouette']}"
+
+        # Test Stormtrooper - No silhouette, should default to 1
+        stormtrooper = next(r for r in records if r['name'] == 'Stormtrooper')
+        converted_stormtrooper = data_mapper.convert_oggdude_to_realm_vtt(stormtrooper, 'test_campaign', 'Test')
+        assert converted_stormtrooper['data']['silhouette'] == 1, \
+            f"Expected silhouette 1 (default) for Stormtrooper, got {converted_stormtrooper['data']['silhouette']}"
+
+        # Test AT-ST Pilot - Dict format ability
+        pilot = next(r for r in records if r['name'] == 'AT-ST Pilot')
+        converted_pilot = data_mapper.convert_oggdude_to_realm_vtt(pilot, 'test_campaign', 'Test')
+        assert converted_pilot['data']['silhouette'] == 2, \
+            f"Expected silhouette 2 for AT-ST Pilot, got {converted_pilot['data']['silhouette']}"
+
+        print("✓ Silhouette extraction test passed")
+        return True
+
+    finally:
+        os.unlink(temp_file)
+
+
 def main():
     """Run all adversary species and sources tests"""
     print("Running adversary species and sources tests")
@@ -331,6 +416,7 @@ def main():
         test_adversaries_sources_filtering,
         test_adventure_tag_filtering,
         test_real_escapemosshuuta_file,
+        test_silhouette_extraction,
     ]
 
     passed = 0
