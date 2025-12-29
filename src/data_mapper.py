@@ -76,58 +76,73 @@ class DataMapper:
             return False
 
         try:
-            # Load items cache with pagination
+            # Load items cache with pagination (50 per page)
             self._campaign_items_cache = {}
-            result = self.api_client.find_records('items', {'$limit': 1000})
-            items = result.get('data', []) if isinstance(result, dict) else []
-
-            # If there are more items than returned, fetch remaining pages
-            total = result.get('total', len(items)) if isinstance(result, dict) else len(items)
-            if total > len(items):
-                skip = len(items)
-                while skip < total:
-                    page_result = self.api_client.find_records('items', {'$limit': 1000, '$skip': skip})
-                    page_items = page_result.get('data', []) if isinstance(page_result, dict) else []
-                    if not page_items:
-                        break
-                    items.extend(page_items)
-                    skip += len(page_items)
-
+            items = self._fetch_all_records('items')
             for item in items:
                 name = item.get('name', '').strip().lower()
                 if name:
                     self._campaign_items_cache[name] = item
-
             print(f"Cached {len(self._campaign_items_cache)} campaign items")
 
-            # Load talents cache with pagination
+            # Load talents cache with pagination (50 per page)
             self._campaign_talents_cache = {}
-            result = self.api_client.find_records('talents', {'$limit': 1000})
-            talents = result.get('data', []) if isinstance(result, dict) else []
-
-            # If there are more talents than returned, fetch remaining pages
-            total = result.get('total', len(talents)) if isinstance(result, dict) else len(talents)
-            if total > len(talents):
-                skip = len(talents)
-                while skip < total:
-                    page_result = self.api_client.find_records('talents', {'$limit': 1000, '$skip': skip})
-                    page_talents = page_result.get('data', []) if isinstance(page_result, dict) else []
-                    if not page_talents:
-                        break
-                    talents.extend(page_talents)
-                    skip += len(page_talents)
-
+            talents = self._fetch_all_records('talents')
             for talent in talents:
                 name = talent.get('name', '').strip().lower()
                 if name:
                     self._campaign_talents_cache[name] = talent
-
             print(f"Cached {len(self._campaign_talents_cache)} campaign talents")
             return True
 
         except Exception as e:
             print(f"Warning: Failed to load campaign caches: {e}")
             return False
+
+    def _fetch_all_records(self, record_type: str) -> List[Dict[str, Any]]:
+        """
+        Fetch all records of a type from the campaign with pagination.
+
+        Args:
+            record_type: Type of record ('items', 'talents', etc.)
+
+        Returns:
+            List of all records
+        """
+        import requests
+
+        all_records = []
+        skip = 0
+        batch_size = 50
+
+        base_url = self.api_client.base_url
+        headers = self.api_client.headers
+        campaign_id = self.api_client.campaign_id
+
+        while True:
+            params = {
+                '$limit': batch_size,
+                '$skip': skip,
+                'campaignId': campaign_id,
+                'recordType': record_type
+            }
+
+            response = requests.get(f"{base_url}/records", params=params, headers=headers)
+            response.raise_for_status()
+
+            result = response.json()
+            records = result.get('data', [])
+            total = result.get('total', 0)
+
+            all_records.extend(records)
+
+            # Check if we've fetched all records
+            if len(all_records) >= total or len(records) == 0:
+                break
+
+            skip += batch_size
+
+        return all_records
 
     def _find_campaign_item_by_name(self, name: str) -> Optional[Dict[str, Any]]:
         """
