@@ -1806,8 +1806,27 @@ class DataMapper:
         weapon_range = weapon_data.get('range', 'Short')
         qualities = weapon_data.get('qualities', [])
 
+        # Normalize skill names to Realm VTT format
+        # Adversaries JSON uses "Ranged: Light" but Realm expects "Ranged (Light)"
+        skill_mapping = {
+            'ranged: light': 'Ranged (Light)',
+            'ranged: heavy': 'Ranged (Heavy)',
+            'ranged light': 'Ranged (Light)',
+            'ranged heavy': 'Ranged (Heavy)',
+            'lightsaber (agility)': 'Lightsaber',
+            'lightsaber (brawn)': 'Lightsaber',
+            'lightsaber (cunning)': 'Lightsaber',
+            'lightsaber (intellect)': 'Lightsaber',
+            'lightsaber (presence)': 'Lightsaber',
+            'lightsaber (willpower)': 'Lightsaber',
+        }
+        skill_lower = skill.lower()
+        if skill_lower in skill_mapping:
+            skill = skill_mapping[skill_lower]
+
         # Determine weapon type based on skill
-        if skill.lower() in ['brawl', 'melee', 'lightsaber']:
+        skill_check = skill.lower()
+        if skill_check in ['brawl', 'melee', 'lightsaber']:
             weapon_type = 'melee weapon'
         else:
             weapon_type = 'ranged weapon'
