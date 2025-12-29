@@ -1800,15 +1800,109 @@ class DataMapper:
         name = weapon_data.get('name', 'Unknown Weapon')
         skill = weapon_data.get('skill', 'Ranged (Heavy)')
         damage = weapon_data.get('damage', weapon_data.get('plus-damage', 0))
-        critical = weapon_data.get('critical', 3)
+        critical = weapon_data.get('critical')
+        if critical is None:
+            critical = 0  # No crit rating
         weapon_range = weapon_data.get('range', 'Short')
-        
+        qualities = weapon_data.get('qualities', [])
+
         # Determine weapon type based on skill
         if skill.lower() in ['brawl', 'melee', 'lightsaber']:
             weapon_type = 'melee weapon'
         else:
             weapon_type = 'ranged weapon'
-        
+
+        # Build the data dict
+        data = {
+            'type': weapon_type,
+            'subtype': skill,
+            'damage': damage,
+            'crit': critical,
+            'range': weapon_range,
+            'weaponSkill': skill,
+            'skill': skill,
+            'carried': 'equipped',
+            'count': 1
+        }
+
+        # Quality mapping for Realm VTT format
+        # Maps adversary JSON quality names to (special_list_name, data_field_name)
+        quality_mapping = {
+            'accurate': ('accurate', 'accurate'),
+            'auto-fire': ('auto-fire', 'autoFire'),
+            'autofire': ('auto-fire', 'autoFire'),
+            'blast': ('blast', 'blast'),
+            'breach': ('breach', 'breach'),
+            'burn': ('burn', 'burn'),
+            'concussive': ('concussive', 'concussive'),
+            'cortosis': ('cortosis', 'cortosis'),
+            'cumbersome': ('cumbersome', 'cumbersome'),
+            'defensive': ('defensive', 'defensive'),
+            'deflection': ('deflection', 'deflection'),
+            'disorient': ('disorient', 'disorient'),
+            'ensnare': ('ensnare', 'ensnare'),
+            'guided': ('guided', 'guided'),
+            'inaccurate': ('inaccurate', 'inaccurate'),
+            'inferior': ('inferior', 'inferior'),
+            'ion': ('ion', 'ion'),
+            'knockdown': ('knockdown', 'knockdown'),
+            'limited ammo': ('limited-ammo', 'limitedAmmo'),
+            'limitedammo': ('limited-ammo', 'limitedAmmo'),
+            'linked': ('linked', 'linked'),
+            'pierce': ('pierce', 'pierce'),
+            'prepare': ('prepare', 'prepare'),
+            'slow-firing': ('slow-firing', 'slowFiring'),
+            'slowfiring': ('slow-firing', 'slowFiring'),
+            'slow firing': ('slow-firing', 'slowFiring'),
+            'stun': ('stun', 'stun'),
+            'stun damage': ('stun-damage', 'stunDamage'),
+            'stundamage': ('stun-damage', 'stunDamage'),
+            'stun setting': ('stun-setting', 'stunSetting'),
+            'stunsetting': ('stun-setting', 'stunSetting'),
+            'sunder': ('sunder', 'sunder'),
+            'superior': ('superior', 'superior'),
+            'tractor': ('tractor', 'tractor'),
+            'vicious': ('vicious', 'vicious'),
+            'unarmed': ('unarmed', 'unarmed'),
+        }
+
+        # Parse qualities and add them to data
+        # Qualities come as strings like "Pierce 4", "Linked 2", "Stun Damage", "Vicious 1"
+        special_list = []
+        for quality in qualities:
+            if isinstance(quality, str):
+                quality_stripped = quality.strip()
+                quality_lower = quality_stripped.lower()
+
+                # Handle qualities with ratings (e.g., "Pierce 4", "Linked 2")
+                parts = quality_stripped.rsplit(' ', 1)
+                if len(parts) == 2 and parts[1].isdigit():
+                    quality_base = parts[0].lower()
+                    quality_rating = int(parts[1])
+
+                    # Look up the proper field names
+                    if quality_base in quality_mapping:
+                        special_name, field_name = quality_mapping[quality_base]
+                        special_list.append(special_name)
+                        data[field_name] = quality_rating
+                    else:
+                        # Unknown quality with rating
+                        special_list.append(quality_base)
+                        data[quality_base] = quality_rating
+                else:
+                    # Handle simple qualities without ratings (e.g., "Stun Damage", "Knockdown")
+                    if quality_lower in quality_mapping:
+                        special_name, field_name = quality_mapping[quality_lower]
+                        special_list.append(special_name)
+                        data[field_name] = True
+                    else:
+                        # Unknown quality
+                        special_list.append(quality_lower.replace(' ', '-'))
+                        data[quality_lower.replace(' ', '')] = True
+
+        if special_list:
+            data['special'] = special_list
+
         return {
             'recordType': 'items',
             'name': name,
@@ -1816,17 +1910,7 @@ class DataMapper:
             'identified': True,
             'locked': True,
             '_id': str(uuid.uuid4()),
-            'data': {
-                'type': weapon_type,
-                'subtype': skill,
-                'damage': damage,
-                'crit': critical,
-                'range': weapon_range,
-                'weaponSkill': skill,
-                'skill': skill,
-                'carried': 'equipped',
-                'count': 1
-            }
+            'data': data
         }
     
     def _create_adhoc_armor(self, name: str, soak: int, defense: int) -> Dict[str, Any]:

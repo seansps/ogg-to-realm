@@ -314,31 +314,30 @@ class JSONParser:
         
         return equipment
     
-    def _extract_weapons(self, npc_data: Dict[str, Any]) -> List[str]:
-        """Extract weapons from NPC data"""
+    def _extract_weapons(self, npc_data: Dict[str, Any]) -> List[Any]:
+        """Extract weapons from NPC data - preserves dict structure for weapons with properties"""
         weapons = []
-        
+
         # Try different possible field names
         weapons_data = (
-            npc_data.get('weapons') or 
-            npc_data.get('Weapons') or 
-            npc_data.get('weapon') or 
-            npc_data.get('Weapon') or 
+            npc_data.get('weapons') or
+            npc_data.get('Weapons') or
+            npc_data.get('weapon') or
+            npc_data.get('Weapon') or
             []
         )
-        
+
         if isinstance(weapons_data, list):
             for weapon in weapons_data:
                 if isinstance(weapon, str):
                     weapons.append(weapon)
                 elif isinstance(weapon, dict):
-                    weapon_name = weapon.get('name') or weapon.get('Name') or weapon.get('key') or weapon.get('Key')
-                    if weapon_name:
-                        weapons.append(weapon_name)
+                    # Preserve the entire weapon dict with all properties (name, skill, damage, etc.)
+                    weapons.append(weapon)
         elif isinstance(weapons_data, str):
             # Single weapon as string
             weapons.append(weapons_data)
-        
+
         return weapons
     
     def _extract_armor(self, npc_data: Dict[str, Any]) -> List[str]:
