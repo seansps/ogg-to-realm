@@ -4,7 +4,10 @@ import copy
 from typing import Dict, List, Any, Optional
 
 class DataMapper:
-    def __init__(self):
+    def __init__(self, api_client=None):
+        self.api_client = api_client
+        self._campaign_items_cache = {}   # name (lowercase) -> full item record
+        self._campaign_talents_cache = {}  # name (lowercase) -> full talent record
         self.item_map = {}  # Maps item names to Realm VTT IDs
         self.talent_map = {}  # Maps talent names to Realm VTT IDs
         self.species_map = {}  # Maps species names to Realm VTT IDs
@@ -59,7 +62,105 @@ class DataMapper:
     def get_force_power_id(self, name: str) -> Optional[str]:
         """Get Realm VTT ID for a force power name"""
         return self.force_power_map.get(name)
-    
+
+    def load_campaign_caches(self) -> bool:
+        """
+        Load all items and talents from the campaign into caches.
+        Should be called once before processing NPCs/Vehicles.
+
+        Returns:
+            bool: True if caches were loaded successfully
+        """
+        if not self.api_client or not self.api_client.campaign_id:
+            print("Warning: No API client or campaign ID - skipping campaign cache loading")
+            return False
+
+        try:
+            # Load items cache with pagination
+            self._campaign_items_cache = {}
+            result = self.api_client.find_records('items', {'$limit': 1000})
+            items = result.get('data', []) if isinstance(result, dict) else []
+
+            # If there are more items than returned, fetch remaining pages
+            total = result.get('total', len(items)) if isinstance(result, dict) else len(items)
+            if total > len(items):
+                skip = len(items)
+                while skip < total:
+                    page_result = self.api_client.find_records('items', {'$limit': 1000, '$skip': skip})
+                    page_items = page_result.get('data', []) if isinstance(page_result, dict) else []
+                    if not page_items:
+                        break
+                    items.extend(page_items)
+                    skip += len(page_items)
+
+            for item in items:
+                name = item.get('name', '').strip().lower()
+                if name:
+                    self._campaign_items_cache[name] = item
+
+            print(f"Cached {len(self._campaign_items_cache)} campaign items")
+
+            # Load talents cache with pagination
+            self._campaign_talents_cache = {}
+            result = self.api_client.find_records('talents', {'$limit': 1000})
+            talents = result.get('data', []) if isinstance(result, dict) else []
+
+            # If there are more talents than returned, fetch remaining pages
+            total = result.get('total', len(talents)) if isinstance(result, dict) else len(talents)
+            if total > len(talents):
+                skip = len(talents)
+                while skip < total:
+                    page_result = self.api_client.find_records('talents', {'$limit': 1000, '$skip': skip})
+                    page_talents = page_result.get('data', []) if isinstance(page_result, dict) else []
+                    if not page_talents:
+                        break
+                    talents.extend(page_talents)
+                    skip += len(page_talents)
+
+            for talent in talents:
+                name = talent.get('name', '').strip().lower()
+                if name:
+                    self._campaign_talents_cache[name] = talent
+
+            print(f"Cached {len(self._campaign_talents_cache)} campaign talents")
+            return True
+
+        except Exception as e:
+            print(f"Warning: Failed to load campaign caches: {e}")
+            return False
+
+    def _find_campaign_item_by_name(self, name: str) -> Optional[Dict[str, Any]]:
+        """
+        Find an item in the campaign cache by name (case-insensitive).
+
+        Args:
+            name: Item name to search for
+
+        Returns:
+            Complete item record if found, None otherwise
+        """
+        if not self._campaign_items_cache or not name:
+            return None
+
+        search_name = name.strip().lower()
+        return self._campaign_items_cache.get(search_name)
+
+    def _find_campaign_talent_by_name(self, name: str) -> Optional[Dict[str, Any]]:
+        """
+        Find a talent in the campaign cache by name (case-insensitive).
+
+        Args:
+            name: Talent name to search for
+
+        Returns:
+            Complete talent record if found, None otherwise
+        """
+        if not self._campaign_talents_cache or not name:
+            return None
+
+        search_name = name.strip().lower()
+        return self._campaign_talents_cache.get(search_name)
+
     def convert_oggdude_to_realm_vtt(self, oggdude_record: Dict[str, Any], campaign_id: str, category: str = "") -> Dict[str, Any]:
         """
         Convert OggDude record to Realm VTT format
@@ -677,12 +778,20 @@ class DataMapper:
             for item in realm_data['inventory']:
                 # Store the firing arc before conversion
                 firing_arc = item.get('data', {}).get('firingArc', {})
-                
-                # Convert the item through the item data mapper
-                converted_item = self._convert_item(item, campaign_id, category)
-                
-                # Add UUID and ensure firing arc is preserved
-                converted_item['_id'] = str(uuid.uuid4())
+
+                # Try campaign cache first for existing items
+                item_name = item.get('name', '')
+                campaign_item = self._find_campaign_item_by_name(item_name) if item_name else None
+
+                if campaign_item:
+                    # Use campaign item (preserves portraits, customizations, etc.)
+                    converted_item = copy.deepcopy(campaign_item)
+                    converted_item['_id'] = str(uuid.uuid4())
+                else:
+                    # Fall back to converting from OggDude XML
+                    converted_item = self._convert_item(item, campaign_id, category)
+                    converted_item['_id'] = str(uuid.uuid4())
+
                 # Set icon on vehicle inventory items
                 self._set_inventory_item_icon(converted_item)
                 if firing_arc and 'data' in converted_item:
@@ -1047,6 +1156,28 @@ class DataMapper:
                 if talent_name.strip().lower() == 'force rating':
                     found_force_rating = max(found_force_rating or 0, talent_rank or 1)
                     continue
+
+                # Try campaign cache first (preserves portraits, customizations, etc.)
+                campaign_talent = self._find_campaign_talent_by_name(talent_name)
+                if campaign_talent:
+                    talent_copy = copy.deepcopy(campaign_talent)
+                    talent_copy['_id'] = str(uuid.uuid4())
+                    if 'data' not in talent_copy or not isinstance(talent_copy['data'], dict):
+                        talent_copy['data'] = {}
+                    talent_copy['data']['rank'] = talent_rank
+                    # Special handling: if Adversary, scale modifier value to rank
+                    if talent_copy.get('name', '').lower() == 'adversary':
+                        modifiers = talent_copy['data'].get('modifiers', [])
+                        if isinstance(modifiers, list):
+                            for mod in modifiers:
+                                if isinstance(mod, dict):
+                                    mod_data = mod.get('data', {})
+                                    if isinstance(mod_data, dict) and mod_data.get('type') == 'upgradeDifficultyOfAttacksTargetingYou':
+                                        mod_data['value'] = str(talent_rank)
+                    talents_list.append(talent_copy)
+                    continue
+
+                # Fall back to OggDude XML lookup
                 looked_up_talent = self._get_talent_by_name(talent_name)
                 if looked_up_talent:
                     # Deep copy and annotate rank
@@ -1794,26 +1925,41 @@ class DataMapper:
             if isinstance(weapon, str):
                 # Parse count if present
                 count, weapon_name = self._parse_item_count(weapon)
-                
-                # Try to find in OGG database using singularized name, then original name
+
+                # Try campaign cache first, then OGG database
                 singular_name = self._singularize_name(weapon_name)
-                ogg_item = self._find_item_by_name(singular_name)
-                if not ogg_item and singular_name != weapon_name:
-                    # Try original name if singularized didn't work
-                    ogg_item = self._find_item_by_name(weapon_name)
-                if ogg_item:
-                    # Convert OGG item to Realm VTT format
-                    realm_item = self._convert_item(ogg_item, '', '')
+                campaign_item = self._find_campaign_item_by_name(singular_name)
+                if not campaign_item and singular_name != weapon_name:
+                    campaign_item = self._find_campaign_item_by_name(weapon_name)
+
+                if campaign_item:
+                    # Use campaign item (preserves portraits, customizations, etc.)
+                    realm_item = copy.deepcopy(campaign_item)
                     realm_item['_id'] = str(uuid.uuid4())
-                    realm_item['data']['count'] = count
+                    if 'data' not in realm_item:
+                        realm_item['data'] = {}
+                    # Only set count if explicitly parsed > 1, otherwise default to 1
+                    realm_item['data']['count'] = count if count > 1 else 1
                     realm_item['data']['carried'] = 'equipped'
                     self._set_inventory_item_icon(realm_item)
                     _add_or_merge(realm_item)
                 else:
-                    # Create ad-hoc gear item (simple string weapons become gear)
-                    adhoc_item = self._create_adhoc_gear(weapon_name, count)
-                    self._set_inventory_item_icon(adhoc_item)
-                    _add_or_merge(adhoc_item)
+                    # Fall back to OGG database lookup
+                    ogg_item = self._find_item_by_name(singular_name)
+                    if not ogg_item and singular_name != weapon_name:
+                        ogg_item = self._find_item_by_name(weapon_name)
+                    if ogg_item:
+                        realm_item = self._convert_item(ogg_item, '', '')
+                        realm_item['_id'] = str(uuid.uuid4())
+                        realm_item['data']['count'] = count
+                        realm_item['data']['carried'] = 'equipped'
+                        self._set_inventory_item_icon(realm_item)
+                        _add_or_merge(realm_item)
+                    else:
+                        # Create ad-hoc gear item (simple string weapons become gear)
+                        adhoc_item = self._create_adhoc_gear(weapon_name, count)
+                        self._set_inventory_item_icon(adhoc_item)
+                        _add_or_merge(adhoc_item)
             
             elif isinstance(weapon, dict):
                 # Create ad-hoc weapon from object
@@ -1849,32 +1995,47 @@ class DataMapper:
                 
                 # Try to parse armor stats from parentheses
                 parsed_name, soak, defense = self._parse_armor_stats(gear_name)
-                
-                # Try to find in OGG database first using singularized name, then original name
+
+                # Try campaign cache first, then OGG database
                 singular_name = self._singularize_name(parsed_name)
-                ogg_item = self._find_item_by_name(singular_name)
-                if not ogg_item and singular_name != parsed_name:
-                    # Try original name if singularized didn't work
-                    ogg_item = self._find_item_by_name(parsed_name)
-                if ogg_item:
-                    # Convert OGG item to Realm VTT format
-                    realm_item = self._convert_item(ogg_item, '', '')
+                campaign_item = self._find_campaign_item_by_name(singular_name)
+                if not campaign_item and singular_name != parsed_name:
+                    campaign_item = self._find_campaign_item_by_name(parsed_name)
+
+                if campaign_item:
+                    # Use campaign item (preserves portraits, customizations, etc.)
+                    realm_item = copy.deepcopy(campaign_item)
                     realm_item['_id'] = str(uuid.uuid4())
-                    realm_item['data']['count'] = count
+                    if 'data' not in realm_item:
+                        realm_item['data'] = {}
+                    # Only set count if explicitly parsed > 1, otherwise default to 1
+                    realm_item['data']['count'] = count if count > 1 else 1
                     realm_item['data']['carried'] = 'equipped'
                     self._set_inventory_item_icon(realm_item)
                     _add_or_merge(realm_item)
                 else:
-                    # Create ad-hoc item based on stats
-                    if soak > 0 or defense > 0:
-                        # Has armor stats, create armor item
-                        adhoc_item = self._create_adhoc_armor(parsed_name, soak, defense)
-                        adhoc_item['data']['count'] = count
+                    # Fall back to OGG database lookup
+                    ogg_item = self._find_item_by_name(singular_name)
+                    if not ogg_item and singular_name != parsed_name:
+                        ogg_item = self._find_item_by_name(parsed_name)
+                    if ogg_item:
+                        realm_item = self._convert_item(ogg_item, '', '')
+                        realm_item['_id'] = str(uuid.uuid4())
+                        realm_item['data']['count'] = count
+                        realm_item['data']['carried'] = 'equipped'
+                        self._set_inventory_item_icon(realm_item)
+                        _add_or_merge(realm_item)
                     else:
-                        # No armor stats, create general gear
-                        adhoc_item = self._create_adhoc_gear(parsed_name, count)
-                    self._set_inventory_item_icon(adhoc_item)
-                    _add_or_merge(adhoc_item)
+                        # Create ad-hoc item based on stats
+                        if soak > 0 or defense > 0:
+                            # Has armor stats, create armor item
+                            adhoc_item = self._create_adhoc_armor(parsed_name, soak, defense)
+                            adhoc_item['data']['count'] = count
+                        else:
+                            # No armor stats, create general gear
+                            adhoc_item = self._create_adhoc_gear(parsed_name, count)
+                        self._set_inventory_item_icon(adhoc_item)
+                        _add_or_merge(adhoc_item)
         
         # Reconciliation pass: for grenade-like items, prefer counts from gear list over weapons list
         try:

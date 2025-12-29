@@ -11,7 +11,7 @@ class ImportManager:
         self.api_client = api_client
         self.xml_parser = XMLParser()
         self.json_parser = JSONParser()
-        self.data_mapper = DataMapper()
+        self.data_mapper = DataMapper(api_client=api_client)
         self.campaign_id = None
         self.selected_sources = []
         self.selected_record_types = []  # All record types by default
@@ -253,14 +253,24 @@ class ImportManager:
                 ('npcs', 'NPCs')
             ]
             
+            # Track whether we've loaded campaign caches for NPC inventory/talent reuse
+            _campaign_caches_loaded = False
+
             for record_type, display_name in import_order:
                 if not self.is_importing:
                     break
-                
+
+                # Load campaign caches before processing NPCs (which have inventory and talents)
+                # This allows NPC inventory items and talents to reuse existing campaign records
+                if record_type == 'npcs' and not _campaign_caches_loaded:
+                    self._log_status("Loading campaign items and talents for reuse...")
+                    self.data_mapper.load_campaign_caches()
+                    _campaign_caches_loaded = True
+
                 # Only process record types that exist in limited_records
                 if record_type not in limited_records or not limited_records[record_type]:
                     continue
-                
+
                 records = limited_records[record_type]
                 self._log_status(f"Importing {display_name}...")
                 
