@@ -1124,7 +1124,9 @@ class DataMapper:
         skills = self._create_full_skills_list(data.get('skills', []), npc_type)
         
         # Convert weapons and gear to inventory items
-        inventory = self._convert_adversary_inventory(data.get('weapons', []), data.get('gear', []))
+        # Pass brawn so ad-hoc melee/brawl weapons can have brawn deducted from damage
+        # (Adversaries JSON includes brawn in damage, but Realm VTT adds it during rolls)
+        inventory = self._convert_adversary_inventory(data.get('weapons', []), data.get('gear', []), brawn)
         
         realm_data = {
             "skills": skills,
@@ -1795,8 +1797,14 @@ class DataMapper:
         
         return name, soak, defense
     
-    def _create_adhoc_weapon(self, weapon_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Create an ad-hoc weapon item from adversary weapon object"""
+    def _create_adhoc_weapon(self, weapon_data: Dict[str, Any], brawn: int = 0) -> Dict[str, Any]:
+        """Create an ad-hoc weapon item from adversary weapon object
+
+        Args:
+            weapon_data: Dict with weapon properties (name, skill, damage, critical, range, qualities)
+            brawn: NPC's brawn stat - deducted from damage for Brawl/Melee weapons since
+                   Adversaries JSON includes brawn in damage but Realm VTT adds it during rolls
+        """
         name = weapon_data.get('name', 'Unknown Weapon')
         skill = weapon_data.get('skill', 'Ranged (Heavy)')
         damage = weapon_data.get('damage', weapon_data.get('plus-damage', 0))
@@ -1828,6 +1836,10 @@ class DataMapper:
         skill_check = skill.lower()
         if skill_check in ['brawl', 'melee', 'lightsaber']:
             weapon_type = 'melee weapon'
+            # Deduct brawn from damage for Brawl/Melee/Lightsaber weapons
+            # Adversaries JSON includes brawn in damage, but Realm VTT adds brawn during rolls
+            if damage and brawn > 0:
+                damage = max(0, damage - brawn)
         else:
             weapon_type = 'ranged weapon'
 
@@ -2007,8 +2019,14 @@ class DataMapper:
         
         return False, 0
     
-    def _convert_adversary_inventory(self, weapons: List[Any], gear: List[Any]) -> List[Dict[str, Any]]:
-        """Convert adversary weapons and gear to Realm VTT inventory items"""
+    def _convert_adversary_inventory(self, weapons: List[Any], gear: List[Any], brawn: int = 0) -> List[Dict[str, Any]]:
+        """Convert adversary weapons and gear to Realm VTT inventory items
+
+        Args:
+            weapons: List of weapon names (strings) or weapon objects (dicts)
+            gear: List of gear item names
+            brawn: NPC's brawn stat (used to deduct from melee/brawl weapon damage)
+        """
         inventory = []
         # Track items by normalized name for merging duplicate entries (e.g., Frag Grenade from weapons and gear)
         name_to_index: Dict[str, int] = {}
@@ -2093,7 +2111,8 @@ class DataMapper:
             
             elif isinstance(weapon, dict):
                 # Create ad-hoc weapon from object
-                adhoc_weapon = self._create_adhoc_weapon(weapon)
+                # Pass brawn so melee/brawl weapons have brawn deducted from damage
+                adhoc_weapon = self._create_adhoc_weapon(weapon, brawn)
                 self._set_inventory_item_icon(adhoc_weapon)
                 _add_or_merge(adhoc_weapon)
         
