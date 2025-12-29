@@ -1185,7 +1185,8 @@ class XMLParser:
             key = self._get_text(weapon_element, 'Key', '')
             location = self._get_text(weapon_element, 'Location', '')
             is_turret = self._get_text(weapon_element, 'Turret', 'false').lower() == 'true'
-            
+            count = int(self._get_text(weapon_element, 'Count', '1'))
+
             # Parse firing arcs
             firing_arcs = []
             firing_arcs_element = weapon_element.find('FiringArcs')
@@ -1270,7 +1271,7 @@ class XMLParser:
             
             # Set carried status for vehicle weapons
             weapon_item['data']['carried'] = 'equipped'
-            weapon_item['data']['count'] = 1
+            weapon_item['data']['count'] = count
             
             # Add firing arcs as proper field
             weapon_item['data']['firingArc'] = firing_arcs

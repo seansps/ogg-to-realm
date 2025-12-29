@@ -791,8 +791,9 @@ class DataMapper:
         if 'inventory' in realm_data:
             converted_inventory = []
             for item in realm_data['inventory']:
-                # Store the firing arc before conversion
+                # Store vehicle-specific data before conversion
                 firing_arc = item.get('data', {}).get('firingArc', {})
+                item_count = item.get('data', {}).get('count', 1)
 
                 # Try campaign cache first for existing items
                 item_name = item.get('name', '')
@@ -806,6 +807,11 @@ class DataMapper:
                     # Fall back to converting from OggDude XML
                     converted_item = self._convert_item(item, campaign_id, category)
                     converted_item['_id'] = str(uuid.uuid4())
+
+                # Ensure data dict exists and set count from parsed value
+                if 'data' not in converted_item:
+                    converted_item['data'] = {}
+                converted_item['data']['count'] = item_count
 
                 # Set icon on vehicle inventory items
                 self._set_inventory_item_icon(converted_item)
@@ -821,12 +827,17 @@ class DataMapper:
                         # Keep the original firing arc
                         converted_item['data']['firingArc'] = firing_arc
                 
-                # Add animation for vehicle weapons with "Blaster" or "Laser" in the name
+                # Add animation for vehicle weapons with "Blaster", "Laser", or "Turbolaser" in the name
                 item_name = converted_item.get('name', '')
-                if ('Blaster' in item_name or 'Laser' in item_name) and 'data' in converted_item:
-                    # Check if vehicle name contains "TIE" to determine hue color
+                if ('Blaster' in item_name or 'Laser' in item_name or 'Turbolaser' in item_name) and 'data' in converted_item:
+                    # Determine hue color: Turbolaser=green(120), TIE=green(129), others=red(360)
                     vehicle_name = vehicle.get('name', '')
-                    hue = 129 if 'TIE' in vehicle_name else 360
+                    if 'Turbolaser' in item_name:
+                        hue = 120
+                    elif 'TIE' in vehicle_name:
+                        hue = 129
+                    else:
+                        hue = 360
                     
                     converted_item['data']['animation'] = {
                         "animationName": "bolt_3",
@@ -1624,6 +1635,7 @@ class DataMapper:
                 "damage": 0,
                 "crit": 5,
                 "carried": "equipped",
+                "count": 1,
                 "type": "melee weapon",
                 "range": "Engaged",
                 "skill": "Brawl",
