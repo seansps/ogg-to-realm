@@ -248,19 +248,23 @@ def test_ranged_heavy_weapon():
         "qualities": ["Stun setting"]
     }
 
-    result = mapper._create_adhoc_weapon(weapon_data)
+    # Ranged weapons don't use brawn, but we pass it to verify no deduction happens
+    brawn = 3
+    result = mapper._create_adhoc_weapon(weapon_data, brawn)
     data = result.get('data', {})
 
     assert data.get('type') == 'ranged weapon', f"Expected type 'ranged weapon', got {data.get('type')}"
     # Should be normalized to "Ranged (Heavy)" for Realm VTT
     assert data.get('skill') == 'Ranged (Heavy)', f"Expected skill 'Ranged (Heavy)', got {data.get('skill')}"
     assert data.get('weaponSkill') == 'Ranged (Heavy)', f"Expected weaponSkill 'Ranged (Heavy)', got {data.get('weaponSkill')}"
+    # Ranged weapons keep full damage (no brawn deduction)
+    assert data.get('damage') == 9, f"Expected damage 9 (no brawn deduction for ranged), got {data.get('damage')}"
 
     print("PASSED: test_ranged_heavy_weapon")
 
 
 def test_weapon_with_no_qualities():
-    """Test weapon with no qualities array"""
+    """Test weapon with no qualities array - ranged weapon keeps full damage"""
     mapper = DataMapper()
 
     weapon_data = {
@@ -271,11 +275,14 @@ def test_weapon_with_no_qualities():
         "range": "Medium"
     }
 
-    result = mapper._create_adhoc_weapon(weapon_data)
+    # Ranged weapons don't use brawn
+    brawn = 2
+    result = mapper._create_adhoc_weapon(weapon_data, brawn)
     data = result.get('data', {})
 
     assert data.get('type') == 'ranged weapon', f"Expected type 'ranged weapon', got {data.get('type')}"
-    assert data.get('damage') == 8, f"Expected damage 8, got {data.get('damage')}"
+    # Ranged weapons keep full damage (no brawn deduction)
+    assert data.get('damage') == 8, f"Expected damage 8 (no brawn deduction for ranged), got {data.get('damage')}"
     assert data.get('crit') == 3, f"Expected crit 3, got {data.get('crit')}"
     # special should not be present if no qualities
     assert 'special' not in data or len(data.get('special', [])) == 0, "Expected no special qualities"

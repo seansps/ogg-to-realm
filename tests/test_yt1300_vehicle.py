@@ -53,7 +53,7 @@ def test_yt1300_vehicle_parsing():
         assert vehicle['campaignId'] == 'test_campaign_id', f"Expected campaignId 'test_campaign_id', got {vehicle.get('campaignId')}"
         assert vehicle['category'] == 'Test Category', f"Expected category 'Test Category', got {vehicle.get('category')}"
         assert vehicle['identified'] == True, "Expected vehicle to be identified"
-        assert vehicle['shared'] == False, "Expected vehicle to not be shared"
+        assert vehicle['shared'] == True, "Expected vehicle to be shared by default"
         
         # Check data fields
         data = vehicle['data']
