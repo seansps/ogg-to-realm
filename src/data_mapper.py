@@ -1168,6 +1168,11 @@ class DataMapper:
         # Convert talents (lookup from OggDude XML by name and apply rank)
         adversary_talents = data.get('talents', [])
         if isinstance(adversary_talents, list) and adversary_talents:
+            # Expand talent list to include base talents for Improved/Supreme versions
+            # e.g., if "Scathing Tirade (Improved)" is present but "Scathing Tirade" is not,
+            # add the base talent before the improved version
+            expanded_talents = self._expand_talent_prerequisites(adversary_talents)
+
             talents_list: List[Dict[str, Any]] = []
             # Track force rating if provided via talent string
             found_force_rating: Optional[int] = None
@@ -1176,7 +1181,7 @@ class DataMapper:
             talents_defs = None
             if isinstance(definition_maps, dict):
                 talents_defs = definition_maps.get('talents')
-            for raw_talent in adversary_talents:
+            for raw_talent in expanded_talents:
                 if not isinstance(raw_talent, str):
                     continue
                 talent_name, talent_rank = self._parse_talent_name_and_rank(raw_talent)
@@ -1319,6 +1324,68 @@ class DataMapper:
                 rank = 1
             return (name, rank if rank > 0 else 1)
         return (str(text).strip(), 1)
+
+    def _expand_talent_prerequisites(self, talents: List[str]) -> List[str]:
+        """Expand talent list to include base talents for Improved/Supreme versions.
+
+        If an adversary has "Scathing Tirade (Improved)" but not "Scathing Tirade",
+        the base talent is added before the improved version. Same for Supreme talents.
+
+        Order: Base -> Improved -> Supreme
+        """
+        if not talents:
+            return talents
+
+        # Parse all talent names (without ranks) to lowercase for comparison
+        talent_names_lower = set()
+        for t in talents:
+            if isinstance(t, str):
+                name, _ = self._parse_talent_name_and_rank(t)
+                talent_names_lower.add(name.lower())
+
+        result = []
+        added_bases = set()  # Track what we've already added to avoid duplicates
+
+        for talent_str in talents:
+            if not isinstance(talent_str, str):
+                result.append(talent_str)
+                continue
+
+            talent_name, talent_rank = self._parse_talent_name_and_rank(talent_str)
+            talent_lower = talent_name.lower()
+
+            # Check if this is an Improved or Supreme talent
+            if '(improved)' in talent_lower:
+                # Extract base talent name
+                base_name = talent_name.replace('(Improved)', '').replace('(improved)', '').strip()
+                base_lower = base_name.lower()
+
+                # Add base talent if not already present
+                if base_lower not in talent_names_lower and base_lower not in added_bases:
+                    result.append(base_name)
+                    added_bases.add(base_lower)
+
+            elif '(supreme)' in talent_lower:
+                # Extract base talent name
+                base_name = talent_name.replace('(Supreme)', '').replace('(supreme)', '').strip()
+                base_lower = base_name.lower()
+                improved_name = f"{base_name} (Improved)"
+                improved_lower = improved_name.lower()
+
+                # Add base talent if not already present
+                if base_lower not in talent_names_lower and base_lower not in added_bases:
+                    result.append(base_name)
+                    added_bases.add(base_lower)
+
+                # Add improved talent if not already present
+                if improved_lower not in talent_names_lower and improved_lower not in added_bases:
+                    result.append(improved_name)
+                    added_bases.add(improved_lower)
+
+            # Add the original talent
+            result.append(talent_str)
+
+        return result
 
     def _convert_adversary_abilities(self, abilities: Any, definition_maps: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """Convert adversary abilities into Realm VTT features with dice and skill/difficulty parsing."""
