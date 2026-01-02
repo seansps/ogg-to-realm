@@ -856,7 +856,10 @@ class DataMapper:
                         "sound": "laser_2",
                         "count": 1
                     }
-                
+
+                # Vehicle equipment should always be equipped, not carried
+                converted_item['data']['carried'] = 'equipped'
+
                 converted_inventory.append(converted_item)
             
             realm_data['inventory'] = converted_inventory
