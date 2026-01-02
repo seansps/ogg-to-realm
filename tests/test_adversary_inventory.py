@@ -39,7 +39,18 @@ def test_adversary_inventory_parsing():
         print(f"  Gear: {gear}")
         
         # Expected weapons and gear
-        expected_weapons = ['Blaster rifle', 'Vibroknife', 'Frag grenade', 'Light repeating blaster']
+        # Note: Light repeating blaster is a dict in the source JSON with full weapon stats
+        expected_weapons = [
+            'Blaster rifle', 'Vibroknife', 'Frag grenade',
+            {
+                'name': 'Light repeating blaster',
+                'skill': 'Ranged: Heavy',
+                'damage': 11,
+                'critical': 3,
+                'range': 'Long',
+                'qualities': ['Auto-Fire', 'Cumbersome 4', 'Pierce 1', 'Weapon Sling']
+            }
+        ]
         expected_gear = ['Utility belt', 'Extra reloads', 'Stormtrooper armour (+2 Soak)', '2 Frag grenades']
         
         assert weapons == expected_weapons, f"Weapons mismatch: {weapons} != {expected_weapons}"
@@ -68,9 +79,9 @@ def test_adversary_inventory_parsing():
         expected_items = [
             'Unarmed Combat',
             'Blaster Rifle',
-            'Vibroknife', 
+            'Vibroknife',
             'Frag Grenade',
-            'Light Repeating Blaster',
+            'Light repeating blaster',  # Ad-hoc weapon from JSON (keeps original case)
             'Utility Belt',
             'Extra Reload',  # Should be singularized and found in OGG
             'Stormtrooper Armor'  # Ad-hoc armor item (armour → Armor conversion)
