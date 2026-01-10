@@ -268,7 +268,7 @@ class OggDudeImporterGUI:
         portraits_invite_entry.grid(row=1, column=1, sticky=(tk.W, tk.E), padx=5, pady=5)
 
         # Help text for portraits campaign
-        help_text = ttk.Label(campaign_frame, text="If provided, will merge portraits/tokens/descriptions from records with matching name and type",
+        help_text = ttk.Label(campaign_frame, text="If provided, will reuse complete records (with all data) from this campaign when name and type match",
                              font=("Arial", 8), foreground="gray")
         help_text.grid(row=2, column=0, columnspan=2, sticky=tk.W, padx=5, pady=(0, 10))
 
