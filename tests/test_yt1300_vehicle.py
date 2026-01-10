@@ -95,7 +95,7 @@ def test_yt1300_vehicle_parsing():
         # Check first weapon (dorsal) - now as inventory item
         dorsal_weapon = inventory[0]
         assert dorsal_weapon['recordType'] == 'items', "Expected weapon to be an item record"
-        assert dorsal_weapon['name'] == 'Medium Laser Cannon', f"Expected 'Medium Laser Cannon', got {dorsal_weapon['name']}"
+        assert dorsal_weapon['name'] == 'Medium Laser Cannon (Dorsal)', f"Expected 'Medium Laser Cannon (Dorsal)', got {dorsal_weapon['name']}"
         assert '_id' in dorsal_weapon, "Expected weapon to have UUID _id field"
         assert len(dorsal_weapon['_id']) == 36, f"Expected UUID format, got {dorsal_weapon['_id']}"
         assert '<strong>Location:</strong> Dorsal' in dorsal_weapon['data']['description'], "Expected location in description"
@@ -123,7 +123,7 @@ def test_yt1300_vehicle_parsing():
         # Check second weapon (ventral) - now as inventory item
         ventral_weapon = inventory[1]
         assert ventral_weapon['recordType'] == 'items', "Expected weapon to be an item record"
-        assert ventral_weapon['name'] == 'Medium Laser Cannon', f"Expected 'Medium Laser Cannon', got {ventral_weapon['name']}"
+        assert ventral_weapon['name'] == 'Medium Laser Cannon (Ventral)', f"Expected 'Medium Laser Cannon (Ventral)', got {ventral_weapon['name']}"
         assert '<strong>Location:</strong> Ventral' in ventral_weapon['data']['description'], "Expected location in description"
         assert '<strong>Turret:</strong> Yes' in ventral_weapon['data']['description'], "Expected turret info in description"
         assert 'Firing Arcs:' not in ventral_weapon['data']['description'], "Firing arcs should not be in description"
