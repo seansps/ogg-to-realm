@@ -545,7 +545,50 @@ class DataMapper:
         """Map OggDude quality keys to Realm VTT quality values (backward compatibility)"""
         mapped_qualities, _ = self._map_qualities_with_counts(qualities)
         return mapped_qualities
-    
+
+    def _capitalize_quality(self, quality: str) -> str:
+        """Capitalize a quality name for display in special list"""
+        # Map common quality formats to their proper display names
+        quality_display_names = {
+            'auto-fire': 'Auto-Fire',
+            'autofire': 'Auto-Fire',
+            'limited-ammo': 'Limited Ammo',
+            'limitedammo': 'Limited Ammo',
+            'slow-firing': 'Slow-Firing',
+            'slowfiring': 'Slow-Firing',
+            'stun-damage': 'Stun Damage',
+            'stundamage': 'Stun Damage',
+            'stun-setting': 'Stun Setting',
+            'stunsetting': 'Stun Setting',
+            'linked': 'Linked',
+            'pierce': 'Pierce',
+            'breach': 'Breach',
+            'burn': 'Burn',
+            'blast': 'Blast',
+            'concussive': 'Concussive',
+            'cortosis': 'Cortosis',
+            'cumbersome': 'Cumbersome',
+            'defensive': 'Defensive',
+            'deflection': 'Deflection',
+            'disorient': 'Disorient',
+            'ensnare': 'Ensnare',
+            'guided': 'Guided',
+            'knockdown': 'Knockdown',
+            'inaccurate': 'Inaccurate',
+            'accurate': 'Accurate',
+            'inferior': 'Inferior',
+            'ion': 'Ion',
+            'prepare': 'Prepare',
+            'stun': 'Stun',
+            'sunder': 'Sunder',
+            'superior': 'Superior',
+            'tractor': 'Tractor',
+            'vicious': 'Vicious'
+        }
+
+        quality_lower = quality.lower()
+        return quality_display_names.get(quality_lower, quality.title())
+
     def _convert_species(self, species: Dict[str, Any], campaign_id: str, category: str) -> Dict[str, Any]:
         """Convert species to Realm VTT format"""
         # Get the data and ensure it's a dict
@@ -794,6 +837,7 @@ class DataMapper:
                 # Store vehicle-specific data before conversion
                 firing_arc = item.get('data', {}).get('firingArc', {})
                 item_count = item.get('data', {}).get('count', 1)
+                vehicle_qualities = item.get('data', {}).get('Qualities', [])
 
                 # Try campaign cache first for existing items
                 item_name = item.get('name', '')
@@ -812,6 +856,35 @@ class DataMapper:
                 if 'data' not in converted_item:
                     converted_item['data'] = {}
                 converted_item['data']['count'] = item_count
+
+                # Merge vehicle-specific qualities with the converted item's qualities
+                if vehicle_qualities and 'data' in converted_item:
+                    # Map the vehicle qualities to Realm VTT format
+                    mapped_qualities, quality_counts = self._map_qualities_with_counts(vehicle_qualities)
+
+                    # Get existing special list and normalize capitalization
+                    existing_special = converted_item['data'].get('special', [])
+
+                    # Create a normalized map of existing qualities
+                    existing_quality_map = {}
+                    for q in existing_special:
+                        if isinstance(q, str):
+                            existing_quality_map[q.lower()] = q
+
+                    # Add vehicle qualities (merging, not replacing)
+                    for quality in mapped_qualities:
+                        quality_lower = quality.lower() if isinstance(quality, str) else str(quality).lower()
+                        if quality_lower not in existing_quality_map:
+                            # New quality - add it with proper capitalization
+                            existing_quality_map[quality_lower] = self._capitalize_quality(quality)
+
+                    # Rebuild special list with proper capitalization for all qualities
+                    capitalized_special = [self._capitalize_quality(q) for q in existing_quality_map.values()]
+                    converted_item['data']['special'] = capitalized_special
+
+                    # Set quality count fields
+                    for count_field, count_value in quality_counts.items():
+                        converted_item['data'][count_field] = count_value
 
                 # Set icon on vehicle inventory items
                 self._set_inventory_item_icon(converted_item)

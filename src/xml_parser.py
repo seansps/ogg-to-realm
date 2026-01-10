@@ -1194,17 +1194,45 @@ class XMLParser:
                 for arc in ['Fore', 'Aft', 'Port', 'Starboard', 'Dorsal', 'Ventral']:
                     if self._get_text(firing_arcs_element, arc, 'false').lower() == 'true':
                         firing_arcs.append(arc.lower())
-            
+
+            # Parse vehicle-specific qualities
+            vehicle_qualities = self._extract_qualities(weapon_element)
+
             # Look up the item from our items loader
             base_item = self._items_loader.get_item_by_key(key)
             if not base_item:
                 print(f"Warning: Vehicle weapon with key '{key}' not found in items cache")
                 return None
-            
+
             # Make a deep copy of the item to avoid modifying the cached version
             import copy
             weapon_item = copy.deepcopy(base_item)
-            
+
+            # Add location to weapon name in parentheses
+            if location:
+                weapon_item['name'] = f"{weapon_item['name']} ({location})"
+
+            # Merge vehicle-specific qualities with base weapon qualities
+            if vehicle_qualities:
+                # Get existing qualities from the raw data field
+                if 'data' not in weapon_item:
+                    weapon_item['data'] = {}
+
+                # The weapon should have 'Qualities' in raw data before field mapping
+                # We need to add vehicle qualities to this list
+                if 'Qualities' not in weapon_item.get('data', {}):
+                    weapon_item['data']['Qualities'] = []
+
+                # Merge qualities - if a quality exists in both, keep the vehicle one
+                existing_keys = {q.get('Key'): q for q in weapon_item['data']['Qualities']}
+                for vehicle_quality in vehicle_qualities:
+                    quality_key = vehicle_quality.get('Key')
+                    if quality_key:
+                        # Vehicle quality overrides base weapon quality
+                        existing_keys[quality_key] = vehicle_quality
+
+                weapon_item['data']['Qualities'] = list(existing_keys.values())
+
             # Add vehicle-specific information to the description (without firing arcs)
             vehicle_info_parts = []
             vehicle_info_parts.append(f"<strong>Location:</strong> {location}")
