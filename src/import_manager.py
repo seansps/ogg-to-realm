@@ -409,29 +409,32 @@ class ImportManager:
                         # Use the converted name for lookups (important for skills with hyphens)
                         record_name = realm_record.get('name', '') if realm_record else record.get('name', '')
 
-                        # Merge data from portraits campaign if available
+                        # Reuse record from portraits campaign if available
                         if self.portraits_campaign_id and record_name:
                             portrait_record = self._get_portrait_from_cache(record_type, record_name)
                             if portrait_record:
-                                # Fields to exclude from merging (system fields specific to the source campaign)
-                                exclude_fields = {
-                                    '_id', 'campaignId', 'createdAt', 'updatedAt',
-                                    'name', 'recordType', 'category'
-                                }
+                                # Use the portrait campaign record as the base
+                                # Save the fields we want to preserve from the converted record
+                                converted_name = realm_record.get('name')
+                                converted_campaign_id = realm_record.get('campaignId')
+                                converted_category = realm_record.get('category')
 
-                                # Merge all fields from portrait record except excluded ones
-                                for key, value in portrait_record.items():
-                                    if key not in exclude_fields:
-                                        # For nested data fields, merge them carefully
-                                        if key == 'data' and isinstance(value, dict) and 'data' in realm_record:
-                                            # Merge data.description from portrait campaign
-                                            if 'description' in value:
-                                                realm_record['data']['description'] = value['description']
-                                            # Copy other data fields that don't overwrite core mechanics
-                                            # (we want to preserve the converted OggDude data for game mechanics)
-                                        else:
-                                            # Copy top-level fields like portrait, img, token, etc.
-                                            realm_record[key] = value
+                                # Start with the entire portrait record (deep copy to avoid modifying cache)
+                                import copy
+                                realm_record = copy.deepcopy(portrait_record)
+
+                                # Override with target campaign-specific values
+                                realm_record['campaignId'] = converted_campaign_id
+                                realm_record['category'] = converted_category
+                                # Keep the name from conversion (in case it was transformed)
+                                if converted_name:
+                                    realm_record['name'] = converted_name
+
+                                # Remove system fields that shouldn't be copied
+                                realm_record.pop('_id', None)
+                                realm_record.pop('createdAt', None)
+                                realm_record.pop('updatedAt', None)
+                                realm_record.pop('__v', None)
 
                         # Map record_type to API endpoint type (adversaries and vehicles are both NPCs)
                         api_record_type = 'npcs' if record_type in ('adversaries', 'vehicles') else record_type
