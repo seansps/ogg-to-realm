@@ -840,13 +840,17 @@ class DataMapper:
                 vehicle_qualities = item.get('data', {}).get('Qualities', [])
 
                 # Try campaign cache first for existing items
+                # Strip location suffix (e.g., "Light Laser Cannon (Wingtip)" -> "Light Laser Cannon")
                 item_name = item.get('name', '')
-                campaign_item = self._find_campaign_item_by_name(item_name) if item_name else None
+                base_name = item_name.rsplit(' (', 1)[0] if ' (' in item_name else item_name
+                campaign_item = self._find_campaign_item_by_name(base_name) if base_name else None
 
                 if campaign_item:
                     # Use campaign item (preserves portraits, customizations, etc.)
                     converted_item = copy.deepcopy(campaign_item)
                     converted_item['_id'] = str(uuid.uuid4())
+                    # Restore the full name with location
+                    converted_item['name'] = item_name
                 else:
                     # Fall back to converting from OggDude XML
                     converted_item = self._convert_item(item, campaign_id, category)
@@ -879,7 +883,7 @@ class DataMapper:
                     for count_field, count_value in quality_counts.items():
                         converted_item['data'][count_field] = count_value
 
-                    # Unhide quality fields that are present
+                    # Unhide quality fields that are present (preserve existing field properties)
                     if 'fields' not in converted_item:
                         converted_item['fields'] = {}
 
@@ -892,8 +896,10 @@ class DataMapper:
                         }
                         field_name = field_name_map.get(quality, quality.replace('-', ''))
 
+                        # Preserve existing field properties, only update hidden
                         if field_name not in converted_item['fields']:
                             converted_item['fields'][field_name] = {}
+                        # Don't overwrite entire field object, just set hidden
                         converted_item['fields'][field_name]['hidden'] = False
 
                 # Set icon on vehicle inventory items
