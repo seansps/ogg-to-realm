@@ -100,9 +100,10 @@ class ImportManager:
             Dictionary mapping record types to counts
         """
         self._log_status("Starting file parsing...")
-        
+
         all_records = {
-            'npcs': [],
+            'adversaries': [],
+            'vehicles': [],
             'careers': [],
             'force_powers': [],
             'items': [],
@@ -112,22 +113,29 @@ class ImportManager:
             'species': [],
             'talents': []
         }
-        
+
         # Parse OggDude XML files
         if self.oggdude_directory:
             self._log_status(f"Parsing OggDude files from: {self.oggdude_directory}")
             xml_records = self.xml_parser.scan_directory(self.oggdude_directory, self.selected_sources)
-            
-            # Merge XML records into all_records
+
+            # Merge XML records into all_records, splitting NPCs into adversaries/vehicles
             for record_type, records in xml_records.items():
-                if record_type in all_records:
+                if record_type == 'npcs':
+                    # Split NPCs into adversaries and vehicles based on data.type
+                    for record in records:
+                        if record.get('data', {}).get('type') == 'vehicle':
+                            all_records['vehicles'].append(record)
+                        else:
+                            all_records['adversaries'].append(record)
+                elif record_type in all_records:
                     all_records[record_type].extend(records)
-        
-        # Parse Adversaries JSON files
+
+        # Parse Adversaries JSON files (these are adversaries, not vehicles)
         if self.adversaries_directory:
             self._log_status(f"Parsing Adversaries files from: {self.adversaries_directory}")
             json_records = self.json_parser.scan_directory(self.adversaries_directory, self.selected_sources)
-            all_records['npcs'].extend(json_records)
+            all_records['adversaries'].extend(json_records)
         
         # Filter by selected record types (if any are selected)
         if self.selected_record_types:
@@ -195,7 +203,8 @@ class ImportManager:
             
             # Step 1: Parse all files
             all_records = {
-                'npcs': [],
+                'adversaries': [],
+                'vehicles': [],
                 'careers': [],
                 'force_powers': [],
                 'items': [],
@@ -205,18 +214,25 @@ class ImportManager:
                 'species': [],
                 'talents': []
             }
-            
+
             # Parse OggDude XML files
             if self.oggdude_directory:
                 xml_records = self.xml_parser.scan_directory(self.oggdude_directory, self.selected_sources)
+                # Split NPCs into adversaries and vehicles based on data.type
                 for record_type, records in xml_records.items():
-                    if record_type in all_records:
+                    if record_type == 'npcs':
+                        for record in records:
+                            if record.get('data', {}).get('type') == 'vehicle':
+                                all_records['vehicles'].append(record)
+                            else:
+                                all_records['adversaries'].append(record)
+                    elif record_type in all_records:
                         all_records[record_type].extend(records)
-            
-            # Parse Adversaries JSON files
+
+            # Parse Adversaries JSON files (these are adversaries, not vehicles)
             if self.adversaries_directory:
                 json_records = self.json_parser.scan_directory(self.adversaries_directory, self.selected_sources)
-                all_records['npcs'].extend(json_records)
+                all_records['adversaries'].extend(json_records)
             
             # Filter by selected record types (if any are selected)
             if self.selected_record_types:
@@ -240,7 +256,7 @@ class ImportManager:
             total_records = sum(len(records) for records in limited_records.values())
             current_record = 0
             
-            # Step 2: Import in order (Items first, then others, then NPCs last)
+            # Step 2: Import in order (Items first, then others, then NPCs/Vehicles last)
             import_order = [
                 ('items', 'Items'),
                 ('species', 'Species'),
@@ -250,7 +266,8 @@ class ImportManager:
                 ('force_powers', 'Force Powers'),
                 ('skills', 'Skills'),
                 ('signature_abilities', 'Signature Abilities'),
-                ('npcs', 'NPCs')
+                ('adversaries', 'NPCs/Adversaries'),
+                ('vehicles', 'Vehicles')
             ]
             
             # Track whether we've loaded campaign caches for NPC inventory/talent reuse
@@ -260,9 +277,9 @@ class ImportManager:
                 if not self.is_importing:
                     break
 
-                # Load campaign caches before processing NPCs (which have inventory and talents)
-                # This allows NPC inventory items and talents to reuse existing campaign records
-                if record_type == 'npcs' and not _campaign_caches_loaded:
+                # Load campaign caches before processing NPCs/Vehicles (which have inventory and talents)
+                # This allows NPC/Vehicle inventory items and talents to reuse existing campaign records
+                if record_type in ('adversaries', 'vehicles') and not _campaign_caches_loaded:
                     self._log_status("Loading campaign items and talents for reuse...")
                     self.data_mapper.load_campaign_caches()
                     _campaign_caches_loaded = True
@@ -288,31 +305,34 @@ class ImportManager:
                         # Use the converted name for lookups (important for skills with hyphens)
                         record_name = realm_record.get('name', '') if realm_record else record.get('name', '')
                         
+                        # Map record_type to API endpoint type (adversaries and vehicles are both NPCs)
+                        api_record_type = 'npcs' if record_type in ('adversaries', 'vehicles') else record_type
+
                         # Check if we should update existing records
                         if self.update_existing and record_name:
                             # Try to find existing record by name (using converted name)
-                            existing_record = self.api_client.find_record_by_name(record_type, record_name)
-                            
+                            existing_record = self.api_client.find_record_by_name(api_record_type, record_name)
+
                             if existing_record:
                                 # Update existing record
-                                updated_record = self.api_client.patch_record(record_type, existing_record['_id'], realm_record)
+                                updated_record = self.api_client.patch_record(api_record_type, existing_record['_id'], realm_record)
                                 created_record = updated_record
                                 self._log_status(f"Updated existing {record_type}: {record_name}")
                             else:
                                 # Create new record
                                 self._log_status(f"No existing {record_type} found, creating new one: {record_name}")
-                                if record_type == 'npcs':
+                                if api_record_type == 'npcs':
                                     created_record = self.api_client.create_npc(realm_record)
-                                elif record_type == 'items':
+                                elif api_record_type == 'items':
                                     created_record = self.api_client.create_item(realm_record)
                                 else:
                                     created_record = self.api_client.create_record(realm_record)
                                 self._log_status(f"Created new {record_type}: {record_name}")
                         else:
                             # Always create new records
-                            if record_type == 'npcs':
+                            if api_record_type == 'npcs':
                                 created_record = self.api_client.create_npc(realm_record)
-                            elif record_type == 'items':
+                            elif api_record_type == 'items':
                                 created_record = self.api_client.create_item(realm_record)
                             else:
                                 created_record = self.api_client.create_record(realm_record)

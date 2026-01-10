@@ -452,24 +452,26 @@ class OggDudeImporterGUI:
         # Create checkboxes for record types
         self.record_type_vars = {}
         record_types = [
-            'items', 'species', 'careers', 'specializations', 
-            'talents', 'force_powers', 'skills', 'signature_abilities', 'npcs'
+            'items', 'species', 'careers', 'specializations',
+            'talents', 'force_powers', 'skills', 'signature_abilities', 'adversaries', 'vehicles'
         ]
-        
+
         for i, record_type in enumerate(record_types):
-            # Special display name for NPCs to show it includes vehicles
-            if record_type == 'npcs':
-                display_name = 'NPCs / Vehicles'
-            elif record_type == 'force_powers':
+            # Special display names
+            if record_type == 'force_powers':
                 display_name = 'Force Powers'
             elif record_type == 'signature_abilities':
                 display_name = 'Signature Abilities'
+            elif record_type == 'adversaries':
+                display_name = 'NPCs / Adversaries'
+            elif record_type == 'vehicles':
+                display_name = 'Vehicles'
             else:
                 display_name = record_type.title()
-            
+
             var = tk.BooleanVar(value=True)  # Default to checked
             self.record_type_vars[record_type] = var
-            
+
             checkbox = ttk.Checkbutton(selection_frame, text=display_name, variable=var)
             checkbox.grid(row=i//2, column=i%2, sticky=tk.W, padx=10, pady=5)
         
