@@ -381,9 +381,9 @@ class ImportManager:
                 if not self.is_importing:
                     break
 
-                # Load campaign caches before processing NPCs/Vehicles (which have inventory and talents)
-                # This allows NPC/Vehicle inventory items and talents to reuse existing campaign records
-                if record_type in ('adversaries', 'vehicles') and not _campaign_caches_loaded:
+                # Load campaign caches before processing specializations (which have talents in trees)
+                # This allows specialization talents, NPC/Vehicle inventory items and talents to reuse existing campaign records
+                if record_type == 'specializations' and not _campaign_caches_loaded:
                     self._log_status("Loading campaign items and talents for reuse...")
                     self.data_mapper.load_campaign_caches()
                     _campaign_caches_loaded = True

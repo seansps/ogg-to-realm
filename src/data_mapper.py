@@ -645,11 +645,38 @@ class DataMapper:
         data = spec.get('data', {})
         if not isinstance(data, dict):
             data = {}
-        
+
         # Convert description and add to data
         if 'description' in spec:
             data['description'] = self._convert_description(spec['description'])
-        
+
+        # Check and replace talents with campaign versions if they exist
+        # Talent fields are named like talent1_1, talent1_2, etc. and are in the data dict
+        # Create a list of keys to iterate over (since we'll be modifying the dict)
+        talent_keys = [key for key in data.keys() if key.startswith('talent')]
+        for key in talent_keys:
+            value = data[key]
+            if isinstance(value, list) and len(value) > 0:
+                talent = value[0]  # Talents are stored as single-element arrays
+                if isinstance(talent, dict):
+                    talent_name = talent.get('name')
+                    if talent_name:
+                        # Check if this talent exists in the campaign
+                        campaign_talent = self._find_campaign_talent_by_name(talent_name)
+                        if campaign_talent:
+                            # Use the campaign talent as the base, but preserve the cost
+                            import copy
+                            talent_copy = copy.deepcopy(campaign_talent)
+                            # Preserve the cost from the specialization tree
+                            if 'data' in talent and 'cost' in talent['data']:
+                                if 'data' not in talent_copy:
+                                    talent_copy['data'] = {}
+                                talent_copy['data']['cost'] = talent['data']['cost']
+                            # Replace the talent in the data dict
+                            data[key] = [talent_copy]
+                        # else: No campaign talent found, keep the original talent from the parser
+                        # (it's already in data[key] so no action needed)
+
         realm_spec = {
             "name": spec.get('name', 'Unknown Specialization'),
             "recordType": "specializations",
@@ -661,7 +688,7 @@ class DataMapper:
             "locked": True,
             "data": data
         }
-        
+
         return realm_spec
     
     def _convert_sig_ability(self, sig_ability: Dict[str, Any], campaign_id: str, category: str) -> Dict[str, Any]:
