@@ -1248,7 +1248,7 @@ class XMLParser:
                 current_desc = weapon_item.get('description', '')
                 weapon_item['description'] = current_desc + vehicle_info
             
-            # Add the proper fields structure from your example
+            # Add the proper fields structure for vehicle weapons
             weapon_item['fields'] = {
                 "accurate": {"hidden": True},
                 "blast": {"hidden": True},
@@ -1278,11 +1278,18 @@ class XMLParser:
                 "attackDividerBox": {"hidden": False},
                 "autoFireBtn": {"hidden": False},
                 "consumableProperties": {"hidden": True},
+                "creatureAbilities": {"hidden": True},
+                "creatureProperties": {"hidden": True},
                 "generalWeaponProperties": {"hidden": False},
                 "hardpoints": {"hidden": False},
                 "itemQualities": {"hidden": False},
                 "packProperties": {"hidden": True},
+                "speciesName": {"hidden": True},
+                "strain": {"hidden": False},
+                "strainThreshold": {"hidden": False},
                 "stunBtn": {"hidden": True},
+                "vehicleHardpoints": {"hidden": False},
+                "vehicleProperties": {"hidden": False},
                 "weaponAttached": {"hidden": True},
                 "weaponAttachedLabel": {"hidden": True},
                 "weaponAttachmentProperties": {"hidden": True},

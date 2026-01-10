@@ -74,11 +74,15 @@ def test_z95_vehicle_parsing():
         assert len(firing_arc) == 1, f"Expected only 'fore' arc, got {firing_arc}"
         print(f"    Firing arcs: {firing_arc}")
 
-        # Check qualities - should have Linked 1
+        # Check qualities - should have linked (value format, not label)
         special = laser_weapon['data'].get('special', [])
-        assert 'Linked' in special, f"Expected 'Linked' quality, got {special}"
+        assert 'linked' in special, f"Expected 'linked' quality, got {special}"
         assert laser_weapon['data'].get('linked', 0) == 1, f"Expected Linked count of 1, got {laser_weapon['data'].get('linked')}"
         print(f"    Qualities: {special}, linked={laser_weapon['data'].get('linked')}")
+
+        # Check that linked field is unhidden
+        assert 'fields' in laser_weapon, "Expected fields structure"
+        assert laser_weapon['fields'].get('linked', {}).get('hidden') == False, "Expected linked field to be unhidden"
 
         # Check that weapon is equipped
         assert laser_weapon['data']['carried'] == 'equipped', "Expected weapon to be equipped"
@@ -99,13 +103,28 @@ def test_z95_vehicle_parsing():
         assert len(firing_arc) == 1, f"Expected only 'fore' arc, got {firing_arc}"
         print(f"    Firing arcs: {firing_arc}")
 
-        # Check qualities - should have Linked 1 and Limited Ammo 6
+        # Check qualities - should have linked and limited-ammo (value format, not labels)
         special = missile_weapon['data'].get('special', [])
-        assert 'Linked' in special, f"Expected 'Linked' quality, got {special}"
-        assert 'Limited Ammo' in special, f"Expected 'Limited Ammo' quality, got {special}"
+        assert 'linked' in special, f"Expected 'linked' quality, got {special}"
+        assert 'limited-ammo' in special, f"Expected 'limited-ammo' quality, got {special}"
+        assert 'blast' in special, f"Expected 'blast' quality, got {special}"
+        assert 'breach' in special, f"Expected 'breach' quality, got {special}"
+        assert 'guided' in special, f"Expected 'guided' quality, got {special}"
+        assert 'slow-firing' in special, f"Expected 'slow-firing' quality, got {special}"
+
+        # Check quality count fields
         assert missile_weapon['data'].get('linked', 0) == 1, f"Expected Linked count of 1, got {missile_weapon['data'].get('linked')}"
         assert missile_weapon['data'].get('limitedAmmo', 0) == 6, f"Expected Limited Ammo count of 6, got {missile_weapon['data'].get('limitedAmmo')}"
         print(f"    Qualities: {special}, linked={missile_weapon['data'].get('linked')}, limitedAmmo={missile_weapon['data'].get('limitedAmmo')}")
+
+        # Check that ALL quality fields are unhidden
+        assert 'fields' in missile_weapon, "Expected fields structure"
+        assert missile_weapon['fields'].get('linked', {}).get('hidden') == False, "Expected linked field to be unhidden"
+        assert missile_weapon['fields'].get('limitedAmmo', {}).get('hidden') == False, "Expected limitedAmmo field to be unhidden"
+        assert missile_weapon['fields'].get('blast', {}).get('hidden') == False, "Expected blast field to be unhidden"
+        assert missile_weapon['fields'].get('breach', {}).get('hidden') == False, "Expected breach field to be unhidden"
+        assert missile_weapon['fields'].get('guided', {}).get('hidden') == False, "Expected guided field to be unhidden"
+        assert missile_weapon['fields'].get('slowFiring', {}).get('hidden') == False, "Expected slowFiring field to be unhidden"
 
         # Check that weapon is equipped
         assert missile_weapon['data']['carried'] == 'equipped', "Expected weapon to be equipped"

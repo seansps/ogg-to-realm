@@ -859,32 +859,42 @@ class DataMapper:
 
                 # Merge vehicle-specific qualities with the converted item's qualities
                 if vehicle_qualities and 'data' in converted_item:
-                    # Map the vehicle qualities to Realm VTT format
+                    # Map the vehicle qualities to Realm VTT format (returns lowercase values)
                     mapped_qualities, quality_counts = self._map_qualities_with_counts(vehicle_qualities)
 
-                    # Get existing special list and normalize capitalization
+                    # Get existing special list (should be lowercase values like "blast", "linked", etc.)
                     existing_special = converted_item['data'].get('special', [])
 
-                    # Create a normalized map of existing qualities
-                    existing_quality_map = {}
-                    for q in existing_special:
-                        if isinstance(q, str):
-                            existing_quality_map[q.lower()] = q
+                    # Convert to set for easy merging (normalize to lowercase)
+                    existing_set = {q.lower() if isinstance(q, str) else str(q).lower() for q in existing_special}
 
                     # Add vehicle qualities (merging, not replacing)
                     for quality in mapped_qualities:
-                        quality_lower = quality.lower() if isinstance(quality, str) else str(quality).lower()
-                        if quality_lower not in existing_quality_map:
-                            # New quality - add it with proper capitalization
-                            existing_quality_map[quality_lower] = self._capitalize_quality(quality)
+                        existing_set.add(quality.lower() if isinstance(quality, str) else str(quality).lower())
 
-                    # Rebuild special list with proper capitalization for all qualities
-                    capitalized_special = [self._capitalize_quality(q) for q in existing_quality_map.values()]
-                    converted_item['data']['special'] = capitalized_special
+                    # Update special list with merged qualities (lowercase values)
+                    converted_item['data']['special'] = sorted(list(existing_set))
 
                     # Set quality count fields
                     for count_field, count_value in quality_counts.items():
                         converted_item['data'][count_field] = count_value
+
+                    # Unhide quality fields that are present
+                    if 'fields' not in converted_item:
+                        converted_item['fields'] = {}
+
+                    for quality in existing_set:
+                        # Map quality value to field name (some use camelCase)
+                        field_name_map = {
+                            'limited-ammo': 'limitedAmmo',
+                            'slow-firing': 'slowFiring',
+                            'auto-fire': 'autoFire'
+                        }
+                        field_name = field_name_map.get(quality, quality.replace('-', ''))
+
+                        if field_name not in converted_item['fields']:
+                            converted_item['fields'][field_name] = {}
+                        converted_item['fields'][field_name]['hidden'] = False
 
                 # Set icon on vehicle inventory items
                 self._set_inventory_item_icon(converted_item)
