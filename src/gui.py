@@ -30,6 +30,7 @@ class OggDudeImporterGUI:
         self.two_fa_var = tk.StringVar()
         self.jwt_token_var = tk.StringVar()
         self.invite_code_var = tk.StringVar()
+        self.portraits_invite_code_var = tk.StringVar()
         self.oggdude_path_var = tk.StringVar()
         self.adversaries_path_var = tk.StringVar()
         self.selected_sources = []
@@ -260,10 +261,20 @@ class OggDudeImporterGUI:
         ttk.Label(campaign_frame, text="Campaign Invite Code:").grid(row=0, column=0, sticky=tk.W, pady=5)
         invite_entry = ttk.Entry(campaign_frame, textvariable=self.invite_code_var, width=40)
         invite_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=5, pady=5)
-        
+
+        # Portraits campaign invite code (optional)
+        ttk.Label(campaign_frame, text="Portraits Campaign Code (Optional):").grid(row=1, column=0, sticky=tk.W, pady=5)
+        portraits_invite_entry = ttk.Entry(campaign_frame, textvariable=self.portraits_invite_code_var, width=40)
+        portraits_invite_entry.grid(row=1, column=1, sticky=(tk.W, tk.E), padx=5, pady=5)
+
+        # Help text for portraits campaign
+        help_text = ttk.Label(campaign_frame, text="If provided, will copy portraits/tokens from matching records in this campaign",
+                             font=("Arial", 8), foreground="gray")
+        help_text.grid(row=2, column=0, columnspan=2, sticky=tk.W, padx=5, pady=(0, 10))
+
         # Lookup button and status
         lookup_button_frame = ttk.Frame(campaign_frame)
-        lookup_button_frame.grid(row=1, column=0, columnspan=2, pady=20)
+        lookup_button_frame.grid(row=3, column=0, columnspan=2, pady=20)
         
         self.lookup_button = ttk.Button(lookup_button_frame, text="Lookup Campaign", command=self.lookup_campaign)
         self.lookup_button.pack(side=tk.LEFT, padx=5)
@@ -1057,15 +1068,28 @@ class OggDudeImporterGUI:
         max_import_limit = self.get_max_import_limit()
         update_existing = self.get_update_existing_setting()
         category = self.get_category_setting()
-        
+
         self.import_manager.set_selected_record_types(selected_record_types)
         self.import_manager.set_max_import_limit(max_import_limit)
         self.import_manager.set_update_existing(update_existing)
         self.import_manager.set_category(category)
-        
+
+        # Set portraits campaign ID if provided
+        portraits_invite_code = self.portraits_invite_code_var.get().strip()
+        if portraits_invite_code:
+            try:
+                portraits_campaign_id = self.api_client.get_campaign_id(portraits_invite_code)
+                if portraits_campaign_id:
+                    self.import_manager.set_portraits_campaign_id(portraits_campaign_id)
+                    self.update_status(f"Will copy portraits from campaign: {portraits_campaign_id}")
+                else:
+                    self.update_status("Warning: Portraits campaign not found, will proceed without copying portraits")
+            except Exception as e:
+                self.update_status(f"Warning: Could not lookup portraits campaign: {e}")
+
         # Scroll to bottom to show progress
         self.scroll_to_bottom()
-        
+
         # Start import
         self.import_manager.start_import()
         self.import_button.config(state=tk.DISABLED)
@@ -1158,6 +1182,7 @@ class OggDudeImporterGUI:
         two_fa = self.two_fa_var.get()
         jwt_token = self.jwt_token_var.get()
         invite_code = self.invite_code_var.get()
+        portraits_invite_code = self.portraits_invite_code_var.get()
         save_credentials = self.save_credentials_var.get()
 
         # Allow saving if either email/password OR JWT token is provided
@@ -1170,7 +1195,8 @@ class OggDudeImporterGUI:
             "password": password,
             "two_fa": two_fa,
             "jwt_token": jwt_token,
-            "invite_code": invite_code
+            "invite_code": invite_code,
+            "portraits_invite_code": portraits_invite_code
         }
         
         if save_credentials:
@@ -1193,6 +1219,7 @@ class OggDudeImporterGUI:
                 self.two_fa_var.set(credentials.get("two_fa", ""))
                 self.jwt_token_var.set(credentials.get("jwt_token", ""))
                 self.invite_code_var.set(credentials.get("invite_code", ""))
+                self.portraits_invite_code_var.set(credentials.get("portraits_invite_code", ""))
                 self.save_credentials_var.set(True) # Assume saved if file exists
 
                 if not silent:
@@ -1215,6 +1242,7 @@ class OggDudeImporterGUI:
                 self.two_fa_var.set("")
                 self.jwt_token_var.set("")
                 self.invite_code_var.set("")
+                self.portraits_invite_code_var.set("")
                 self.save_credentials_var.set(False)
                 self.update_login_status("Credentials cleared.", "success")
             except Exception as e:

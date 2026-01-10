@@ -13,6 +13,8 @@ class ImportManager:
         self.json_parser = JSONParser()
         self.data_mapper = DataMapper(api_client=api_client)
         self.campaign_id = None
+        self.portraits_campaign_id = None  # Optional campaign ID to copy portraits from
+        self.portraits_cache = {}  # Cache of records from portraits campaign
         self.selected_sources = []
         self.selected_record_types = []  # All record types by default
         self.max_import_limit = 0  # No limit by default
@@ -24,7 +26,7 @@ class ImportManager:
         self.status_callback = None
         self.is_importing = False
         self.import_thread = None
-        
+
         # Progress tracking variables
         self.current_progress = 0
         self.total_progress = 0
@@ -60,6 +62,10 @@ class ImportManager:
         self.campaign_id = campaign_id
         # Also set the campaign ID in the API client
         self.api_client.set_campaign_id(campaign_id)
+
+    def set_portraits_campaign_id(self, portraits_campaign_id: str):
+        """Set the portraits campaign ID for copying portraits/tokens"""
+        self.portraits_campaign_id = portraits_campaign_id
     
     def set_selected_sources(self, sources: List[str]):
         """Set the selected sources for filtering"""
@@ -91,6 +97,103 @@ class ImportManager:
     def set_adversaries_directory(self, directory: str):
         """Set the Adversaries directory path"""
         self.adversaries_directory = directory
+
+    def _load_portraits_from_campaign(self, record_types: List[str]):
+        """
+        Load portraits and tokens from the portraits campaign for the specified record types
+
+        Args:
+            record_types: List of record types to load portraits for
+        """
+        if not self.portraits_campaign_id:
+            return
+
+        self._log_status(f"Loading portraits from campaign {self.portraits_campaign_id}...")
+
+        # Save the current campaign ID
+        original_campaign_id = self.api_client.campaign_id
+
+        # Temporarily switch to the portraits campaign
+        self.api_client.set_campaign_id(self.portraits_campaign_id)
+
+        try:
+            # Initialize portraits cache structure
+            self.portraits_cache = {}
+
+            for record_type in record_types:
+                self.portraits_cache[record_type] = {}
+
+                # Note: We'll populate this cache on-demand during import
+                # to avoid fetching all records upfront (which could be expensive)
+
+        finally:
+            # Restore the original campaign ID
+            self.api_client.set_campaign_id(original_campaign_id)
+
+        self._log_status(f"Portraits campaign configured for on-demand portrait loading")
+
+    def _get_portrait_from_cache(self, record_type: str, record_name: str) -> Optional[Dict[str, Any]]:
+        """
+        Get portrait and token from the portraits campaign for a specific record
+
+        Args:
+            record_type: Type of record ('items', 'npcs', etc.)
+            record_name: Name of the record
+
+        Returns:
+            Dictionary with 'img' and optionally 'token' fields, or None
+        """
+        if not self.portraits_campaign_id:
+            return None
+
+        # Check if we've already looked up this record
+        if record_type in self.portraits_cache:
+            if record_name in self.portraits_cache[record_type]:
+                return self.portraits_cache[record_type][record_name]
+
+        # Save the current campaign ID
+        original_campaign_id = self.api_client.campaign_id
+
+        try:
+            # Temporarily switch to the portraits campaign
+            self.api_client.set_campaign_id(self.portraits_campaign_id)
+
+            # Map record_type to API endpoint type
+            api_record_type = 'npcs' if record_type in ('adversaries', 'vehicles') else record_type
+
+            # Try to find the record by name
+            portrait_record = self.api_client.find_record_by_name(api_record_type, record_name)
+
+            if portrait_record:
+                # Extract img and token fields
+                result = {}
+                if 'img' in portrait_record:
+                    result['img'] = portrait_record['img']
+                if 'token' in portrait_record:
+                    result['token'] = portrait_record['token']
+
+                # Cache the result
+                if record_type not in self.portraits_cache:
+                    self.portraits_cache[record_type] = {}
+                self.portraits_cache[record_type][record_name] = result if result else None
+
+                return result if result else None
+
+            # Cache the negative result to avoid repeated lookups
+            if record_type not in self.portraits_cache:
+                self.portraits_cache[record_type] = {}
+            self.portraits_cache[record_type][record_name] = None
+
+            return None
+
+        except Exception as e:
+            # Log error but don't fail the import
+            self._log_status(f"Warning: Could not fetch portrait for {record_name}: {e}")
+            return None
+
+        finally:
+            # Restore the original campaign ID
+            self.api_client.set_campaign_id(original_campaign_id)
     
     def parse_files(self) -> Dict[str, int]:
         """
@@ -273,6 +376,11 @@ class ImportManager:
             # Track whether we've loaded campaign caches for NPC inventory/talent reuse
             _campaign_caches_loaded = False
 
+            # Initialize portraits campaign if configured
+            if self.portraits_campaign_id:
+                record_types_to_import = [rt for rt, _ in import_order if rt in limited_records and limited_records[rt]]
+                self._load_portraits_from_campaign(record_types_to_import)
+
             for record_type, display_name in import_order:
                 if not self.is_importing:
                     break
@@ -304,7 +412,16 @@ class ImportManager:
                         
                         # Use the converted name for lookups (important for skills with hyphens)
                         record_name = realm_record.get('name', '') if realm_record else record.get('name', '')
-                        
+
+                        # Copy portrait/token from portraits campaign if available
+                        if self.portraits_campaign_id and record_name:
+                            portrait_data = self._get_portrait_from_cache(record_type, record_name)
+                            if portrait_data:
+                                if 'img' in portrait_data:
+                                    realm_record['img'] = portrait_data['img']
+                                if 'token' in portrait_data and record_type in ('adversaries', 'vehicles'):
+                                    realm_record['token'] = portrait_data['token']
+
                         # Map record_type to API endpoint type (adversaries and vehicles are both NPCs)
                         api_record_type = 'npcs' if record_type in ('adversaries', 'vehicles') else record_type
 
