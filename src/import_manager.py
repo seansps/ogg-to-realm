@@ -165,19 +165,15 @@ class ImportManager:
             portrait_record = self.api_client.find_record_by_name(api_record_type, record_name)
 
             if portrait_record:
-                # Extract img and token fields
-                result = {}
-                if 'img' in portrait_record:
-                    result['img'] = portrait_record['img']
-                if 'token' in portrait_record:
-                    result['token'] = portrait_record['token']
+                # Return the entire record for merging
+                # We'll filter out system fields (_id, campaignId, etc.) when merging
 
                 # Cache the result
                 if record_type not in self.portraits_cache:
                     self.portraits_cache[record_type] = {}
-                self.portraits_cache[record_type][record_name] = result if result else None
+                self.portraits_cache[record_type][record_name] = portrait_record
 
-                return result if result else None
+                return portrait_record
 
             # Cache the negative result to avoid repeated lookups
             if record_type not in self.portraits_cache:
@@ -413,14 +409,29 @@ class ImportManager:
                         # Use the converted name for lookups (important for skills with hyphens)
                         record_name = realm_record.get('name', '') if realm_record else record.get('name', '')
 
-                        # Copy portrait/token from portraits campaign if available
+                        # Merge data from portraits campaign if available
                         if self.portraits_campaign_id and record_name:
-                            portrait_data = self._get_portrait_from_cache(record_type, record_name)
-                            if portrait_data:
-                                if 'img' in portrait_data:
-                                    realm_record['img'] = portrait_data['img']
-                                if 'token' in portrait_data and record_type in ('adversaries', 'vehicles'):
-                                    realm_record['token'] = portrait_data['token']
+                            portrait_record = self._get_portrait_from_cache(record_type, record_name)
+                            if portrait_record:
+                                # Fields to exclude from merging (system fields specific to the source campaign)
+                                exclude_fields = {
+                                    '_id', 'campaignId', 'createdAt', 'updatedAt',
+                                    'name', 'recordType', 'category'
+                                }
+
+                                # Merge all fields from portrait record except excluded ones
+                                for key, value in portrait_record.items():
+                                    if key not in exclude_fields:
+                                        # For nested data fields, merge them carefully
+                                        if key == 'data' and isinstance(value, dict) and 'data' in realm_record:
+                                            # Merge data.description from portrait campaign
+                                            if 'description' in value:
+                                                realm_record['data']['description'] = value['description']
+                                            # Copy other data fields that don't overwrite core mechanics
+                                            # (we want to preserve the converted OggDude data for game mechanics)
+                                        else:
+                                            # Copy top-level fields like portrait, img, token, etc.
+                                            realm_record[key] = value
 
                         # Map record_type to API endpoint type (adversaries and vehicles are both NPCs)
                         api_record_type = 'npcs' if record_type in ('adversaries', 'vehicles') else record_type
