@@ -294,32 +294,73 @@ def test_weapon_with_plus_damage():
     """Test weapon that uses plus-damage instead of damage
 
     plus-damage weapons already represent base damage (not including brawn),
-    so we still deduct brawn to get the correct Realm VTT value.
-    Example: Vibro-knife with plus-damage 2 wielded by Brawn 3 character
-    would show as damage 2 in JSON, and becomes -1 (clamped to 0) in Realm VTT.
-    This test uses brawn 0 to verify plus-damage parsing works.
+    so we should NOT deduct brawn - Realm VTT will add it during rolls.
+    Example: Antique vibrosword with plus-damage 2 wielded by Brawn 3 character
+    would show as plus-damage 2 in JSON, and stays at 2 in Realm VTT.
     """
     mapper = DataMapper()
 
     weapon_data = {
-        "name": "Vibro-knife",
+        "name": "Antique vibrosword",
         "skill": "Melee",
         "plus-damage": 2,
         "critical": 2,
         "range": "Engaged",
-        "qualities": ["Pierce 2", "Vicious 1"]
+        "qualities": ["Defensive 1", "Pierce 2", "Vicious 1"]
     }
 
-    # With brawn 0, damage stays at 2
-    brawn = 0
+    # With brawn 3, damage should stay at 2 (plus-damage is base damage, not deducted)
+    brawn = 3
     result = mapper._create_adhoc_weapon(weapon_data, brawn)
     data = result.get('data', {})
 
-    assert data.get('damage') == 2, f"Expected damage 2 (from plus-damage, no brawn), got {data.get('damage')}"
+    assert data.get('damage') == 2, f"Expected damage 2 (from plus-damage, brawn NOT deducted), got {data.get('damage')}"
     assert data.get('pierce') == 2, f"Expected pierce 2, got {data.get('pierce')}"
     assert data.get('vicious') == 1, f"Expected vicious 1, got {data.get('vicious')}"
+    assert data.get('defensive') == 1, f"Expected defensive 1, got {data.get('defensive')}"
 
     print("PASSED: test_weapon_with_plus_damage")
+
+
+def test_weapon_with_damage_vs_plus_damage():
+    """Test the difference between damage and plus-damage for melee weapons
+
+    - damage: includes brawn, so we subtract brawn for Realm VTT
+    - plus-damage: base damage only, we don't subtract brawn
+    """
+    mapper = DataMapper()
+
+    # Weapon with 'damage' (includes brawn)
+    damage_weapon = {
+        "name": "Claws",
+        "skill": "Brawl",
+        "damage": 5,
+        "critical": 3,
+        "range": "Engaged"
+    }
+
+    # Weapon with 'plus-damage' (base damage only)
+    plus_damage_weapon = {
+        "name": "Vibrosword",
+        "skill": "Melee",
+        "plus-damage": 2,
+        "critical": 2,
+        "range": "Engaged"
+    }
+
+    brawn = 3
+
+    # 'damage' weapon should have brawn deducted
+    result1 = mapper._create_adhoc_weapon(damage_weapon, brawn)
+    data1 = result1.get('data', {})
+    assert data1.get('damage') == 2, f"Expected damage 2 (5 - 3 brawn), got {data1.get('damage')}"
+
+    # 'plus-damage' weapon should NOT have brawn deducted
+    result2 = mapper._create_adhoc_weapon(plus_damage_weapon, brawn)
+    data2 = result2.get('data', {})
+    assert data2.get('damage') == 2, f"Expected damage 2 (plus-damage, no deduction), got {data2.get('damage')}"
+
+    print("PASSED: test_weapon_with_damage_vs_plus_damage")
 
 
 def test_convert_adversary_inventory_with_dict_weapon():
@@ -430,6 +471,7 @@ def run_tests():
     test_ranged_heavy_weapon()
     test_weapon_with_no_qualities()
     test_weapon_with_plus_damage()
+    test_weapon_with_damage_vs_plus_damage()
     test_convert_adversary_inventory_with_dict_weapon()
     test_convert_adversary_inventory_with_heavy_blasters()
 

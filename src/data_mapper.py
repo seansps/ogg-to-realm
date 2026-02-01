@@ -1993,12 +1993,21 @@ class DataMapper:
         """
         name = weapon_data.get('name', 'Unknown Weapon')
         skill = weapon_data.get('skill', 'Ranged (Heavy)')
-        damage = weapon_data.get('damage', weapon_data.get('plus-damage', 0))
         critical = weapon_data.get('critical')
         if critical is None:
             critical = 0  # No crit rating
         weapon_range = weapon_data.get('range', 'Short')
         qualities = weapon_data.get('qualities', [])
+
+        # Handle damage vs plus-damage
+        # plus-damage: base damage value (brawn NOT included), use directly without subtracting
+        # damage: total damage value (brawn included for melee), subtract brawn for melee weapons
+        if 'plus-damage' in weapon_data:
+            damage = weapon_data.get('plus-damage', 0)
+            use_plus_damage = True
+        else:
+            damage = weapon_data.get('damage', 0)
+            use_plus_damage = False
 
         # Normalize skill names to Realm VTT format
         # Adversaries JSON uses "Ranged: Light" but Realm expects "Ranged (Light)"
@@ -2023,8 +2032,9 @@ class DataMapper:
         if skill_check in ['brawl', 'melee', 'lightsaber']:
             weapon_type = 'melee weapon'
             # Deduct brawn from damage for Brawl/Melee/Lightsaber weapons
-            # Adversaries JSON includes brawn in damage, but Realm VTT adds brawn during rolls
-            if damage and brawn > 0:
+            # UNLESS using plus-damage (which is already base damage without brawn)
+            # Adversaries JSON includes brawn in 'damage', but Realm VTT adds brawn during rolls
+            if not use_plus_damage and damage and brawn > 0:
                 damage = max(0, damage - brawn)
         else:
             weapon_type = 'ranged weapon'
