@@ -618,7 +618,8 @@ class XMLParser:
                 'CareerKey': self._get_text(spec_elem, 'CareerKey'),
                 'CareerSkills': self._extract_career_skills_from_spec(spec_elem),
                 'TalentRows': self._extract_talent_rows(spec_elem),
-                'Directions': self._extract_directions(spec_elem)
+                'Directions': self._extract_directions(spec_elem),
+                'ForceRating': self._extract_force_rating(spec_elem)
             }
             
             # Apply field mapping
@@ -645,6 +646,11 @@ class XMLParser:
             else:
                 mapped_data['skills'] = ''
             
+            # Set force rating if present
+            force_rating = raw_data.get('ForceRating', 0)
+            if force_rating > 0:
+                mapped_data['forceRating'] = force_rating
+
             # Find all careers for this specialization (some specializations work in multiple careers)
             career_names = self._find_careers_for_specialization(spec_key)
             if career_names:
