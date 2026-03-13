@@ -19,18 +19,44 @@ class RealmVTTClient:
     
     def set_token(self, token: str) -> bool:
         """
-        Set JWT token directly (for Google login or other OAuth methods)
+        Set JWT token directly (for Google login or other OAuth methods).
+        Validates the token by making a test API call.
 
         Args:
             token: JWT access token
 
         Returns:
-            bool: True if token was set successfully
+            bool: True if token was set and validated successfully
         """
         if not token or not token.strip():
             raise Exception("Token cannot be empty")
 
-        self.token = token.strip()
+        token = token.strip()
+
+        # Validate the token by making a test request
+        test_headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {token}'
+        }
+        try:
+            response = requests.get(
+                f"{self.base_url}/campaigns",
+                params={"$limit": 1},
+                headers=test_headers
+            )
+            if response.status_code == 401:
+                raise Exception("Token is invalid or expired")
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            if e.response is not None and e.response.status_code == 401:
+                raise Exception("Token is invalid or expired")
+            raise Exception(f"Failed to validate token: {e}")
+        except Exception as e:
+            if "invalid or expired" in str(e):
+                raise
+            raise Exception(f"Failed to validate token: {e}")
+
+        self.token = token
         self.headers['Authorization'] = f'Bearer {self.token}'
         return True
 
@@ -101,17 +127,23 @@ class RealmVTTClient:
                 params={"inviteCode": invite_code},
                 headers=self.headers
             )
+            if response.status_code == 401:
+                raise Exception("Authentication token is invalid or expired. Please log in again.")
             response.raise_for_status()
             result = response.json()
-            
+
             if result.get('data') and len(result['data']) > 0:
                 return result['data'][0]['_id']
             return None
-            
-        except requests.exceptions.HTTPError:
-            return None
-        except Exception:
-            return None
+
+        except requests.exceptions.HTTPError as e:
+            if e.response is not None and e.response.status_code == 401:
+                raise Exception("Authentication token is invalid or expired. Please log in again.")
+            raise Exception(f"Campaign lookup failed: {e}")
+        except Exception as e:
+            if "invalid or expired" in str(e):
+                raise
+            raise Exception(f"Campaign lookup failed: {e}")
     
     def create_record(self, record_data: Dict[str, Any]) -> Dict[str, Any]:
         """
