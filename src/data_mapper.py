@@ -1010,7 +1010,7 @@ class DataMapper:
         
         realm_vehicle = {
             "name": vehicle.get('name', 'Unknown Vehicle'),
-            "recordType": "npcs",
+            "recordType": "vehicles",
             "campaignId": campaign_id,
             "category": category,
             "unidentifiedName": "Unknown Vehicle",

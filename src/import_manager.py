@@ -159,10 +159,13 @@ class ImportManager:
             self.api_client.set_campaign_id(self.portraits_campaign_id)
 
             # Map record_type to API endpoint type
-            api_record_type = 'npcs' if record_type in ('adversaries', 'vehicles') else record_type
+            api_record_type = 'npcs' if record_type == 'adversaries' else record_type
 
-            # Try to find the record by name
+            # Try to find the record by name; for vehicles also fall back to npcs
+            # (portraits campaigns may still have vehicles stored as npcs)
             portrait_record = self.api_client.find_record_by_name(api_record_type, record_name)
+            if portrait_record is None and record_type == 'vehicles':
+                portrait_record = self.api_client.find_record_by_name('npcs', record_name)
 
             if portrait_record:
                 # Return the entire record for merging
@@ -410,6 +413,7 @@ class ImportManager:
                         record_name = realm_record.get('name', '') if realm_record else record.get('name', '')
 
                         # Reuse record from portraits campaign if available
+                        portrait_record = None
                         if self.portraits_campaign_id and record_name:
                             portrait_record = self._get_portrait_from_cache(record_type, record_name)
                             if portrait_record:
@@ -436,8 +440,20 @@ class ImportManager:
                                 realm_record.pop('updatedAt', None)
                                 realm_record.pop('__v', None)
 
-                        # Map record_type to API endpoint type (adversaries and vehicles are both NPCs)
-                        api_record_type = 'npcs' if record_type in ('adversaries', 'vehicles') else record_type
+                        # Map record_type to API endpoint type
+                        api_record_type = 'npcs' if record_type == 'adversaries' else record_type
+
+                        # Special handling for vehicles: if no portrait was found from the portraits
+                        # campaign, check the target campaign for a previous NPC of the same name
+                        # and reuse its portrait and token.
+                        if record_type == 'vehicles' and record_name and not portrait_record:
+                            existing_npc = self.api_client.find_record_by_name('npcs', record_name)
+                            if existing_npc:
+                                if 'portrait' in existing_npc:
+                                    realm_record['portrait'] = existing_npc['portrait']
+                                if 'token' in existing_npc:
+                                    realm_record['token'] = existing_npc['token']
+                                self._log_status(f"Reused portrait/token from existing NPC for vehicle: {record_name}")
 
                         # Check if we should update existing records
                         if self.update_existing and record_name:

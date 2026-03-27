@@ -293,12 +293,12 @@ class RealmVTTClient:
                 endpoint = f"{self.base_url}/records"
                 # Add recordType parameter for non-npc records
                 params['recordType'] = record_type
-            
+
             response = requests.get(endpoint, params=params, headers=self.headers)
             response.raise_for_status()
             result = response.json()
             return result
-            
+
         except requests.exceptions.HTTPError as e:
             print(f"DEBUG: HTTP error in find_records: {e}")
             raise Exception(f"Failed to find {record_type}: {e}")
@@ -332,7 +332,7 @@ class RealmVTTClient:
                 endpoint = f"{self.base_url}/records"
                 # Add recordType parameter for non-npc records
                 params['recordType'] = record_type
-            
+
             response = requests.get(endpoint, params=params, headers=self.headers)
             response.raise_for_status()
             result = response.json()
