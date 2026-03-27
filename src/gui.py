@@ -262,13 +262,13 @@ class OggDudeImporterGUI:
         invite_entry = ttk.Entry(campaign_frame, textvariable=self.invite_code_var, width=40)
         invite_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=5, pady=5)
 
-        # Portraits campaign invite code (optional)
-        ttk.Label(campaign_frame, text="Portraits Campaign Code (Optional):").grid(row=1, column=0, sticky=tk.W, pady=5)
+        # Source campaign invite code (optional)
+        ttk.Label(campaign_frame, text="Source Campaign Code (Optional):").grid(row=1, column=0, sticky=tk.W, pady=5)
         portraits_invite_entry = ttk.Entry(campaign_frame, textvariable=self.portraits_invite_code_var, width=40)
         portraits_invite_entry.grid(row=1, column=1, sticky=(tk.W, tk.E), padx=5, pady=5)
 
-        # Help text for portraits campaign
-        help_text = ttk.Label(campaign_frame, text="If provided, will reuse complete records (with all data) from this campaign when name and type match",
+        # Help text for source campaign
+        help_text = ttk.Label(campaign_frame, text="Copy portraits, tokens, and all record data from this campaign for matching records",
                              font=("Arial", 8), foreground="gray")
         help_text.grid(row=2, column=0, columnspan=2, sticky=tk.W, padx=5, pady=(0, 10))
 

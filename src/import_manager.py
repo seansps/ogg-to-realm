@@ -440,6 +440,10 @@ class ImportManager:
                                 realm_record.pop('updatedAt', None)
                                 realm_record.pop('__v', None)
 
+                                # Ensure correct recordType (e.g. vehicles from portraits campaign may have been npcs)
+                                if record_type == 'vehicles':
+                                    realm_record['recordType'] = 'vehicles'
+
                         # Map record_type to API endpoint type
                         api_record_type = 'npcs' if record_type == 'adversaries' else record_type
 
